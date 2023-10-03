@@ -1,4 +1,4 @@
-# Flare FTSO indexer
+# Flare FTSO indexer ![build and test](https://github.com/github/docs/actions/workflows/build_and_test.yml/badge.svg)
 
 This code implements a fast and parallelized indexer of C-chain that fetches data needed for
 FTSO protocol. It saves the data in a mysql database.
