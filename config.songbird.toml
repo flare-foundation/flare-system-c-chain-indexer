@@ -1,0 +1,27 @@
+[db]
+host = "localhost"
+port = 3306
+database = "flare_ftso_indexer_songbird"
+username = "indexeruser"
+password = "indexeruser"
+log_queries = false
+
+[logger]
+level = "INFO"
+file = "./logger/logs/flare-ftso-indexer.log"
+console = true
+
+[chain]
+node_url = "https://songbird-node2.flare.space/ext/C/rpc"
+address_hrp = "songbird"
+chain_id = 19
+
+[epochs]
+first_epoch_start_sec = 1636070400
+epoch_duration_sec = 90
+
+[indexer]
+start_index = 30000000
+new_block_check_millis = 1000
+batch_size = 3000
+num_parallel_req = 300

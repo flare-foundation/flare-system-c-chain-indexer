@@ -1,0 +1,27 @@
+[db]
+host = "localhost"
+port = 3306
+database = "flare_ftso_indexer"
+username = "indexeruser"
+password = "indexeruser"
+log_queries = false
+
+[logger]
+level = "INFO"
+file = "./logger/logs/flare-ftso-indexer.log"
+console = true
+
+[chain]
+node_url = "https://coston2-api.flare.network/ext/C/rpc"
+address_hrp = "costwo"
+chain_id = 114
+
+[epochs]
+first_epoch_start_sec = 1636070400
+epoch_duration_sec = 90
+
+[indexer]
+start_index = 0
+new_block_check_millis = 1000
+batch_size = 3000
+num_parallel_req = 300

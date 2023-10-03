@@ -1,0 +1,16 @@
+version: '3.1'
+
+services:
+  ftso-mysql:
+    image: "mysql"
+    restart: "always"
+    container_name: "flare-ftso-mysql"
+    environment:
+      MYSQL_USER: "indexeruser"
+      MYSQL_PASSWORD: "indexeruser"
+      MYSQL_ROOT_PASSWORD: "root"
+      MYSQL_DATABASE: "flare_ftso_indexer"
+    ports:
+      - 3306:3306
+    volumes:
+      - ./db_init/:/docker-entrypoint-initdb.d/

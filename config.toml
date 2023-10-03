@@ -1,0 +1,30 @@
+# This file serves as a template for the configuration file. Copy it and edit the values as needed.
+# Use --config parameter to specify the path to the configuration file.
+
+[db]
+host = "localhost"
+port = 3306
+database = "flare_ftso_indexer"
+username = "indexeruser"
+password = "indexeruser"
+log_queries = false
+
+[logger]
+level = "INFO"
+file = "./logger/logs/flare-ftso-indexer.log"
+console = true
+
+[chain]
+node_url = "http://127.0.0.1:8545/"
+address_hrp = "hardhat"
+chain_id = 31337
+
+[epochs]
+first_epoch_start_sec = 1636070400
+epoch_duration_sec = 90
+
+[indexer]
+start_index = 0
+new_block_check_millis = 1000
+batch_size = 1000
+num_parallel_req = 10
