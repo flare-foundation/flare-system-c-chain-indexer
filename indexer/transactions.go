@@ -55,7 +55,9 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 		}
 		epoch := abi.EpochFromTimeInt(block.Time(), ci.epoch.FirstEpochStartSec, ci.epoch.EpochDurationSec)
 		dbTx := &database.FtsoTransaction{
-			Data: txData, BlockId: block.NumberU64(),
+			Hash:      tx.Hash().Hex(),
+			Data:      txData,
+			BlockId:   block.NumberU64(),
 			FuncCall:  funcCall,
 			Status:    1,
 			From:      fromAddress.Hex(),
@@ -63,6 +65,7 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 			Timestamp: block.Time(),
 			Epoch:     epoch,
 		}
+
 		data.Transactions = append(data.Transactions, dbTx)
 		parametersMap, err := abi.DecodeTxParams(tx.Data())
 		if err != nil {
@@ -71,31 +74,32 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 
 		switch funcCall {
 		case abi.FtsoCommit:
-			commit, err := processCommit(parametersMap, fromAddress, epoch)
+			commit, err := processCommit(parametersMap, fromAddress, epoch, block.Time(), tx.Hash().Hex())
 			if err != nil {
 				return nil, err
 			}
+
 			data.Commits = append(data.Commits, commit)
 		case abi.FtsoReveal:
-			reveal, err := processReveal(parametersMap, fromAddress, epoch)
+			reveal, err := processReveal(parametersMap, fromAddress, epoch, block.Time(), tx.Hash().Hex())
 			if err != nil {
 				return nil, err
 			}
 			data.Reveals = append(data.Reveals, reveal)
 		case abi.FtsoSignature:
-			signatureData, err := processSignature(parametersMap, fromAddress, block.Time(), epoch)
+			signatureData, err := processSignature(parametersMap, fromAddress, block.Time(), epoch, tx.Hash().Hex())
 			if err != nil {
 				return nil, err
 			}
 			data.Signatures = append(data.Signatures, signatureData)
 		case abi.FtsoFinalize:
-			finalization, err := processFinalization(parametersMap, fromAddress, block.Time(), epoch)
+			finalization, err := processFinalization(parametersMap, fromAddress, block.Time(), epoch, tx.Hash().Hex())
 			if err != nil {
 				return nil, err
 			}
 			data.Finalizations = append(data.Finalizations, finalization)
 		case abi.FtsoOffers:
-			offers, err := processRewardOffers(parametersMap, fromAddress, block.Time(), epoch)
+			offers, err := processRewardOffers(parametersMap, fromAddress, block.Time(), epoch, tx.Hash().Hex())
 			if err != nil {
 				return nil, err
 			}
@@ -106,7 +110,8 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 	return data, nil
 }
 
-func processCommit(parametersMap map[string]interface{}, fromAddress common.Address, epoch uint64) (*database.Commit, error) {
+func processCommit(parametersMap map[string]interface{}, fromAddress common.Address,
+	epoch uint64, timestamp uint64, hash string) (*database.Commit, error) {
 	commitHashInterface, ok := parametersMap["_commitHash"]
 	if ok == false {
 		return nil, fmt.Errorf("input commitHash not found")
@@ -118,12 +123,16 @@ func processCommit(parametersMap map[string]interface{}, fromAddress common.Addr
 	commit := &database.Commit{
 		Epoch:      epoch,
 		Address:    fromAddress.Hex(),
-		CommitHash: hex.EncodeToString(commitHash[:])}
+		CommitHash: hex.EncodeToString(commitHash[:]),
+		Timestamp:  timestamp,
+		TxHash:     hash,
+	}
 
 	return commit, nil
 }
 
-func processReveal(parametersMap map[string]interface{}, fromAddress common.Address, epoch uint64) (*database.Reveal, error) {
+func processReveal(parametersMap map[string]interface{}, fromAddress common.Address,
+	epoch uint64, timestamp uint64, hash string) (*database.Reveal, error) {
 	randomInterface, ok := parametersMap["_random"]
 	if ok == false {
 		return nil, fmt.Errorf("input random not found")
@@ -166,13 +175,15 @@ func processReveal(parametersMap map[string]interface{}, fromAddress common.Addr
 		MerkleRoot: hex.EncodeToString(merkleRoot[:]),
 		BitVote:    hex.EncodeToString(bitVote),
 		Prices:     hex.EncodeToString(prices),
+		Timestamp:  timestamp,
+		TxHash:     hash,
 	}
 
 	return reveal, nil
 }
 
 func processSignature(parametersMap map[string]interface{}, fromAddress common.Address,
-	timestamp uint64, blockEpoch uint64) (*database.SignatureData, error) {
+	timestamp uint64, blockEpoch uint64, hash string) (*database.SignatureData, error) {
 	epochInterface, ok := parametersMap["_epochId"]
 	if ok == false {
 		return nil, fmt.Errorf("input epoch not found")
@@ -207,13 +218,14 @@ func processSignature(parametersMap map[string]interface{}, fromAddress common.A
 		MerkleRoot:     hex.EncodeToString(merkleRoot[:]),
 		Signature:      string(signature),
 		Timestamp:      timestamp,
+		TxHash:         hash,
 	}
 
 	return signatureData, nil
 }
 
 func processFinalization(parametersMap map[string]interface{}, fromAddress common.Address,
-	timestamp uint64, blockEpoch uint64) (*database.Finalization, error) {
+	timestamp uint64, blockEpoch uint64, hash string) (*database.Finalization, error) {
 	epochInterface, ok := parametersMap["_epochId"]
 	if ok == false {
 		return nil, fmt.Errorf("input epoch not found")
@@ -248,13 +260,14 @@ func processFinalization(parametersMap map[string]interface{}, fromAddress commo
 		MerkleRoot:     hex.EncodeToString(merkleRoot[:]),
 		Signatures:     string(signatures),
 		Timestamp:      timestamp,
+		TxHash:         hash,
 	}
 
 	return finalization, nil
 }
 
 func processRewardOffers(parametersMap map[string]interface{}, fromAddress common.Address,
-	timestamp uint64, blockEpoch uint64) ([]*database.RewardOffer, error) {
+	timestamp uint64, blockEpoch uint64, hash string) ([]*database.RewardOffer, error) {
 	offersInterface, ok := parametersMap["offers"]
 	if ok == false {
 		return nil, fmt.Errorf("input offers not found")
@@ -280,6 +293,7 @@ func processRewardOffers(parametersMap map[string]interface{}, fromAddress commo
 		if err != nil {
 			return nil, err
 		}
+
 		rewardOffers[i] = &database.RewardOffer{
 			Epoch:               blockEpoch,
 			Address:             fromAddress.Hex(),
@@ -293,6 +307,8 @@ func processRewardOffers(parametersMap map[string]interface{}, fromAddress commo
 			IqrSharePPM:         offer.IqrSharePPM.Uint64(),
 			PctSharePPM:         offer.PctSharePPM.Uint64(),
 			RemainderClaimer:    offer.RemainderClaimer.Hex(),
+			Timestamp:           timestamp,
+			TxHash:              hash,
 		}
 	}
 

@@ -8,7 +8,7 @@ CREATE TABLE `states` (
   `last_chain_index` int unsigned DEFAULT NULL,
   PRIMARY KEY (`id`)
 );
-INSERT INTO `states` (`name`, `next_db_index`, `last_chain_index`)
-VALUES ('ftso_indexer', 0, 0);
+INSERT INTO `states` (`name`, `next_db_index`, `last_chain_index`, 'first_db_index')
+VALUES ('ftso_indexer', 0, 0, 0);
 
 GRANT ALL PRIVILEGES ON `flare_ftso_indexer`.* TO 'indexeruser'@'%';

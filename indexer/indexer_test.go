@@ -19,7 +19,7 @@ func TestIndexer(t *testing.T) {
 	// set configuration parameters
 	mockChainAddress := "http://localhost:5500"
 	cfgChain := config.ChainConfig{NodeURL: mockChainAddress}
-	cfgIndexer := config.IndexerConfig{StartIndex: 0, BatchSize: 500, NumParallelReq: 4, NewBlockCheckMillis: 200}
+	cfgIndexer := config.IndexerConfig{StartIndex: 50, BatchSize: 500, NumParallelReq: 4, NewBlockCheckMillis: 200}
 	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logger/logs/flare-test-indexer.log"}
 	cfgDB := config.DBConfig{Host: "localhost", Port: 3306, Database: "flare_ftso_indexer_test",
 		Username: "indexeruser", Password: "indexeruser"}

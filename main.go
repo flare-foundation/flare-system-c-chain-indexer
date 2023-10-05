@@ -33,15 +33,17 @@ func main() {
 		err = cIndexer.IndexHistory()
 		if err != nil {
 			logger.Error("History run error: ", err)
-			logger.Info("Restarting indexing history")
+			logger.Info("Restarting indexing history from the current state")
 		} else {
 			break
 		}
 	}
 
-	err = cIndexer.IndexContinuous()
-	if err != nil {
-		logger.Error("Run error: ", err)
-		return
+	for {
+		err = cIndexer.IndexContinuous()
+		if err != nil {
+			logger.Error("Run error: ", err)
+			logger.Info("Restarting from the current state")
+		}
 	}
 }

@@ -13,7 +13,7 @@ docker-compose.yaml file for automatic deployment of a database).
 The configuration is read from `toml` file. Some configuration
 parameters can also be configured using environment variables. See the list below.
 
-Config file can be specified using the command line parameter `--config`, e.g., `.flare-ftso-indexer --config config.toml`.
+Config file can be specified using the command line parameter `--config`, e.g., `./flare-ftso-indexer --config config.toml`.
 The default config file name is `config.toml`.
 Below is the list of configuration parameters for all clients, most are self-explanatory.
 

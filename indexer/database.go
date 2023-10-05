@@ -27,7 +27,13 @@ func (ci *BlockIndexer) state() (database.State, int, int, error) {
 	if err != nil {
 		return database.State{}, 0, 0, err
 	}
+
 	startIndex := max(int(currentState.NextDBIndex), ci.params.StartIndex)
+	// if the dataset is empty, set the first index
+	if currentState.FirstDBIndex == currentState.NextDBIndex {
+		currentState.FirstDBIndex = uint64(startIndex)
+	}
+
 	// todo: change to header by number when mocking is available
 	lastBlock, err := ci.client.BlockByNumber(ci.ctx, nil)
 	if err != nil {

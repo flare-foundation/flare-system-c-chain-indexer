@@ -18,11 +18,6 @@ const (
 	FtsoFinalize  string = "finalize"
 
 	FtsoOffers string = "offerRewards"
-	// todo:
-	// FirstEpochStartSec          = 1636070400
-	// EpochDurationSec            = 90
-	// FirstRewardedPriceEpoch     = 0
-	// RewardEpochDurationInEpochs = 3
 )
 
 var (
@@ -99,7 +94,9 @@ func InitVotingAbi(votingContractFile, rewardContractFile string) {
 		FtsoPrefixToFuncCall[prefix] = name
 	}
 
-	// todo: remove this later
+	// todo: this can be used to benchmark the indexer on the FTSO
+	// protocol currently running on Songbird or Flare
+	// remove this later
 	FtsoPrefixToFuncCall["60848b44"] = "revealPrices"
 	FtsoPrefixToFuncCall["c5adc539"] = "submitPriceHashes"
 }
