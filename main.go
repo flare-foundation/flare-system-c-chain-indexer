@@ -6,7 +6,6 @@ import (
 	"flare-ftso-indexer/indexer"
 	"flare-ftso-indexer/indexer/abi"
 	"flare-ftso-indexer/logger"
-	"fmt"
 )
 
 func main() {
