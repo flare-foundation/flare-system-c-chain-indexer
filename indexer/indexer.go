@@ -33,7 +33,11 @@ func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) 
 	blockIndexer.db = db
 	blockIndexer.params = cfg.Indexer
 	blockIndexer.epoch = cfg.Epochs
-	blockIndexer.ctx = context.Background()
+	if cfg.Indexer.TimeoutMillis != 0 {
+		blockIndexer.ctx, _ = context.WithTimeout(context.Background(), time.Duration(cfg.Indexer.TimeoutMillis)*time.Millisecond)
+	} else {
+		blockIndexer.ctx = context.Background()
+	}
 
 	var err error
 	blockIndexer.client, err = ethclient.Dial(cfg.Chain.NodeURL)
@@ -156,6 +160,7 @@ func (ci *BlockIndexer) IndexContinuous() error {
 	blockBatch := NewBlockBatch(1)
 	errChan := make(chan error, 1)
 	for {
+		// useful for test
 		if stop {
 			break
 		}

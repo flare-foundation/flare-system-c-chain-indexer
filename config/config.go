@@ -11,6 +11,7 @@ import (
 
 const (
 	CONFIG_FILE string = "config.toml"
+	ReqRepeats  int    = 10
 )
 
 var (
@@ -53,10 +54,11 @@ type ChainConfig struct {
 }
 
 type IndexerConfig struct {
-	NewBlockCheckMillis int `toml:"new_block_check_millis"`
 	BatchSize           int `toml:"batch_size"`
 	StartIndex          int `toml:"start_index"`
 	NumParallelReq      int `toml:"num_parallel_req"`
+	NewBlockCheckMillis int `toml:"new_block_check_millis"`
+	TimeoutMillis       int `toml:"timeout_millis"`
 }
 
 // todo

@@ -3,6 +3,7 @@ package indexer
 import (
 	"encoding/hex"
 	"encoding/json"
+	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer/abi"
 	"fmt"
@@ -19,12 +20,9 @@ func (ci *BlockIndexer) getTransactionsReceipt(transactionBatch *TransactionsBat
 	var err error
 	for i := start; i < stop; i++ {
 		tx := transactionBatch.Transactions[i]
-		for j := 0; j < 10; j++ {
+		for j := 0; j < config.ReqRepeats; j++ {
 			receipt, err = ci.client.TransactionReceipt(ci.ctx, tx.Hash())
 			if err == nil {
-				if j > 0 {
-					fmt.Println(j)
-				}
 				break
 			}
 		}

@@ -36,7 +36,6 @@ func TestIndexer(t *testing.T) {
 		fmt.Println("Database connect and initialize error: ", err)
 		return
 	}
-	fmt.Println(err, nil, nil, nil)
 	// create the indexer
 	cIndexer, err := CreateBlockIndexer(&cfg, db)
 	if err != nil {

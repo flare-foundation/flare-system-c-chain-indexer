@@ -46,7 +46,7 @@ func CopyChain(address string, start, stop int) (map[int][]byte, map[string][]by
 
 		b, err := io.ReadAll(res.Body)
 		if err != nil {
-			fmt.Println(i, err)
+			return nil, nil, fmt.Errorf("Error reading")
 		}
 		blockDict[i] = b
 	}
@@ -83,7 +83,7 @@ func CopyChain(address string, start, stop int) (map[int][]byte, map[string][]by
 
 			b, err := io.ReadAll(res.Body)
 			if err != nil {
-				fmt.Println(i, err)
+				return nil, nil, fmt.Errorf("Error reading")
 			}
 			txDict[hashHex] = b
 		}

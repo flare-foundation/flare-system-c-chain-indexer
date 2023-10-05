@@ -122,3 +122,7 @@ func Info(msg string, args ...interface{}) {
 func Debug(msg string, args ...interface{}) {
 	sugar.Debugf(msg, args...)
 }
+
+func Fatal(msg string, args ...interface{}) {
+	sugar.Fatalf(msg, args...)
+}

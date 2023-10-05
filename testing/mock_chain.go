@@ -55,7 +55,6 @@ func MockChain(port int, blockFile, txFile string) error {
 	fmt.Println("Mock server starting")
 	err = server.ListenAndServe()
 
-	fmt.Println(err)
 	return err
 }
 

@@ -2,8 +2,8 @@ package indexer
 
 import (
 	"encoding/hex"
+	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/indexer/abi"
-	"fmt"
 	"math/big"
 	"sync"
 
@@ -43,12 +43,9 @@ func (ci *BlockIndexer) requestBlocks(blockBatch *BlockBatch, start, stop, listI
 		if i > lastIndex {
 			block = &types.Block{}
 		} else {
-			for j := 0; j < 10; j++ {
+			for j := 0; j < config.ReqRepeats; j++ {
 				block, err = ci.client.BlockByNumber(ci.ctx, big.NewInt(int64(i)))
 				if err == nil {
-					if j > 0 {
-						fmt.Println(j)
-					}
 					break
 				}
 			}

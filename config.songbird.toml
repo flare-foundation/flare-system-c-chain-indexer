@@ -25,3 +25,4 @@ start_index = 30000000
 new_block_check_millis = 1000
 batch_size = 3000
 num_parallel_req = 300
+timeout_millis = 1000

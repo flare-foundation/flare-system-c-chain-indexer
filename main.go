@@ -12,7 +12,7 @@ import (
 func main() {
 	cfg, err := config.BuildConfig()
 	if err != nil {
-		fmt.Println("Config error: ", err)
+		logger.Fatal("Config error: ", err)
 		return
 	}
 	config.GlobalConfigCallback.Call(cfg)
@@ -21,24 +21,28 @@ func main() {
 	abi.InitVotingAbi("indexer/abi/contracts/Voting.json", "indexer/abi/contracts/VotingRewardManager.json")
 	db, err := database.ConnectAndInitialize(&cfg.DB)
 	if err != nil {
-		fmt.Println("Database connect and initialize error: ", err)
+		logger.Fatal("Database connect and initialize error: ", err)
 		return
 	}
 
 	cIndexer, err := indexer.CreateBlockIndexer(cfg, db)
 	if err != nil {
-		fmt.Println("Indexer init error: ", err)
+		logger.Error("Indexer init error: ", err)
 		return
 	}
-	err = cIndexer.IndexHistory()
-	if err != nil {
-		fmt.Println("History run error: ", err)
-		return
+	for {
+		err = cIndexer.IndexHistory()
+		if err != nil {
+			logger.Error("History run error: ", err)
+			logger.Info("Restarting indexing history")
+		} else {
+			break
+		}
 	}
 
 	err = cIndexer.IndexContinuous()
 	if err != nil {
-		fmt.Println("Run error: ", err)
+		logger.Error("Run error: ", err)
 		return
 	}
 }
