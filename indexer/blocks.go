@@ -1,11 +1,13 @@
 package indexer
 
 import (
+	"context"
 	"encoding/hex"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/indexer/abi"
 	"math/big"
 	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
 )
@@ -44,7 +46,9 @@ func (ci *BlockIndexer) requestBlocks(blockBatch *BlockBatch, start, stop, listI
 			block = &types.Block{}
 		} else {
 			for j := 0; j < config.ReqRepeats; j++ {
-				block, err = ci.client.BlockByNumber(ci.ctx, big.NewInt(int64(i)))
+				ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
+				block, err = ci.client.BlockByNumber(ctx, big.NewInt(int64(i)))
+				cancelFunc()
 				if err == nil {
 					break
 				}

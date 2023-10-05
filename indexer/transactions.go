@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"flare-ftso-indexer/config"
@@ -8,6 +9,7 @@ import (
 	"flare-ftso-indexer/indexer/abi"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -21,7 +23,9 @@ func (ci *BlockIndexer) getTransactionsReceipt(transactionBatch *TransactionsBat
 	for i := start; i < stop; i++ {
 		tx := transactionBatch.Transactions[i]
 		for j := 0; j < config.ReqRepeats; j++ {
-			receipt, err = ci.client.TransactionReceipt(ci.ctx, tx.Hash())
+			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
+			receipt, err = ci.client.TransactionReceipt(ctx, tx.Hash())
+			cancelFunc()
 			if err == nil {
 				break
 			}
@@ -65,10 +69,14 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 			Timestamp: block.Time(),
 			Epoch:     epoch,
 		}
-
 		data.Transactions = append(data.Transactions, dbTx)
+
 		parametersMap, err := abi.DecodeTxParams(tx.Data())
 		if err != nil {
+			// todo: to be removed, just for songbird benchmark
+			if err.Error() == "not a method name" {
+				continue
+			}
 			return nil, err
 		}
 

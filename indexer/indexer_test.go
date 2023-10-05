@@ -19,7 +19,8 @@ func TestIndexer(t *testing.T) {
 	// set configuration parameters
 	mockChainAddress := "http://localhost:5500"
 	cfgChain := config.ChainConfig{NodeURL: mockChainAddress}
-	cfgIndexer := config.IndexerConfig{StartIndex: 50, BatchSize: 500, NumParallelReq: 4, NewBlockCheckMillis: 200}
+	cfgIndexer := config.IndexerConfig{StartIndex: 50, StopIndex: 2400, BatchSize: 500,
+		NumParallelReq: 4, NewBlockCheckMillis: 200, TimeoutMillis: 100}
 	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logger/logs/flare-test-indexer.log"}
 	cfgDB := config.DBConfig{Host: "localhost", Port: 3306, Database: "flare_ftso_indexer_test",
 		Username: "indexeruser", Password: "indexeruser"}
@@ -67,5 +68,4 @@ func increaseLastBlockAndStop() {
 	time.Sleep(time.Second)
 	indexer_testing.ChainLastBlock = 2499
 	time.Sleep(10 * time.Second)
-	stop = true
 }

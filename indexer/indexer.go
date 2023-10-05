@@ -1,7 +1,6 @@
 package indexer
 
 import (
-	"context"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/logger"
 	"time"
@@ -14,8 +13,6 @@ const (
 	StateName string = "ftso_indexer" // todo
 )
 
-var stop bool
-
 type BlockIndexer struct {
 	StateName string
 
@@ -24,7 +21,6 @@ type BlockIndexer struct {
 	epoch  config.EpochConfig
 
 	client *ethclient.Client
-	ctx    context.Context
 }
 
 func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) {
@@ -32,12 +28,13 @@ func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) 
 	blockIndexer.StateName = StateName
 	blockIndexer.db = db
 	blockIndexer.params = cfg.Indexer
-	blockIndexer.epoch = cfg.Epochs
-	if cfg.Indexer.TimeoutMillis != 0 {
-		blockIndexer.ctx, _ = context.WithTimeout(context.Background(), time.Duration(cfg.Indexer.TimeoutMillis)*time.Millisecond)
-	} else {
-		blockIndexer.ctx = context.Background()
+	if blockIndexer.params.StopIndex == 0 {
+		blockIndexer.params.StopIndex = int(^uint(0) >> 1)
 	}
+	if blockIndexer.params.TimeoutMillis == 0 {
+		blockIndexer.params.TimeoutMillis = config.TimeoutMillisDefault
+	}
+	blockIndexer.epoch = cfg.Epochs
 
 	var err error
 	blockIndexer.client, err = ethclient.Dial(cfg.Chain.NodeURL)
@@ -134,7 +131,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 		)
 
 		// Put transactions in the database
-		currentState.Update(min(j+ci.params.BatchSize, lastIndex)+1, lastIndex)
+		currentState.UpdateNextIndex(min(j+ci.params.BatchSize, lastIndex) + 1)
 		go ci.saveTransactions(transactionData, currentState, databaseErrChan)
 		logger.Info(
 			"Saving %d transactions, %d commits, %d reveals, %d signatures,"+
@@ -160,12 +157,13 @@ func (ci *BlockIndexer) IndexContinuous() error {
 	blockBatch := NewBlockBatch(1)
 	errChan := make(chan error, 1)
 	for {
-		// useful for test
-		if stop {
+		// useful for tests
+		if index > ci.params.StopIndex {
+			logger.Debug("Stopping the indexer at block %d", currentState.NextDBIndex-1)
 			break
 		}
 		if index > lastIndex {
-			logger.Debug("Up to date, last block %d", lastIndex)
+			logger.Debug("Up to date, last block %d", currentState.LastChainIndex)
 			time.Sleep(time.Millisecond * time.Duration(ci.params.NewBlockCheckMillis))
 			currentState, index, lastIndex, err = ci.state()
 			if err != nil {

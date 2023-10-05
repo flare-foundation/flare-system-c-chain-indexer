@@ -1,8 +1,13 @@
 package indexer
 
 import (
+	"context"
+	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"reflect"
+	"time"
+
+	"github.com/ethereum/go-ethereum/core/types"
 )
 
 type DatabaseStructData struct {
@@ -35,7 +40,15 @@ func (ci *BlockIndexer) state() (database.State, int, int, error) {
 	}
 
 	// todo: change to header by number when mocking is available
-	lastBlock, err := ci.client.BlockByNumber(ci.ctx, nil)
+	var lastBlock *types.Block
+	for j := 0; j < config.ReqRepeats; j++ {
+		ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
+		lastBlock, err = ci.client.BlockByNumber(ctx, nil)
+		cancelFunc()
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return database.State{}, 0, 0, err
 	}
@@ -45,6 +58,7 @@ func (ci *BlockIndexer) state() (database.State, int, int, error) {
 	if err != nil {
 		return database.State{}, 0, 0, err
 	}
+	lastIndex = min(ci.params.StopIndex, lastIndex)
 
 	return currentState, startIndex, lastIndex, nil
 }

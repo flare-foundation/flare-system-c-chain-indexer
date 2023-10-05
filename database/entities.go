@@ -99,6 +99,11 @@ func (s *State) Update(nextIndex, lastIndex int) {
 	s.Updated = time.Now()
 }
 
+func (s *State) UpdateNextIndex(nextIndex int) {
+	s.NextDBIndex = uint64(nextIndex)
+	s.Updated = time.Now()
+}
+
 func (s *State) UpdateLastIndex(lastIndex int) {
 	s.LastChainIndex = uint64(lastIndex)
 	s.Updated = time.Now()

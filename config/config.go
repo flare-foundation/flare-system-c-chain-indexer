@@ -9,12 +9,10 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
-const (
-	CONFIG_FILE string = "config.toml"
-	ReqRepeats  int    = 10
-)
-
 var (
+	ConfigFile           string                       = "config.toml"
+	ReqRepeats           int                          = 10
+	TimeoutMillisDefault int                          = 1000
 	GlobalConfigCallback ConfigCallback[GlobalConfig] = ConfigCallback[GlobalConfig]{}
 )
 
@@ -56,6 +54,7 @@ type ChainConfig struct {
 type IndexerConfig struct {
 	BatchSize           int `toml:"batch_size"`
 	StartIndex          int `toml:"start_index"`
+	StopIndex           int `toml:"stop_index"`
 	NumParallelReq      int `toml:"num_parallel_req"`
 	NewBlockCheckMillis int `toml:"new_block_check_millis"`
 	TimeoutMillis       int `toml:"timeout_millis"`
@@ -107,7 +106,7 @@ func ReadEnv(cfg interface{}) error {
 }
 
 func ConfigFileName() string {
-	cfgFlag := flag.String("config", CONFIG_FILE, "Configuration file (toml format)")
+	cfgFlag := flag.String("config", ConfigFile, "Configuration file (toml format)")
 	flag.Parse()
 	return *cfgFlag
 }
