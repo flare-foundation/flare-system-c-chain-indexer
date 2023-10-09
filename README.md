@@ -23,6 +23,7 @@ start_index = 0 # the number of the block that the indexer will start with
 num_parallel_req = 100 # the number of threads doing requests to the chain in parallel
 batch_size = 1000 # the number of block that will be pushed to a database in a batch
 new_block_check_millis = 1000 # interval for checking for new blocks
+receipts = "commit,revealBitvote,signResult,finalize,offerRewards" # which type of transactions should have their receipt checked if they succeeded
 
 [db]
 host = "localhost"
@@ -77,4 +78,15 @@ See `indexer/indexer_test.go` for a test run of the indexer on a mocked chain pr
 ```
 cd indexer
 go test -v
+```
+
+### Benchmarks
+
+File `benchmarks/songbird_test.go` implements a benchmark test that indexes the (not-yet-scaled) FTSO
+protocol on the songbird network. It requests for 10000 blocks and analyses them (see `config.songbird.toml`
+for the other parameters).
+Run the following (where 10x can be replaced by any other number of repeats)
+
+```
+go test -benchmem -run=^$ -benchtime 10x -bench ^BenchmarkBlockRequests$ flare-ftso-indexer/benchmarks
 ```

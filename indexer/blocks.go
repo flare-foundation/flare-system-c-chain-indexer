@@ -17,25 +17,11 @@ type BlockBatch struct {
 	sync.Mutex
 }
 
-type TransactionsBatch struct {
-	Transactions []*types.Transaction
-	toBlock      []*types.Block
-	sync.Mutex
-}
-
 func NewBlockBatch(batchSize int) *BlockBatch {
 	blockBatch := BlockBatch{}
 	blockBatch.Blocks = make([]*types.Block, batchSize)
 
 	return &blockBatch
-}
-
-func NewTransactionsBatch() *TransactionsBatch {
-	transactionBatch := TransactionsBatch{}
-	transactionBatch.Transactions = make([]*types.Transaction, 0)
-	transactionBatch.toBlock = make([]*types.Block, 0)
-
-	return &transactionBatch
 }
 
 func (ci *BlockIndexer) requestBlocks(blockBatch *BlockBatch, start, stop, listIndex, lastIndex int, errChan chan error) {
@@ -83,6 +69,7 @@ func (ci *BlockIndexer) processBlocks(blockBatch *BlockBatch, batchTransactions 
 			batchTransactions.Lock()
 			batchTransactions.Transactions = append(batchTransactions.Transactions, tx)
 			batchTransactions.toBlock = append(batchTransactions.toBlock, block)
+			batchTransactions.toReceipt = append(batchTransactions.toReceipt, nil)
 			batchTransactions.Unlock()
 		}
 	}

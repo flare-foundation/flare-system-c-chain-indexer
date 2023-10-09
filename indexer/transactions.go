@@ -9,38 +9,76 @@ import (
 	"flare-ftso-indexer/indexer/abi"
 	"fmt"
 	"math/big"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"golang.org/x/exp/slices"
 )
 
+type TransactionsBatch struct {
+	Transactions []*types.Transaction
+	toBlock      []*types.Block
+	toReceipt    []*types.Receipt
+	sync.Mutex
+}
+
+func NewTransactionsBatch() *TransactionsBatch {
+	transactionBatch := TransactionsBatch{}
+	transactionBatch.Transactions = make([]*types.Transaction, 0)
+	transactionBatch.toBlock = make([]*types.Block, 0)
+	transactionBatch.toReceipt = make([]*types.Receipt, 0)
+
+	return &transactionBatch
+}
+
+func CountReceipts(txs *TransactionsBatch) int {
+	i := 0
+	for _, e := range txs.toReceipt {
+		if e != nil {
+			i++
+		}
+	}
+
+	return i
+}
+
 func (ci *BlockIndexer) getTransactionsReceipt(transactionBatch *TransactionsBatch,
-	filteredTransactionsBatch *TransactionsBatch,
 	start, stop int, errChan chan error) {
 	var receipt *types.Receipt
 	var err error
+	receiptCheck := strings.Split(ci.params.Receipts, ",")
 	for i := start; i < stop; i++ {
 		tx := transactionBatch.Transactions[i]
-		for j := 0; j < config.ReqRepeats; j++ {
-			ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
-			receipt, err = ci.client.TransactionReceipt(ctx, tx.Hash())
-			cancelFunc()
-			if err == nil {
-				break
+		txData := hex.EncodeToString(tx.Data())
+		funcCall := abi.FtsoPrefixToFuncCall[txData[:8]]
+		if slices.Contains(receiptCheck, funcCall) {
+			for j := 0; j < config.ReqRepeats; j++ {
+				ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
+				receipt, err = ci.client.TransactionReceipt(ctx, tx.Hash())
+				cancelFunc()
+				if err == nil {
+					break
+				}
 			}
-		}
-		if err != nil {
-			errChan <- err
-			return
+			if err != nil {
+				errChan <- err
+				return
+			}
+		} else {
+			receipt = nil
 		}
 
-		if receipt.Status == types.ReceiptStatusSuccessful {
-			filteredTransactionsBatch.Lock()
-			filteredTransactionsBatch.Transactions = append(filteredTransactionsBatch.Transactions, tx)
-			filteredTransactionsBatch.toBlock = append(filteredTransactionsBatch.toBlock, transactionBatch.toBlock[i])
-			filteredTransactionsBatch.Unlock()
-		}
+		transactionBatch.toReceipt[i] = receipt
+		// if receipt.Status == types.ReceiptStatusSuccessful {
+		// 	filteredTransactionsBatch.Lock()
+		// 	filteredTransactionsBatch.Transactions = append(filteredTransactionsBatch.Transactions, tx)
+		// 	filteredTransactionsBatch.toBlock = append(filteredTransactionsBatch.toBlock, transactionBatch.toBlock[i])
+		// 	filteredTransactionsBatch.toReceipt = append(filteredTransactionsBatch.toReceipt, receipt)
+		// 	filteredTransactionsBatch.Unlock()
+		// }
 	}
 
 	errChan <- nil
@@ -58,12 +96,17 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 			return nil, err
 		}
 		epoch := abi.EpochFromTimeInt(block.Time(), ci.epoch.FirstEpochStartSec, ci.epoch.EpochDurationSec)
+		status := uint64(2)
+		if transactionBatch.toReceipt[i] != nil {
+			status = transactionBatch.toReceipt[i].Status
+		}
+
 		dbTx := &database.FtsoTransaction{
 			Hash:      tx.Hash().Hex(),
 			Data:      txData,
 			BlockId:   block.NumberU64(),
 			FuncCall:  funcCall,
-			Status:    1,
+			Status:    status,
 			From:      fromAddress.Hex(),
 			To:        tx.To().Hex(),
 			Timestamp: block.Time(),

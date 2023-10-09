@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer"
@@ -9,6 +10,7 @@ import (
 )
 
 func main() {
+	flag.Parse()
 	cfg, err := config.BuildConfig()
 	if err != nil {
 		logger.Fatal("Config error: ", err)

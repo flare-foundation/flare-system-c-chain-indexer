@@ -93,12 +93,6 @@ func InitVotingAbi(votingContractFile, rewardContractFile string) {
 		}
 		FtsoPrefixToFuncCall[prefix] = name
 	}
-
-	// todo: this can be used to benchmark the indexer on the FTSO
-	// protocol currently running on Songbird or Flare
-	// remove this later
-	FtsoPrefixToFuncCall["60848b44"] = "revealPrices"
-	FtsoPrefixToFuncCall["c5adc539"] = "submitPriceHashes"
 }
 
 func MethodByName(name string) (abi.Method, error) {

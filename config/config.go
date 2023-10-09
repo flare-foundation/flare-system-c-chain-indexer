@@ -10,10 +10,11 @@ import (
 )
 
 var (
-	ConfigFile           string                       = "config.toml"
+	// ConfigFile           string                       = "config.toml"
 	ReqRepeats           int                          = 10
 	TimeoutMillisDefault int                          = 1000
 	GlobalConfigCallback ConfigCallback[GlobalConfig] = ConfigCallback[GlobalConfig]{}
+	CfgFlag                                           = flag.String("config", "config.toml", "Configuration file (toml format)")
 )
 
 type GlobalConfig interface {
@@ -52,12 +53,13 @@ type ChainConfig struct {
 }
 
 type IndexerConfig struct {
-	BatchSize           int `toml:"batch_size"`
-	StartIndex          int `toml:"start_index"`
-	StopIndex           int `toml:"stop_index"`
-	NumParallelReq      int `toml:"num_parallel_req"`
-	NewBlockCheckMillis int `toml:"new_block_check_millis"`
-	TimeoutMillis       int `toml:"timeout_millis"`
+	BatchSize           int    `toml:"batch_size"`
+	StartIndex          int    `toml:"start_index"`
+	StopIndex           int    `toml:"stop_index"`
+	NumParallelReq      int    `toml:"num_parallel_req"`
+	NewBlockCheckMillis int    `toml:"new_block_check_millis"`
+	TimeoutMillis       int    `toml:"timeout_millis"`
+	Receipts            string `toml:"receipts"`
 }
 
 // todo
@@ -71,7 +73,8 @@ func newConfig() *Config {
 }
 
 func BuildConfig() (*Config, error) {
-	cfgFileName := ConfigFileName()
+	cfgFileName := *CfgFlag
+
 	cfg := newConfig()
 	err := ParseConfigFile(cfg, cfgFileName)
 	if err != nil {
@@ -103,12 +106,6 @@ func ReadEnv(cfg interface{}) error {
 		return fmt.Errorf("error reading env config: %w", err)
 	}
 	return nil
-}
-
-func ConfigFileName() string {
-	cfgFlag := flag.String("config", ConfigFile, "Configuration file (toml format)")
-	flag.Parse()
-	return *cfgFlag
 }
 
 func (c Config) LoggerConfig() LoggerConfig {

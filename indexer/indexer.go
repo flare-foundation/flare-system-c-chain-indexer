@@ -82,7 +82,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 		// Process blocks
 		startTime = time.Now()
 		batchTransactions := NewTransactionsBatch()
-		ci.processBlocks(blockBatch, batchTransactions, 0, ci.params.BatchSize, blockErrChan)
+		go ci.processBlocks(blockBatch, batchTransactions, 0, ci.params.BatchSize, blockErrChan)
 		err = <-blockErrChan
 		if err != nil {
 			return err
@@ -101,12 +101,11 @@ func (ci *BlockIndexer) IndexHistory() error {
 
 		// Process transactions with goroutines
 		startTime = time.Now()
-		filteredBatchTransactions := NewTransactionsBatch()
 		oneRunnerReqNum = (len(batchTransactions.Transactions) / ci.params.NumParallelReq) + 1
 		for i := 0; i < ci.params.NumParallelReq; i++ {
 			start := oneRunnerReqNum * i
 			stop := min(oneRunnerReqNum*(i+1), len(batchTransactions.Transactions))
-			go ci.getTransactionsReceipt(batchTransactions, filteredBatchTransactions,
+			go ci.getTransactionsReceipt(batchTransactions,
 				start, stop, blockErrChan)
 		}
 		for i := 0; i < ci.params.NumParallelReq; i++ {
@@ -117,11 +116,11 @@ func (ci *BlockIndexer) IndexHistory() error {
 		}
 		logger.Info(
 			"Checked receipts of %d transactions in %d milliseconds",
-			len(batchTransactions.Transactions), time.Since(startTime).Milliseconds(),
+			CountReceipts(batchTransactions), time.Since(startTime).Milliseconds(),
 		)
 
 		startTime = time.Now()
-		transactionData, err := ci.processTransactions(filteredBatchTransactions)
+		transactionData, err := ci.processTransactions(batchTransactions)
 		if err != nil {
 			return err
 		}
@@ -183,15 +182,14 @@ func (ci *BlockIndexer) IndexContinuous() error {
 			return err
 		}
 
-		filteredBatchTransactions := NewTransactionsBatch()
-		ci.getTransactionsReceipt(batchTransactions, filteredBatchTransactions,
-			0, len(batchTransactions.Transactions), errChan)
+		ci.getTransactionsReceipt(batchTransactions, 0, len(batchTransactions.Transactions),
+			errChan)
 		err = <-errChan
 		if err != nil {
 			return err
 		}
 
-		transactionData, err := ci.processTransactions(filteredBatchTransactions)
+		transactionData, err := ci.processTransactions(batchTransactions)
 		if err != nil {
 			return err
 		}

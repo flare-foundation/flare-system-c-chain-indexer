@@ -29,3 +29,4 @@ new_block_check_millis = 1000
 batch_size = 1000
 num_parallel_req = 10
 timeout_millis = 1000
+receipts = "commit,revealBitvote,signResult,finalize,offerRewards"
