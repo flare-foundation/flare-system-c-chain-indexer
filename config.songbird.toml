@@ -26,5 +26,5 @@ stop_index = 30010000
 new_block_check_millis = 1000
 batch_size = 2500
 num_parallel_req = 250
-timeout_millis = 1000
-receipts = "commit,revealBitvote,signResult,finalize,offerRewards"
+timeout_millis = 500
+receipts = ""                 # can be "all"

@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"flare-ftso-indexer/config"
+	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/logger"
 	"time"
 
@@ -79,6 +80,13 @@ func (ci *BlockIndexer) IndexHistory() error {
 			j, min(j+ci.params.BatchSize, lastIndex), time.Since(startTime).Milliseconds(),
 		)
 
+		// Make sure that the data from the previous batch was saved to the database,
+		// before processing new transactions
+		err = <-databaseErrChan
+		if err != nil {
+			return err
+		}
+
 		// Process blocks
 		startTime = time.Now()
 		batchTransactions := NewTransactionsBatch()
@@ -91,13 +99,6 @@ func (ci *BlockIndexer) IndexHistory() error {
 			"Successfully extracted %d transactions in %d milliseconds",
 			len(batchTransactions.Transactions), time.Since(startTime).Milliseconds(),
 		)
-
-		// Make sure that the data from the previous batch was saved to the database,
-		// before processing new transactions
-		err = <-databaseErrChan
-		if err != nil {
-			return err
-		}
 
 		// Process transactions with goroutines
 		startTime = time.Now()
@@ -119,29 +120,43 @@ func (ci *BlockIndexer) IndexHistory() error {
 			CountReceipts(batchTransactions), time.Since(startTime).Milliseconds(),
 		)
 
-		startTime = time.Now()
-		transactionData, err := ci.processTransactions(batchTransactions)
-		if err != nil {
-			return err
-		}
-		logger.Info(
-			"Processed %d transactions in %d milliseconds",
-			len(batchTransactions.Transactions), time.Since(startTime).Milliseconds(),
-		)
-
-		// Put transactions in the database
 		currentState.UpdateNextIndex(min(j+ci.params.BatchSize, lastIndex) + 1)
-		go ci.saveTransactions(transactionData, currentState, databaseErrChan)
-		logger.Info(
-			"Saving %d transactions, %d commits, %d reveals, %d signatures,"+
-				"%d finalizations, and %d reward offers to the DB",
-			len(transactionData.Transactions), len(transactionData.Commits),
-			len(transactionData.Reveals), len(transactionData.Signatures),
-			len(transactionData.Finalizations), len(transactionData.RewardOffers),
-		)
+		// process and save transactions on an independent goroutine
+		go ci.processAndSave(batchTransactions, currentState, databaseErrChan)
+	}
+
+	err = <-databaseErrChan
+	if err != nil {
+		return err
 	}
 
 	return nil
+}
+
+func (ci *BlockIndexer) processAndSave(batchTransactions *TransactionsBatch,
+	currentState database.State, errChan chan error) {
+	startTime := time.Now()
+	transactionData, err := ci.processTransactions(batchTransactions)
+	if err != nil {
+		errChan <- err
+		return
+	}
+	logger.Info(
+		"Processed %d transactions in %d milliseconds",
+		len(batchTransactions.Transactions), time.Since(startTime).Milliseconds(),
+	)
+
+	// Put transactions in the database
+	startTime = time.Now()
+	ci.saveTransactions(transactionData, currentState, errChan)
+	logger.Info(
+		"Saved %d transactions, %d commits, %d reveals, %d signatures,"+
+			"%d finalizations, and %d reward offers to the DB in %d milliseconds",
+		len(transactionData.Transactions), len(transactionData.Commits),
+		len(transactionData.Reveals), len(transactionData.Signatures),
+		len(transactionData.Finalizations), len(transactionData.RewardOffers),
+		time.Since(startTime).Milliseconds(),
+	)
 }
 
 func (ci *BlockIndexer) IndexContinuous() error {

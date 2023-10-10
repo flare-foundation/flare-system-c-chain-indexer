@@ -54,7 +54,7 @@ func (ci *BlockIndexer) getTransactionsReceipt(transactionBatch *TransactionsBat
 		tx := transactionBatch.Transactions[i]
 		txData := hex.EncodeToString(tx.Data())
 		funcCall := abi.FtsoPrefixToFuncCall[txData[:8]]
-		if slices.Contains(receiptCheck, funcCall) {
+		if slices.Contains(receiptCheck, funcCall) || ci.params.Receipts == "all" {
 			for j := 0; j < config.ReqRepeats; j++ {
 				ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
 				receipt, err = ci.client.TransactionReceipt(ctx, tx.Hash())
@@ -72,13 +72,6 @@ func (ci *BlockIndexer) getTransactionsReceipt(transactionBatch *TransactionsBat
 		}
 
 		transactionBatch.toReceipt[i] = receipt
-		// if receipt.Status == types.ReceiptStatusSuccessful {
-		// 	filteredTransactionsBatch.Lock()
-		// 	filteredTransactionsBatch.Transactions = append(filteredTransactionsBatch.Transactions, tx)
-		// 	filteredTransactionsBatch.toBlock = append(filteredTransactionsBatch.toBlock, transactionBatch.toBlock[i])
-		// 	filteredTransactionsBatch.toReceipt = append(filteredTransactionsBatch.toReceipt, receipt)
-		// 	filteredTransactionsBatch.Unlock()
-		// }
 	}
 
 	errChan <- nil
