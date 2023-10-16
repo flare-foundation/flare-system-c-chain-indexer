@@ -8,6 +8,7 @@ database = "flare_ftso_indexer"
 username = "indexeruser"
 password = "indexeruser"
 log_queries = false
+opt_tables = "commit,revealBitvote,signResult,finalize,offerRewards"
 
 [logger]
 level = "INFO"
@@ -16,8 +17,6 @@ console = true
 
 [chain]
 node_url = "http://127.0.0.1:8545/"
-address_hrp = "hardhat"
-chain_id = 31337
 
 [epochs]
 first_epoch_start_sec = 1636070400

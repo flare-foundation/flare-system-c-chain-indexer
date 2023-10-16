@@ -4,10 +4,10 @@ import (
 	"gorm.io/gorm"
 )
 
-func FetchState(db *gorm.DB, name string) (State, error) {
+func FetchState(db *gorm.DB, name string) (*State, error) {
 	var currentState State
 	err := db.Where(&State{Name: name}).First(&currentState).Error
-	return currentState, err
+	return &currentState, err
 }
 
 func CreateState(db *gorm.DB, s *State) error {

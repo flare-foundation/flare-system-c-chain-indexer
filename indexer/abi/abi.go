@@ -22,9 +22,10 @@ const (
 
 var (
 	VotingAbi            abi.ABI
-	rewardAbi            abi.ABI
+	RewardAbi            abi.ABI
 	FtsoVoting           = []string{FtsoCommit, FtsoReveal, FtsoSignature, FtsoFinalize}
 	FtsoRewards          = []string{FtsoOffers}
+	FtsoMethods          = []string{FtsoCommit, FtsoReveal, FtsoSignature, FtsoFinalize, FtsoOffers}
 	FtsoPrefixToFuncCall = make(map[string]string)
 )
 
@@ -70,7 +71,7 @@ func InitVotingAbi(votingContractFile, rewardContractFile string) {
 		os.Exit(1)
 	}
 	r2 := strings.NewReader(string(abiBytes))
-	rewardAbi, err = abi.JSON(r2)
+	RewardAbi, err = abi.JSON(r2)
 	if err != nil {
 		fmt.Println("Voting contract error", err)
 		os.Exit(1)
@@ -99,7 +100,7 @@ func MethodByName(name string) (abi.Method, error) {
 	if slices.Contains(FtsoVoting, name) {
 		return VotingAbi.Methods[name], nil
 	} else if slices.Contains(FtsoRewards, name) {
-		return rewardAbi.Methods[name], nil
+		return RewardAbi.Methods[name], nil
 	}
 	return abi.Method{}, fmt.Errorf("not a method name")
 }

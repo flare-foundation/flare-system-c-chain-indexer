@@ -13,8 +13,6 @@ console = true
 
 [chain]
 node_url = "https://coston2-api.flare.network/ext/C/rpc"
-address_hrp = "costwo"
-chain_id = 114
 
 [epochs]
 first_epoch_start_sec = 1636070400

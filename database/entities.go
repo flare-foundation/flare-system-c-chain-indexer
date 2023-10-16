@@ -1,7 +1,26 @@
 package database
 
 import (
+	"flare-ftso-indexer/indexer/abi"
+	"reflect"
 	"time"
+)
+
+var (
+	MethodToInterface = map[string]interface{}{
+		abi.FtsoCommit:    Commit{},
+		abi.FtsoReveal:    Reveal{},
+		abi.FtsoSignature: SignatureData{},
+		abi.FtsoFinalize:  Finalization{},
+		abi.FtsoOffers:    RewardOffer{},
+	}
+	InterfaceTypeToMethod = map[string]string{
+		reflect.TypeOf(Commit{}).String():        abi.FtsoCommit,
+		reflect.TypeOf(Reveal{}).String():        abi.FtsoReveal,
+		reflect.TypeOf(SignatureData{}).String(): abi.FtsoSignature,
+		reflect.TypeOf(Finalization{}).String():  abi.FtsoFinalize,
+		reflect.TypeOf(RewardOffer{}).String():   abi.FtsoOffers,
+	}
 )
 
 // BaseEntity is an abstract entity, all other entities should be derived from it
@@ -93,10 +112,14 @@ type RewardOffer struct {
 	TxHash              string `gorm:"type:varchar(66)"`
 }
 
-func (s *State) Update(nextIndex, lastIndex int) {
-	s.NextDBIndex = uint64(nextIndex)
-	s.LastChainIndex = uint64(lastIndex)
-	s.Updated = time.Now()
+func (state *State) UpdateAtStart(startIndex, lastChainIndex int) {
+	// if a break among saved blocks in the dataset is created, then we change the guaranties about the starting block
+	if int(state.NextDBIndex) < startIndex {
+		state.FirstDBIndex = uint64(startIndex)
+	}
+	state.NextDBIndex = uint64(startIndex)
+	state.LastChainIndex = uint64(lastChainIndex)
+	state.Updated = time.Now()
 }
 
 func (s *State) UpdateNextIndex(nextIndex int) {

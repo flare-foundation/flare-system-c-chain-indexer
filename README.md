@@ -40,8 +40,6 @@ console = true
 
 [chain]
 node_url = "http://127.0.0.1:8545/"
-address_hrp = "hardhat"
-chain_id = 31337
 
 [epochs]
 first_epoch_start_sec = 1636070400 # time in seconds of the first epoch

@@ -20,10 +20,11 @@ func TestIndexer(t *testing.T) {
 	mockChainAddress := "http://localhost:5500"
 	cfgChain := config.ChainConfig{NodeURL: mockChainAddress}
 	cfgIndexer := config.IndexerConfig{StartIndex: 50, StopIndex: 2400, BatchSize: 500,
-		NumParallelReq: 4, NewBlockCheckMillis: 200, TimeoutMillis: 100}
+		NumParallelReq: 4, NewBlockCheckMillis: 200, TimeoutMillis: 100, Receipts: "all"}
 	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logger/logs/flare-test-indexer.log"}
 	cfgDB := config.DBConfig{Host: "localhost", Port: 3306, Database: "flare_ftso_indexer_test",
-		Username: "indexeruser", Password: "indexeruser"}
+		Username: "indexeruser", Password: "indexeruser",
+		OptTables: "commit,revealBitvote,signResult,offerRewards"} // for the test we do not use finalizations
 	epochConfig := config.EpochConfig{FirstEpochStartSec: 1636070400, EpochDurationSec: 90}
 	cfg := config.Config{Indexer: cfgIndexer, Chain: cfgChain, Logger: cfgLog, DB: cfgDB, Epochs: epochConfig}
 	config.GlobalConfigCallback.Call(cfg)
@@ -32,7 +33,7 @@ func TestIndexer(t *testing.T) {
 	abi.InitVotingAbi("abi/contracts/Voting.json", "abi/contracts/VotingRewardManager.json")
 
 	// connect to the database
-	db, err := database.ConnectAndInitializeTestDB(&cfgDB, true, StateName)
+	db, err := database.ConnectAndInitializeTestDB(&cfgDB, true)
 	if err != nil {
 		fmt.Println("Database connect and initialize error: ", err)
 		return

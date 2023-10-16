@@ -3,6 +3,7 @@ package database
 import (
 	"flare-ftso-indexer/config"
 	"fmt"
+	"strings"
 
 	"github.com/go-sql-driver/mysql"
 	gormMysql "gorm.io/driver/mysql"
@@ -10,16 +11,15 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+const (
+	TransactionsStateName string = "ftso_transactions"
+)
+
 var (
 	// List entities to auto-migrate
 	entities []interface{} = []interface{}{
 		State{},
 		FtsoTransaction{},
-		Commit{},
-		Reveal{},
-		SignatureData{},
-		Finalization{},
-		RewardOffer{},
 	}
 )
 
@@ -29,6 +29,15 @@ func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
 		return nil, err
 	}
 
+	if cfg.OptTables != "" {
+		optTables := strings.Split(cfg.OptTables, ",")
+		for _, method := range optTables {
+			entity, ok := MethodToInterface[method]
+			if ok {
+				entities = append(entities, entity)
+			}
+		}
+	}
 	// Initialize - auto migrate
 	err = db.AutoMigrate(entities...)
 	if err != nil {

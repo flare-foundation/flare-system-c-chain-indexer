@@ -3,30 +3,26 @@ package indexer
 import (
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
+	"flare-ftso-indexer/indexer/abi"
 	"flare-ftso-indexer/logger"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
+	"golang.org/x/exp/slices"
 	"gorm.io/gorm"
 )
 
-const (
-	StateName string = "ftso_indexer" // todo
-)
-
 type BlockIndexer struct {
-	StateName string
-
-	db     *gorm.DB
-	params config.IndexerConfig
-	epoch  config.EpochConfig
-
-	client *ethclient.Client
+	db          *gorm.DB
+	params      config.IndexerConfig
+	epochParams config.EpochConfig
+	optTables   map[string]bool
+	client      *ethclient.Client
 }
 
 func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) {
 	blockIndexer := BlockIndexer{}
-	blockIndexer.StateName = StateName
 	blockIndexer.db = db
 	blockIndexer.params = cfg.Indexer
 	if blockIndexer.params.StopIndex == 0 {
@@ -35,7 +31,19 @@ func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) 
 	if blockIndexer.params.TimeoutMillis == 0 {
 		blockIndexer.params.TimeoutMillis = config.TimeoutMillisDefault
 	}
-	blockIndexer.epoch = cfg.Epochs
+	blockIndexer.epochParams = cfg.Epochs
+
+	blockIndexer.optTables = make(map[string]bool)
+	if cfg.DB.OptTables != "" {
+		methods := strings.Split(cfg.DB.OptTables, ",")
+		for _, method := range methods {
+			if slices.Contains(abi.FtsoMethods, method) == false {
+				logger.Error("Unrecognized optional table name %s", method)
+				continue
+			}
+			blockIndexer.optTables[method] = true
+		}
+	}
 
 	var err error
 	blockIndexer.client, err = ethclient.Dial(cfg.Chain.NodeURL)
@@ -48,10 +56,20 @@ func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) 
 
 func (ci *BlockIndexer) IndexHistory() error {
 	// Get start and end block number
-	currentState, startIndex, lastIndex, err := ci.state()
+	state, err := ci.dbState()
 	if err != nil {
 		return err
 	}
+	lastChainIndex, err := ci.fetchLastBlockIndex()
+	if err != nil {
+		return err
+	}
+	startIndex, lastIndex, err := ci.getIndexes(state, lastChainIndex)
+	if err != nil {
+		return err
+	}
+	state.UpdateAtStart(startIndex, lastChainIndex)
+
 	logger.Info("Starting to index blocks from %d to %d", startIndex, lastIndex)
 
 	// Split block requests in batches
@@ -120,9 +138,9 @@ func (ci *BlockIndexer) IndexHistory() error {
 			CountReceipts(batchTransactions), time.Since(startTime).Milliseconds(),
 		)
 
-		currentState.UpdateNextIndex(min(j+ci.params.BatchSize, lastIndex) + 1)
+		state.UpdateNextIndex(min(j+ci.params.BatchSize, lastIndex) + 1)
 		// process and save transactions on an independent goroutine
-		go ci.processAndSave(batchTransactions, currentState, databaseErrChan)
+		go ci.processAndSave(batchTransactions, state, databaseErrChan)
 	}
 
 	err = <-databaseErrChan
@@ -134,7 +152,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 }
 
 func (ci *BlockIndexer) processAndSave(batchTransactions *TransactionsBatch,
-	currentState database.State, errChan chan error) {
+	currentState *database.State, errChan chan error) {
 	startTime := time.Now()
 	transactionData, err := ci.processTransactions(batchTransactions)
 	if err != nil {
@@ -142,29 +160,52 @@ func (ci *BlockIndexer) processAndSave(batchTransactions *TransactionsBatch,
 		return
 	}
 	logger.Info(
-		"Processed %d transactions in %d milliseconds",
-		len(batchTransactions.Transactions), time.Since(startTime).Milliseconds(),
-	)
-
-	// Put transactions in the database
-	startTime = time.Now()
-	ci.saveTransactions(transactionData, currentState, errChan)
-	logger.Info(
-		"Saved %d transactions, %d commits, %d reveals, %d signatures,"+
-			"%d finalizations, and %d reward offers to the DB in %d milliseconds",
-		len(transactionData.Transactions), len(transactionData.Commits),
+		"Processed %d transactions, and extracted %d commits, %d reveals, %d signatures,"+
+			" %d finalizations, and %d reward offers in %d milliseconds",
+		len(batchTransactions.Transactions), len(transactionData.Commits),
 		len(transactionData.Reveals), len(transactionData.Signatures),
 		len(transactionData.Finalizations), len(transactionData.RewardOffers),
 		time.Since(startTime).Milliseconds(),
 	)
+
+	// Put transactions in the database
+	startTime = time.Now()
+	errChan2 := make(chan error, 1)
+	ci.saveData(transactionData, errChan2)
+	err = <-errChan2
+	if err != nil {
+		errChan <- err
+		return
+	}
+	logger.Info(
+		"Saved %d transactions in DB in %d milliseconds",
+		len(transactionData.Transactions),
+		time.Since(startTime).Milliseconds(),
+	)
+
+	err = database.UpdateState(ci.db, currentState)
+	if err != nil {
+		errChan <- err
+	}
+
+	errChan <- nil
 }
 
 func (ci *BlockIndexer) IndexContinuous() error {
 	// Get start and end block number
-	currentState, index, lastIndex, err := ci.state()
+	currentState, err := ci.dbState()
 	if err != nil {
 		return err
 	}
+	lastChainIndex, err := ci.fetchLastBlockIndex()
+	if err != nil {
+		return err
+	}
+	index, lastIndex, err := ci.getIndexes(currentState, lastChainIndex)
+	if err != nil {
+		return err
+	}
+	currentState.UpdateAtStart(index, lastChainIndex)
 	logger.Info("Starting to continuously index blocks from %d", index)
 
 	// Request blocks one by one
@@ -179,10 +220,11 @@ func (ci *BlockIndexer) IndexContinuous() error {
 		if index > lastIndex {
 			logger.Debug("Up to date, last block %d", currentState.LastChainIndex)
 			time.Sleep(time.Millisecond * time.Duration(ci.params.NewBlockCheckMillis))
-			currentState, index, lastIndex, err = ci.state()
+			lastIndex, err = ci.fetchLastBlockIndex()
 			if err != nil {
 				return err
 			}
+			currentState.UpdateLastIndex(lastIndex)
 			continue
 		}
 		ci.requestBlocks(blockBatch, index, index+1, 0, lastIndex, errChan)
@@ -210,13 +252,24 @@ func (ci *BlockIndexer) IndexContinuous() error {
 		}
 
 		index += 1
-		currentState.Update(index, lastIndex)
-		ci.saveTransactions(transactionData, currentState, errChan)
+		currentState.UpdateNextIndex(index)
+		ci.saveData(transactionData, errChan)
 		err = <-errChan
+		if err != nil {
+			return err
+		}
+		err = database.UpdateState(ci.db, currentState)
 		if err != nil {
 			return err
 		}
 	}
 
 	return nil
+}
+
+func (ci *BlockIndexer) getIndexes(state *database.State, lastIndex int) (int, int, error) {
+	startIndex := max(int(state.NextDBIndex), ci.params.StartIndex)
+	lastIndex = min(ci.params.StopIndex, lastIndex)
+
+	return startIndex, lastIndex, nil
 }

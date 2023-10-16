@@ -29,7 +29,7 @@ func BenchmarkBlockRequests(b *testing.B) {
 
 		abi.InitVotingAbi("../indexer/abi/contracts/Voting.json", "../indexer/abi/contracts/VotingRewardManager.json")
 		// connect to the database
-		db, err := database.ConnectAndInitializeTestDB(&cfg.DB, true, indexer.StateName)
+		db, err := database.ConnectAndInitializeTestDB(&cfg.DB, true)
 		if err != nil {
 			fmt.Println("Database connect and initialize error: ", err)
 			return

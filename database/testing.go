@@ -3,6 +3,9 @@ package database
 import (
 	"flare-ftso-indexer/config"
 	"fmt"
+	"strings"
+
+	logger2 "flare-ftso-indexer/logger"
 
 	"github.com/go-sql-driver/mysql"
 	gormMysql "gorm.io/driver/mysql"
@@ -40,10 +43,21 @@ func ConnectTestDB(cfg *config.DBConfig) (*gorm.DB, error) {
 	return gorm.Open(gormMysql.Open(dbConfig.FormatDSN()), &gormConfig)
 }
 
-func ConnectAndInitializeTestDB(cfg *config.DBConfig, dropTables bool, stateName string) (*gorm.DB, error) {
+func ConnectAndInitializeTestDB(cfg *config.DBConfig, dropTables bool) (*gorm.DB, error) {
 	db, err := ConnectTestDB(cfg)
 	if err != nil {
 		return nil, err
+	}
+	if cfg.OptTables != "" {
+		optTables := strings.Split(cfg.OptTables, ",")
+		for _, method := range optTables {
+			entity, ok := MethodToInterface[method]
+			if ok {
+				entities = append(entities, entity)
+			} else {
+				logger2.Error("Unrecognized optional table name %s", method)
+			}
+		}
 	}
 
 	if dropTables {
@@ -60,7 +74,7 @@ func ConnectAndInitializeTestDB(cfg *config.DBConfig, dropTables bool, stateName
 	}
 
 	if dropTables {
-		s := State{Name: stateName, NextDBIndex: 0, LastChainIndex: 0}
+		s := State{Name: TransactionsStateName, NextDBIndex: 0, LastChainIndex: 0}
 		s.UpdateTime()
 		err := CreateState(db, &s)
 		if err != nil {

@@ -88,7 +88,7 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 		if err != nil {
 			return nil, err
 		}
-		epoch := abi.EpochFromTimeInt(block.Time(), ci.epoch.FirstEpochStartSec, ci.epoch.EpochDurationSec)
+		epoch := abi.EpochFromTimeInt(block.Time(), ci.epochParams.FirstEpochStartSec, ci.epochParams.EpochDurationSec)
 		status := uint64(2)
 		if transactionBatch.toReceipt[i] != nil {
 			status = transactionBatch.toReceipt[i].Status
@@ -116,6 +116,10 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 			return nil, err
 		}
 
+		// if the option to create a specific table is chosen we process the transaction and extract info
+		if _, ok := ci.optTables[funcCall]; !ok {
+			continue
+		}
 		switch funcCall {
 		case abi.FtsoCommit:
 			commit, err := processCommit(parametersMap, fromAddress, epoch, block.Time(), tx.Hash().Hex())
