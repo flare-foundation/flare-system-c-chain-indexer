@@ -72,7 +72,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 	}
 	state.UpdateAtStart(startIndex, lastChainIndex)
 
-	logger.Info("Starting to index blocks from %d to %d", startIndex, lastIndex)
+	logger.Info("Starting to index blocks from %d to the last block (currently %d)", startIndex, lastIndex)
 
 	// Split block requests in batches
 	blockBatch := NewBlockBatch(ci.params.BatchSize)
@@ -143,6 +143,19 @@ func (ci *BlockIndexer) IndexHistory() error {
 		state.UpdateNextIndex(min(j+ci.params.BatchSize, lastIndex+1))
 		// process and save transactions on an independent goroutine
 		go ci.processAndSave(batchTransactions, state, databaseErrChan)
+
+		// in the second to last run of the loop update lastIndex to get the blocks
+		// that were produced during the run of the algorithm
+		if j+ci.params.BatchSize <= lastIndex && j+2*ci.params.BatchSize > lastIndex {
+			lastChainIndex, err := ci.fetchLastBlockIndex()
+			if err != nil {
+				return err
+			}
+			_, lastIndex, err = ci.getIndexes(state, lastChainIndex)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	err = <-databaseErrChan
@@ -263,6 +276,9 @@ func (ci *BlockIndexer) IndexContinuous() error {
 		err = database.UpdateState(ci.db, currentState)
 		if err != nil {
 			return err
+		}
+		if index%1000 == 0 {
+			logger.Info("Indexer at block %d", index)
 		}
 	}
 
