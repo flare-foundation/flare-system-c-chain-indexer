@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	TransactionsStateName string = "ftso_transactions"
+	TransactionsStateName string = "ftso_indexer"
 )
 
 var (
@@ -42,6 +42,19 @@ func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
 	err = db.AutoMigrate(entities...)
 	if err != nil {
 		return nil, err
+	}
+	// If the state info is not in the DB, create it
+	_, err = FetchState(db, TransactionsStateName)
+	if err != nil {
+		s := State{Name: TransactionsStateName,
+			NextDBIndex:    0,
+			LastChainIndex: 0,
+			FirstDBIndex:   0}
+		s.UpdateTime()
+		err = CreateState(db, &s)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return db, nil

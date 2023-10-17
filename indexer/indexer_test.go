@@ -21,9 +21,9 @@ func TestIndexer(t *testing.T) {
 	cfgChain := config.ChainConfig{NodeURL: mockChainAddress}
 	cfgIndexer := config.IndexerConfig{StartIndex: 50, StopIndex: 2400, BatchSize: 500,
 		NumParallelReq: 4, NewBlockCheckMillis: 200, TimeoutMillis: 100, Receipts: "all"}
-	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logger/logs/flare-test-indexer.log"}
+	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logger/logs/flare-ftso-indexer_test.log"}
 	cfgDB := config.DBConfig{Host: "localhost", Port: 3306, Database: "flare_ftso_indexer_test",
-		Username: "indexeruser", Password: "indexeruser",
+		Username: "root", Password: "root",
 		OptTables: "commit,revealBitvote,signResult,offerRewards"} // for the test we do not use finalizations
 	epochConfig := config.EpochConfig{FirstEpochStartSec: 1636070400, EpochDurationSec: 90}
 	cfg := config.Config{Indexer: cfgIndexer, Chain: cfgChain, Logger: cfgLog, DB: cfgDB, Epochs: epochConfig}

@@ -7,7 +7,6 @@ require (
 	github.com/ethereum/go-ethereum v1.13.2
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/gorilla/mux v1.8.0
-	github.com/kelseyhightower/envconfig v1.4.0
 	github.com/stretchr/testify v1.8.2
 	go.uber.org/zap v1.24.0
 	golang.org/x/exp v0.0.0-20230810033253-352e893a4cad

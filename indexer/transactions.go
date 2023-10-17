@@ -34,7 +34,7 @@ func NewTransactionsBatch() *TransactionsBatch {
 	return &transactionBatch
 }
 
-func CountReceipts(txs *TransactionsBatch) int {
+func countReceipts(txs *TransactionsBatch) int {
 	i := 0
 	for _, e := range txs.toReceipt {
 		if e != nil {
@@ -95,15 +95,14 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 		}
 
 		dbTx := &database.FtsoTransaction{
-			Hash:      tx.Hash().Hex(),
+			Hash:      tx.Hash().Hex()[2:],
 			Data:      txData,
 			BlockId:   block.NumberU64(),
-			FuncCall:  funcCall,
+			Method:    funcCall,
 			Status:    status,
-			From:      fromAddress.Hex(),
-			To:        tx.To().Hex(),
+			From:      fromAddress.Hex()[2:],
+			To:        tx.To().Hex()[2:],
 			Timestamp: block.Time(),
-			Epoch:     epoch,
 		}
 		data.Transactions = append(data.Transactions, dbTx)
 
@@ -116,38 +115,38 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 			return nil, err
 		}
 
-		// if the option to create a specific table is chosen we process the transaction and extract info
+		// if the option to create a specific table is chosen, we process the transaction and extract info
 		if _, ok := ci.optTables[funcCall]; !ok {
 			continue
 		}
 		switch funcCall {
 		case abi.FtsoCommit:
-			commit, err := processCommit(parametersMap, fromAddress, epoch, block.Time(), tx.Hash().Hex())
+			commit, err := processCommit(parametersMap, fromAddress, epoch, block.Time(), tx.Hash().Hex()[2:])
 			if err != nil {
 				return nil, err
 			}
 
 			data.Commits = append(data.Commits, commit)
 		case abi.FtsoReveal:
-			reveal, err := processReveal(parametersMap, fromAddress, epoch, block.Time(), tx.Hash().Hex())
+			reveal, err := processReveal(parametersMap, fromAddress, epoch, block.Time(), tx.Hash().Hex()[2:])
 			if err != nil {
 				return nil, err
 			}
 			data.Reveals = append(data.Reveals, reveal)
 		case abi.FtsoSignature:
-			signatureData, err := processSignature(parametersMap, fromAddress, block.Time(), epoch, tx.Hash().Hex())
+			signatureData, err := processSignature(parametersMap, fromAddress, block.Time(), epoch, tx.Hash().Hex()[2:])
 			if err != nil {
 				return nil, err
 			}
 			data.Signatures = append(data.Signatures, signatureData)
 		case abi.FtsoFinalize:
-			finalization, err := processFinalization(parametersMap, fromAddress, block.Time(), epoch, tx.Hash().Hex())
+			finalization, err := processFinalization(parametersMap, fromAddress, block.Time(), epoch, tx.Hash().Hex()[2:])
 			if err != nil {
 				return nil, err
 			}
 			data.Finalizations = append(data.Finalizations, finalization)
 		case abi.FtsoOffers:
-			offers, err := processRewardOffers(parametersMap, fromAddress, block.Time(), epoch, tx.Hash().Hex())
+			offers, err := processRewardOffers(parametersMap, fromAddress, block.Time(), epoch, tx.Hash().Hex()[2:])
 			if err != nil {
 				return nil, err
 			}
@@ -170,7 +169,7 @@ func processCommit(parametersMap map[string]interface{}, fromAddress common.Addr
 	}
 	commit := &database.Commit{
 		Epoch:      epoch,
-		Address:    fromAddress.Hex(),
+		Address:    fromAddress.Hex()[2:],
 		CommitHash: hex.EncodeToString(commitHash[:]),
 		Timestamp:  timestamp,
 		TxHash:     hash,
@@ -218,7 +217,7 @@ func processReveal(parametersMap map[string]interface{}, fromAddress common.Addr
 
 	reveal := &database.Reveal{
 		Epoch:      epoch,
-		Address:    fromAddress.Hex(),
+		Address:    fromAddress.Hex()[2:],
 		Random:     hex.EncodeToString(random[:]),
 		MerkleRoot: hex.EncodeToString(merkleRoot[:]),
 		BitVote:    hex.EncodeToString(bitVote),
@@ -262,7 +261,7 @@ func processSignature(parametersMap map[string]interface{}, fromAddress common.A
 	signatureData := &database.SignatureData{
 		Epoch:          blockEpoch,
 		SignatureEpoch: epoch.Uint64(),
-		Address:        fromAddress.Hex(),
+		Address:        fromAddress.Hex()[2:],
 		MerkleRoot:     hex.EncodeToString(merkleRoot[:]),
 		Signature:      string(signature),
 		Timestamp:      timestamp,
@@ -304,7 +303,7 @@ func processFinalization(parametersMap map[string]interface{}, fromAddress commo
 	finalization := &database.Finalization{
 		Epoch:          blockEpoch,
 		SignatureEpoch: epoch.Uint64(),
-		Address:        fromAddress.Hex(),
+		Address:        fromAddress.Hex()[2:],
 		MerkleRoot:     hex.EncodeToString(merkleRoot[:]),
 		Signatures:     string(signatures),
 		Timestamp:      timestamp,
@@ -335,7 +334,7 @@ func processRewardOffers(parametersMap map[string]interface{}, fromAddress commo
 	for i, offer := range offers {
 		leadProvidersHex := make([]string, len(offer.LeadProviders))
 		for j, provider := range offer.LeadProviders {
-			leadProvidersHex[j] = provider.Hex()
+			leadProvidersHex[j] = provider.Hex()[2:]
 		}
 		providers, err := json.Marshal(leadProvidersHex)
 		if err != nil {
@@ -344,9 +343,9 @@ func processRewardOffers(parametersMap map[string]interface{}, fromAddress commo
 
 		rewardOffers[i] = &database.RewardOffer{
 			Epoch:               blockEpoch,
-			Address:             fromAddress.Hex(),
+			Address:             fromAddress.Hex()[2:],
 			Amount:              offer.Amount.Uint64(),
-			CurrencyAddress:     offer.CurrencyAddress.Hex(),
+			CurrencyAddress:     offer.CurrencyAddress.Hex()[2:],
 			OfferSymbol:         hex.EncodeToString(offer.OfferSymbol[:]),
 			QuoteSymbol:         hex.EncodeToString(offer.QuoteSymbol[:]),
 			LeadProviders:       string(providers),
@@ -354,7 +353,7 @@ func processRewardOffers(parametersMap map[string]interface{}, fromAddress commo
 			ElasticBandWidthPPM: offer.RewardBeltPPM.Uint64(),
 			IqrSharePPM:         offer.IqrSharePPM.Uint64(),
 			PctSharePPM:         offer.PctSharePPM.Uint64(),
-			RemainderClaimer:    offer.RemainderClaimer.Hex(),
+			RemainderClaimer:    offer.RemainderClaimer.Hex()[2:],
 			Timestamp:           timestamp,
 			TxHash:              hash,
 		}

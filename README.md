@@ -29,9 +29,10 @@ receipts = "commit,revealBitvote,signResult,finalize,offerRewards" # which type 
 host = "localhost"
 port = 3306
 database = "flare_ftso_indexer"
-username = "indexeruser"
-password = "indexeruser"
+username = "root"
+password = "root"
 log_queries = true
+opt_tables = "commit,revealBitvote,signResult,finalize,offerRewards" # which type of transactions should have their data extracted and saved into a separate DB table
 
 [logger]
 level = "INFO"

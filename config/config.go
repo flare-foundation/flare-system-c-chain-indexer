@@ -6,11 +6,9 @@ import (
 	"os"
 
 	"github.com/BurntSushi/toml"
-	"github.com/kelseyhightower/envconfig"
 )
 
 var (
-	// ConfigFile           string                       = "config.toml"
 	ReqRepeats           int                          = 10
 	TimeoutMillisDefault int                          = 1000
 	GlobalConfigCallback ConfigCallback[GlobalConfig] = ConfigCallback[GlobalConfig]{}
@@ -19,7 +17,6 @@ var (
 
 type GlobalConfig interface {
 	LoggerConfig() LoggerConfig
-	ChainConfig() ChainConfig
 }
 
 type Config struct {
@@ -38,17 +35,17 @@ type LoggerConfig struct {
 }
 
 type DBConfig struct {
-	Host       string `toml:"host" envconfig:"DB_HOST"`
-	Port       int    `toml:"port" envconfig:"DB_PORT"`
-	Database   string `toml:"database" envconfig:"DB_DATABASE"`
-	Username   string `toml:"username" envconfig:"DB_USERNAME"`
-	Password   string `toml:"password" envconfig:"DB_PASSWORD"`
+	Host       string `toml:"host"`
+	Port       int    `toml:"port"`
+	Database   string `toml:"database"`
+	Username   string `toml:"username"`
+	Password   string `toml:"password"`
 	LogQueries bool   `toml:"log_queries"`
 	OptTables  string `toml:"opt_tables"`
 }
 
 type ChainConfig struct {
-	NodeURL string `toml:"node_url" envconfig:"CHAIN_NODE_URL"`
+	NodeURL string `toml:"node_url"`
 }
 
 type IndexerConfig struct {
@@ -61,10 +58,10 @@ type IndexerConfig struct {
 	Receipts            string `toml:"receipts"`
 }
 
-// todo
+// todo: should this be fixed?
 type EpochConfig struct {
-	FirstEpochStartSec int `toml:"first_epoch_start_sec" envconfig:"FIRST_EPOCH_START_SEC"`
-	EpochDurationSec   int `toml:"epoch_duration_sec" envconfig:"EPOCH_DURATION_SEC"`
+	FirstEpochStartSec int `toml:"first_epoch_start_sec"`
+	EpochDurationSec   int `toml:"epoch_duration_sec"`
 }
 
 func newConfig() *Config {
@@ -79,10 +76,7 @@ func BuildConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	err = ReadEnv(cfg)
-	if err != nil {
-		return nil, err
-	}
+
 	return cfg, nil
 }
 
@@ -99,18 +93,6 @@ func ParseConfigFile(cfg *Config, fileName string) error {
 	return nil
 }
 
-func ReadEnv(cfg interface{}) error {
-	err := envconfig.Process("", cfg)
-	if err != nil {
-		return fmt.Errorf("error reading env config: %w", err)
-	}
-	return nil
-}
-
 func (c Config) LoggerConfig() LoggerConfig {
 	return c.Logger
-}
-
-func (c Config) ChainConfig() ChainConfig {
-	return c.Chain
 }

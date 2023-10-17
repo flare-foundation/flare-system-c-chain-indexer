@@ -135,7 +135,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 		}
 		logger.Info(
 			"Checked receipts of %d transactions in %d milliseconds",
-			CountReceipts(batchTransactions), time.Since(startTime).Milliseconds(),
+			countReceipts(batchTransactions), time.Since(startTime).Milliseconds(),
 		)
 
 		state.UpdateNextIndex(min(j+ci.params.BatchSize, lastIndex) + 1)

@@ -2,14 +2,14 @@
 host = "localhost"
 port = 3306
 database = "flare_ftso_indexer_songbird"
-username = "indexeruser"
-password = "indexeruser"
+username = "root"
+password = "root"
 log_queries = false
 opt_tables = ""
 
 [logger]
 level = "INFO"
-file = "./logger/logs/flare-ftso-indexer.log"
+file = "../logger/logs/flare-ftso-indexer_benchmark.log"
 console = true
 
 [chain]
