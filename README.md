@@ -21,7 +21,7 @@ Below is the list of configuration parameters for all clients, most are self-exp
 [indexer]
 start_index = 0 # the number of the block that the indexer will start with
 num_parallel_req = 100 # the number of threads doing requests to the chain in parallel
-batch_size = 1000 # the number of block that will be pushed to a database in a batch
+batch_size = 1000 # the number of block that will be pushed to a database in a batch (should be divisible by num_parallel_req)
 new_block_check_millis = 1000 # interval for checking for new blocks
 receipts = "commit,revealBitvote,signResult,finalize,offerRewards" # which type of transactions should have their receipt checked if they succeeded
 

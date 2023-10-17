@@ -31,6 +31,8 @@ func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) 
 	if blockIndexer.params.TimeoutMillis == 0 {
 		blockIndexer.params.TimeoutMillis = config.TimeoutMillisDefault
 	}
+	blockIndexer.params.BatchSize -= blockIndexer.params.BatchSize % blockIndexer.params.NumParallelReq
+
 	blockIndexer.epochParams = cfg.Epochs
 
 	blockIndexer.optTables = make(map[string]bool)
@@ -77,7 +79,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 	blockErrChan := make(chan error, ci.params.NumParallelReq)
 	databaseErrChan := make(chan error, 1)
 	databaseErrChan <- nil
-	for j := startIndex; j < lastIndex; j = j + ci.params.BatchSize {
+	for j := startIndex; j <= lastIndex; j = j + ci.params.BatchSize {
 		// Split batched block requests among goroutines
 		startTime := time.Now()
 		oneRunnerReqNum := ci.params.BatchSize / ci.params.NumParallelReq
@@ -95,7 +97,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 		}
 		logger.Info(
 			"Successfully obtained blocks %d to %d in %d milliseconds",
-			j, min(j+ci.params.BatchSize, lastIndex), time.Since(startTime).Milliseconds(),
+			j, min(j+ci.params.BatchSize-1, lastIndex), time.Since(startTime).Milliseconds(),
 		)
 
 		// Make sure that the data from the previous batch was saved to the database,
@@ -138,7 +140,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 			countReceipts(batchTransactions), time.Since(startTime).Milliseconds(),
 		)
 
-		state.UpdateNextIndex(min(j+ci.params.BatchSize, lastIndex) + 1)
+		state.UpdateNextIndex(min(j+ci.params.BatchSize, lastIndex+1))
 		// process and save transactions on an independent goroutine
 		go ci.processAndSave(batchTransactions, state, databaseErrChan)
 	}
@@ -268,7 +270,12 @@ func (ci *BlockIndexer) IndexContinuous() error {
 }
 
 func (ci *BlockIndexer) getIndexes(state *database.State, lastIndex int) (int, int, error) {
-	startIndex := max(int(state.NextDBIndex), ci.params.StartIndex)
+	var startIndex int
+	if ci.params.StartIndex < int(state.FirstDBIndex) {
+		startIndex = ci.params.StartIndex
+	} else {
+		startIndex = max(int(state.NextDBIndex), ci.params.StartIndex)
+	}
 	lastIndex = min(ci.params.StopIndex, lastIndex)
 
 	return startIndex, lastIndex, nil

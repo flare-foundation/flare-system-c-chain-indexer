@@ -25,7 +25,7 @@ var (
 
 // BaseEntity is an abstract entity, all other entities should be derived from it
 type BaseEntity struct {
-	ID uint64 `gorm:"primaryKey"`
+	ID uint64 `gorm:"primaryKey;unique"`
 }
 
 type State struct {
@@ -39,7 +39,7 @@ type State struct {
 
 type FtsoTransaction struct {
 	BaseEntity
-	Hash      string `gorm:"type:varchar(64);index"`
+	Hash      string `gorm:"type:varchar(64);index;unique"`
 	Method    string `gorm:"type:varchar(50);index"`
 	Data      string `gorm:"type:varchar(10000)"` // todo: size
 	BlockId   uint64
@@ -55,7 +55,7 @@ type Commit struct {
 	Address    string `gorm:"type:varchar(40)"`
 	CommitHash string `gorm:"type:varchar(64)"`
 	Timestamp  uint64 `gorm:"index"`
-	TxHash     string `gorm:"type:varchar(66)"`
+	TxHash     string `gorm:"type:varchar(64);unique"`
 }
 
 type Reveal struct {
@@ -67,7 +67,7 @@ type Reveal struct {
 	BitVote    string `gorm:"type:varchar(2)"`
 	Prices     string `gorm:"type:varchar(1000)"`
 	Timestamp  uint64 `gorm:"index"`
-	TxHash     string `gorm:"type:varchar(66)"`
+	TxHash     string `gorm:"type:varchar(64);unique"`
 }
 
 type SignatureData struct {
@@ -78,7 +78,7 @@ type SignatureData struct {
 	MerkleRoot     string `gorm:"type:varchar(64)"`
 	Signature      string `gorm:"type:varchar(1000)"`
 	Timestamp      uint64
-	TxHash         string `gorm:"type:varchar(66)"`
+	TxHash         string `gorm:"type:varchar(64);unique"`
 }
 
 type Finalization struct {
@@ -89,7 +89,7 @@ type Finalization struct {
 	MerkleRoot     string `gorm:"type:varchar(64)"`
 	Signatures     string `gorm:"type:varchar(10000)"`
 	Timestamp      uint64 `gorm:"index"`
-	TxHash         string `gorm:"type:varchar(66)"`
+	TxHash         string `gorm:"type:varchar(64)"`
 }
 
 type RewardOffer struct {
@@ -107,7 +107,7 @@ type RewardOffer struct {
 	PctSharePPM         uint64
 	RemainderClaimer    string `gorm:"type:varchar(40)"`
 	Timestamp           uint64 `gorm:"index"`
-	TxHash              string `gorm:"type:varchar(66)"`
+	TxHash              string `gorm:"type:varchar(64)"`
 }
 
 func (state *State) UpdateAtStart(startIndex, lastChainIndex int) {
