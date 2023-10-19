@@ -30,13 +30,11 @@ type BaseEntity struct {
 	ID uint64 `gorm:"primaryKey;unique"`
 }
 
-type State struct {
+type States struct {
 	BaseEntity
-	Name           string `gorm:"type:varchar(50);index"`
-	NextDBIndex    uint64
-	FirstDBIndex   uint64
-	LastChainIndex uint64
-	Updated        time.Time
+	Name    string `gorm:"type:varchar(50);index"`
+	Index   uint64
+	Updated time.Time
 }
 
 type FtsoTransaction struct {
@@ -112,33 +110,21 @@ type RewardOffer struct {
 	TxHash              string `gorm:"type:varchar(64)"`
 }
 
-func (state *State) UpdateAtStart(startIndex, lastChainIndex int) {
-	// if a break among saved blocks in the dataset is created,
-	// then we change the guaranties about the starting block
-	if int(state.NextDBIndex) < startIndex {
-		state.FirstDBIndex = uint64(startIndex)
+func (s *States) UpdateIndex(newIndex int) {
+	s.Index = uint64(newIndex)
+	s.Updated = time.Now()
+}
+
+func FetchDBStates(db *gorm.DB) (map[string]*States, error) {
+	states := make(map[string]*States)
+	for _, name := range StateNames {
+		var state States
+		err := db.Where(&States{Name: name}).First(&state).Error
+		if err != nil {
+			return nil, err
+		}
+		states[name] = &state
 	}
-	state.NextDBIndex = uint64(startIndex)
-	state.LastChainIndex = uint64(lastChainIndex)
-	state.Updated = time.Now()
-}
 
-func (s *State) UpdateNextIndex(nextIndex int) {
-	s.NextDBIndex = uint64(nextIndex)
-	s.Updated = time.Now()
-}
-
-func (s *State) UpdateLastIndex(lastIndex int) {
-	s.LastChainIndex = uint64(lastIndex)
-	s.Updated = time.Now()
-}
-
-func (s *State) UpdateTime() {
-	s.Updated = time.Now()
-}
-
-func FetchState(db *gorm.DB, name string) (*State, error) {
-	var currentState State
-	err := db.Where(&State{Name: name}).First(&currentState).Error
-	return &currentState, err
+	return states, nil
 }

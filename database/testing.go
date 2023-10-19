@@ -47,15 +47,15 @@ func ConnectAndInitializeTestDB(cfg *config.DBConfig, dropTables bool) (*gorm.DB
 	}
 
 	if dropTables {
-		s := &State{Name: TransactionsStateName,
-			NextDBIndex:    0,
-			LastChainIndex: 0,
-			FirstDBIndex:   0}
-		s.UpdateTime()
-		err = db.Create(s).Error
-		if err != nil {
-			return nil, err
+		for _, name := range StateNames {
+			s := &States{Name: name}
+			s.UpdateIndex(0)
+			err = db.Create(s).Error
+			if err != nil {
+				return nil, err
+			}
 		}
+
 	}
 	return db, nil
 }

@@ -4,8 +4,8 @@ import (
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer/abi"
+	"flare-ftso-indexer/logger"
 	indexer_testing "flare-ftso-indexer/testing"
-	"fmt"
 	"testing"
 	"time"
 )
@@ -35,20 +35,17 @@ func TestIndexer(t *testing.T) {
 	// connect to the database
 	db, err := database.ConnectAndInitializeTestDB(&cfgDB, true)
 	if err != nil {
-		fmt.Println("Database connect and initialize error: ", err)
-		return
+		logger.Fatal("Database connect and initialize error: ", err)
 	}
 	// create the indexer
 	cIndexer, err := CreateBlockIndexer(&cfg, db)
 	if err != nil {
-		fmt.Println("Indexer init error: ", err)
-		return
+		logger.Fatal("Indexer init error: ", err)
 	}
 	// index history with parallel processing
 	err = cIndexer.IndexHistory()
 	if err != nil {
-		fmt.Println("History run error: ", err)
-		return
+		logger.Fatal("History run error: ", err)
 	}
 	// at the mock server add new blocks after some time
 	go increaseLastBlockAndStop()
@@ -56,8 +53,7 @@ func TestIndexer(t *testing.T) {
 	// run indexer
 	err = cIndexer.IndexContinuous()
 	if err != nil {
-		fmt.Println("Continuous run error: ", err)
-		return
+		logger.Fatal("Continuous run error: ", err)
 	}
 
 }

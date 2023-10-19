@@ -27,13 +27,18 @@ func NewDatabaseStructData() *DatabaseStructData {
 	return &transactionBatch
 }
 
-func (ci *BlockIndexer) dbState() (*database.State, error) {
-	transactionsState, err := database.FetchState(ci.db, database.TransactionsStateName)
-	if err != nil {
-		return nil, err
+func (ci *BlockIndexer) dbStates() (map[string]*database.States, error) {
+	states := make(map[string]*database.States)
+	for _, name := range database.StateNames {
+		var state database.States
+		err := ci.db.Where(&database.States{Name: name}).First(&state).Error
+		if err != nil {
+			return nil, err
+		}
+		states[name] = &state
 	}
 
-	return transactionsState, nil
+	return states, nil
 }
 
 func (ci *BlockIndexer) fetchLastBlockIndex() (int, error) {
@@ -55,8 +60,9 @@ func (ci *BlockIndexer) fetchLastBlockIndex() (int, error) {
 	return int(lastBlock.NumberU64()), nil
 }
 
-func (ci *BlockIndexer) saveData(data *DatabaseStructData, currentState *database.State, errChan chan error) {
+func (ci *BlockIndexer) saveData(data *DatabaseStructData, states map[string]*database.States, errChan chan error) {
 	var err error
+
 	databaseTx := ci.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -64,7 +70,6 @@ func (ci *BlockIndexer) saveData(data *DatabaseStructData, currentState *databas
 		}
 	}()
 
-	// return tx.Commit().Error
 	if len(data.Transactions) != 0 {
 		err = databaseTx.Create(data.Transactions).Error
 		if err != nil {
@@ -90,11 +95,13 @@ func (ci *BlockIndexer) saveData(data *DatabaseStructData, currentState *databas
 		}
 	}
 
-	err = databaseTx.Save(currentState).Error
-	if err != nil {
-		databaseTx.Rollback()
-		errChan <- err
-		return
+	for _, name := range database.StateNames {
+		err = databaseTx.Save(states[name]).Error
+		if err != nil {
+			databaseTx.Rollback()
+			errChan <- err
+			return
+		}
 	}
 
 	errChan <- databaseTx.Commit().Error

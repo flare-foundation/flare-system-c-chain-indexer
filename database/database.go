@@ -12,14 +12,21 @@ import (
 )
 
 const (
-	TransactionsStateName string = "ftso_indexer"
+	LastChainIndexStateName     string = "last_chain_block"
+	NextDatabaseIndexStateName  string = "next_database_block" // aka last_database_block + 1
+	FirstDatabaseIndexStateName string = "first_database_block"
 )
 
 var (
 	// List entities to auto-migrate
-	entities []interface{} = []interface{}{
-		State{},
+	entities = []interface{}{
+		States{},
 		FtsoTransaction{},
+	}
+	StateNames = []string{
+		FirstDatabaseIndexStateName,
+		NextDatabaseIndexStateName,
+		LastChainIndexStateName,
 	}
 )
 
@@ -44,16 +51,15 @@ func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
 		return nil, err
 	}
 	// If the state info is not in the DB, create it
-	_, err = FetchState(db, TransactionsStateName)
+	_, err = FetchDBStates(db)
 	if err != nil {
-		s := &State{Name: TransactionsStateName,
-			NextDBIndex:    0,
-			LastChainIndex: 0,
-			FirstDBIndex:   0}
-		s.UpdateTime()
-		err = db.Create(s).Error
-		if err != nil {
-			return nil, err
+		for _, name := range StateNames {
+			s := &States{Name: name}
+			s.UpdateIndex(0)
+			err = db.Create(s).Error
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

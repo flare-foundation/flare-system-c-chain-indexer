@@ -6,7 +6,6 @@ import (
 	"flare-ftso-indexer/indexer"
 	"flare-ftso-indexer/indexer/abi"
 	"flare-ftso-indexer/logger"
-	"fmt"
 	"testing"
 )
 
@@ -31,18 +30,16 @@ func BenchmarkBlockRequests(b *testing.B) {
 		// connect to the database
 		db, err := database.ConnectAndInitializeTestDB(&cfg.DB, true)
 		if err != nil {
-			fmt.Println("Database connect and initialize error: ", err)
-			return
+			// fmt.Println("Database connect and initialize error: ", err)
+			logger.Fatal("Database connect and initialize error: ", err)
 		}
 		cIndexer, err := indexer.CreateBlockIndexer(cfg, db)
 		if err != nil {
-			logger.Error("Indexer init error: ", err)
-			return
+			logger.Fatal("Indexer init error: ", err)
 		}
 		err = cIndexer.IndexHistory()
 		if err != nil {
-			logger.Error("History run error: ", err)
+			logger.Fatal("History run error: ", err)
 		}
-
 	}
 }

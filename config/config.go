@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	ReqRepeats           int                          = 10
+	ReqRepeats           int                          = 20
 	TimeoutMillisDefault int                          = 1000
 	GlobalConfigCallback ConfigCallback[GlobalConfig] = ConfigCallback[GlobalConfig]{}
 	CfgFlag                                           = flag.String("config", "config.toml", "Configuration file (toml format)")
