@@ -46,12 +46,12 @@ func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
 	// If the state info is not in the DB, create it
 	_, err = FetchState(db, TransactionsStateName)
 	if err != nil {
-		s := State{Name: TransactionsStateName,
+		s := &State{Name: TransactionsStateName,
 			NextDBIndex:    0,
 			LastChainIndex: 0,
 			FirstDBIndex:   0}
 		s.UpdateTime()
-		err = CreateState(db, &s)
+		err = db.Create(s).Error
 		if err != nil {
 			return nil, err
 		}

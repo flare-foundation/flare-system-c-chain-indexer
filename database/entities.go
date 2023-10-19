@@ -4,6 +4,8 @@ import (
 	"flare-ftso-indexer/indexer/abi"
 	"reflect"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 var (
@@ -133,4 +135,10 @@ func (s *State) UpdateLastIndex(lastIndex int) {
 
 func (s *State) UpdateTime() {
 	s.Updated = time.Now()
+}
+
+func FetchState(db *gorm.DB, name string) (*State, error) {
+	var currentState State
+	err := db.Where(&State{Name: name}).First(&currentState).Error
+	return &currentState, err
 }

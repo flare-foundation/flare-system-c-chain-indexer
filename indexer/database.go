@@ -55,12 +55,20 @@ func (ci *BlockIndexer) fetchLastBlockIndex() (int, error) {
 	return int(lastBlock.NumberU64()), nil
 }
 
-
-func (ci *BlockIndexer) saveData(data *DatabaseStructData, errChan chan error) {
+func (ci *BlockIndexer) saveData(data *DatabaseStructData, currentState *database.State, errChan chan error) {
 	var err error
+	databaseTx := ci.db.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			databaseTx.Rollback()
+		}
+	}()
+
+	// return tx.Commit().Error
 	if len(data.Transactions) != 0 {
-		err = ci.db.Create(data.Transactions).Error
+		err = databaseTx.Create(data.Transactions).Error
 		if err != nil {
+			databaseTx.Rollback()
 			errChan <- err
 			return
 		}
@@ -72,8 +80,9 @@ func (ci *BlockIndexer) saveData(data *DatabaseStructData, errChan chan error) {
 			// check if the option to save is chosen
 			typeOf := reflect.ValueOf(slice).Index(0).Type().String()[1:]
 			if _, ok := ci.optTables[database.InterfaceTypeToMethod[typeOf]]; ok {
-				err = ci.db.Create(slice).Error
+				err = databaseTx.Create(slice).Error
 				if err != nil {
+					databaseTx.Rollback()
 					errChan <- err
 					return
 				}
@@ -81,5 +90,12 @@ func (ci *BlockIndexer) saveData(data *DatabaseStructData, errChan chan error) {
 		}
 	}
 
-	errChan <- nil
+	err = databaseTx.Save(currentState).Error
+	if err != nil {
+		databaseTx.Rollback()
+		errChan <- err
+		return
+	}
+
+	errChan <- databaseTx.Commit().Error
 }

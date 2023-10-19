@@ -186,7 +186,7 @@ func (ci *BlockIndexer) processAndSave(batchTransactions *TransactionsBatch,
 	// Put transactions in the database
 	startTime = time.Now()
 	errChan2 := make(chan error, 1)
-	ci.saveData(transactionData, errChan2)
+	ci.saveData(transactionData, currentState, errChan2)
 	err = <-errChan2
 	if err != nil {
 		errChan <- err
@@ -197,11 +197,6 @@ func (ci *BlockIndexer) processAndSave(batchTransactions *TransactionsBatch,
 		len(transactionData.Transactions),
 		time.Since(startTime).Milliseconds(),
 	)
-
-	err = database.UpdateState(ci.db, currentState)
-	if err != nil {
-		errChan <- err
-	}
 
 	errChan <- nil
 }
@@ -268,15 +263,12 @@ func (ci *BlockIndexer) IndexContinuous() error {
 
 		index += 1
 		currentState.UpdateNextIndex(index)
-		ci.saveData(transactionData, errChan)
+		ci.saveData(transactionData, currentState, errChan)
 		err = <-errChan
 		if err != nil {
 			return err
 		}
-		err = database.UpdateState(ci.db, currentState)
-		if err != nil {
-			return err
-		}
+
 		if index%1000 == 0 {
 			logger.Info("Indexer at block %d", index)
 		}
