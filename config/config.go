@@ -35,13 +35,14 @@ type LoggerConfig struct {
 }
 
 type DBConfig struct {
-	Host       string `toml:"host"`
-	Port       int    `toml:"port"`
-	Database   string `toml:"database"`
-	Username   string `toml:"username"`
-	Password   string `toml:"password"`
-	LogQueries bool   `toml:"log_queries"`
-	OptTables  string `toml:"opt_tables"`
+	Host        string `toml:"host"`
+	Port        int    `toml:"port"`
+	Database    string `toml:"database"`
+	Username    string `toml:"username"`
+	Password    string `toml:"password"`
+	LogQueries  bool   `toml:"log_queries"`
+	OptTables   string `toml:"opt_tables"`
+	HistoryDrop int    `toml:"history_drop"`
 }
 
 type ChainConfig struct {

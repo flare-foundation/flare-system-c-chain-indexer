@@ -33,6 +33,7 @@ username = "root"
 password = "root"
 log_queries = true
 opt_tables = "commit,revealBitvote,signResult,finalize,offerRewards" # which type of transactions should have their data extracted and saved into a separate DB table
+history_drop = 604800 # Enable deleting the transactions that are older (timestamp of the block) than history_drop (in seconds)
 
 [logger]
 level = "INFO"

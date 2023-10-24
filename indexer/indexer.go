@@ -58,7 +58,7 @@ func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) 
 
 func (ci *BlockIndexer) IndexHistory() error {
 	// Get start and end block number
-	states, err := ci.dbStates()
+	States, err := database.GetDBStates(ci.db)
 	if err != nil {
 		return err
 	}
@@ -66,9 +66,11 @@ func (ci *BlockIndexer) IndexHistory() error {
 	if err != nil {
 		return err
 	}
-	startIndex, lastIndex := ci.getIndexes(states, lastChainIndex)
-	UpdateAtStart(states, startIndex, lastChainIndex)
-
+	startIndex, lastIndex := ci.getIndexes(States, lastChainIndex)
+	err = States.UpdateAtStart(ci.db, startIndex, lastChainIndex)
+	if err != nil {
+		return err
+	}
 	logger.Info("Starting to index blocks from %d to %d", startIndex, lastIndex)
 
 	// Split block requests in batches
@@ -137,9 +139,8 @@ func (ci *BlockIndexer) IndexHistory() error {
 			countReceipts(batchTransactions), time.Since(startTime).Milliseconds(),
 		)
 
-		states[database.NextDatabaseIndexStateName].UpdateIndex(min(j+ci.params.BatchSize, lastIndex+1))
 		// process and save transactions on an independent goroutine
-		go ci.processAndSave(batchTransactions, states, databaseErrChan)
+		go ci.processAndSave(batchTransactions, States, min(j+ci.params.BatchSize, lastIndex+1), databaseErrChan)
 
 		// in the second to last run of the loop update lastIndex to get the blocks
 		// that were produced during the run of the algorithm
@@ -148,10 +149,10 @@ func (ci *BlockIndexer) IndexHistory() error {
 			if err != nil {
 				return err
 			}
-			states[database.LastChainIndexStateName].UpdateIndex(lastChainIndex)
-			if lastChainIndex > lastIndex {
+			States.Update(ci.db, database.LastChainIndexStateName, lastChainIndex)
+			if lastChainIndex > lastIndex && ci.params.StopIndex > lastIndex {
+				lastIndex = min(lastChainIndex, ci.params.StopIndex)
 				logger.Info("Updating the last block to %d", lastIndex)
-				lastIndex = lastChainIndex
 			}
 		}
 	}
@@ -165,7 +166,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 }
 
 func (ci *BlockIndexer) processAndSave(batchTransactions *TransactionsBatch,
-	states map[string]*database.States, errChan chan error) {
+	states *database.DBStates, newIndex int, errChan chan error) {
 	startTime := time.Now()
 	transactionData, err := ci.processTransactions(batchTransactions)
 	if err != nil {
@@ -184,7 +185,7 @@ func (ci *BlockIndexer) processAndSave(batchTransactions *TransactionsBatch,
 	// Put transactions in the database
 	startTime = time.Now()
 	errChan2 := make(chan error, 1)
-	ci.saveData(transactionData, states, errChan2)
+	ci.saveData(transactionData, states, newIndex, errChan2)
 	err = <-errChan2
 	if err != nil {
 		errChan <- err
@@ -201,7 +202,7 @@ func (ci *BlockIndexer) processAndSave(batchTransactions *TransactionsBatch,
 
 func (ci *BlockIndexer) IndexContinuous() error {
 	// Get start and end block number
-	states, err := ci.dbStates()
+	states, err := database.GetDBStates(ci.db)
 	if err != nil {
 		return err
 	}
@@ -210,8 +211,11 @@ func (ci *BlockIndexer) IndexContinuous() error {
 		return err
 	}
 	index, lastIndex := ci.getIndexes(states, lastChainIndex)
-	UpdateAtStart(states, index, lastChainIndex)
-	logger.Info("Starting to continuously index blocks from %d", index)
+	err = states.UpdateAtStart(ci.db, index, lastChainIndex)
+	if err != nil {
+		return err
+	}
+	logger.Info("Continuously indexing blocks from %d", index)
 
 	// Request blocks one by one
 	blockBatch := NewBlockBatch(1)
@@ -219,17 +223,17 @@ func (ci *BlockIndexer) IndexContinuous() error {
 	for {
 		// useful for tests
 		if index > ci.params.StopIndex {
-			logger.Debug("Stopping the indexer at block %d", states[database.NextDatabaseIndexStateName].Index-1)
+			logger.Debug("Stopping the indexer at block %d", states.States[database.NextDatabaseIndexStateName].Index-1)
 			break
 		}
 		if index > lastIndex {
-			logger.Debug("Up to date, last block %d", states[database.LastChainIndexStateName].Index)
+			logger.Debug("Up to date, last block %d", states.States[database.LastChainIndexStateName].Index)
 			time.Sleep(time.Millisecond * time.Duration(ci.params.NewBlockCheckMillis))
 			lastIndex, err = ci.fetchLastBlockIndex()
 			if err != nil {
 				return err
 			}
-			states[database.LastChainIndexStateName].UpdateIndex(lastIndex)
+			states.Update(ci.db, database.LastChainIndexStateName, lastIndex)
 			continue
 		}
 		ci.requestBlocks(blockBatch, index, index+1, 0, lastIndex, errChan)
@@ -257,9 +261,7 @@ func (ci *BlockIndexer) IndexContinuous() error {
 		}
 
 		index += 1
-		states[database.NextDatabaseIndexStateName].UpdateIndex(index)
-
-		ci.saveData(transactionData, states, errChan)
+		ci.saveData(transactionData, states, index, errChan)
 		err = <-errChan
 		if err != nil {
 			return err
@@ -273,24 +275,14 @@ func (ci *BlockIndexer) IndexContinuous() error {
 	return nil
 }
 
-func (ci *BlockIndexer) getIndexes(states map[string]*database.States, lastIndex int) (int, int) {
+func (ci *BlockIndexer) getIndexes(states *database.DBStates, lastIndex int) (int, int) {
 	var startIndex int
-	if ci.params.StartIndex < int(states[database.FirstDatabaseIndexStateName].Index) {
+	if ci.params.StartIndex < int(states.States[database.FirstDatabaseIndexStateName].Index) {
 		startIndex = ci.params.StartIndex
 	} else {
-		startIndex = max(int(states[database.NextDatabaseIndexStateName].Index), ci.params.StartIndex)
+		startIndex = max(int(states.States[database.NextDatabaseIndexStateName].Index), ci.params.StartIndex)
 	}
 	lastIndex = min(ci.params.StopIndex, lastIndex)
 
 	return startIndex, lastIndex
-}
-
-func UpdateAtStart(states map[string]*database.States, startIndex, lastChainIndex int) {
-	// if a break among saved blocks in the dataset is created,
-	// then we change the guaranties about the starting block
-	if int(states[database.NextDatabaseIndexStateName].Index) < startIndex {
-		states[database.FirstDatabaseIndexStateName].UpdateIndex(startIndex)
-	}
-	states[database.NextDatabaseIndexStateName].UpdateIndex(startIndex)
-	states[database.LastChainIndexStateName].UpdateIndex(lastChainIndex)
 }

@@ -24,6 +24,25 @@ func NewBlockBatch(batchSize int) *BlockBatch {
 	return &blockBatch
 }
 
+func (ci *BlockIndexer) fetchLastBlockIndex() (int, error) {
+	// todo: change to header by number when mocking is available
+	var lastBlock *types.Block
+	var err error
+	for j := 0; j < config.ReqRepeats; j++ {
+		ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
+		lastBlock, err = ci.client.BlockByNumber(ctx, nil)
+		cancelFunc()
+		if err == nil {
+			break
+		}
+	}
+	if err != nil {
+		return 0, err
+	}
+
+	return int(lastBlock.NumberU64()), nil
+}
+
 func (ci *BlockIndexer) requestBlocks(blockBatch *BlockBatch, start, stop, listIndex, lastIndex int, errChan chan error) {
 	for i := start; i < stop; i++ {
 		var block *types.Block

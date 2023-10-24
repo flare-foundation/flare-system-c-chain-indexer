@@ -8,6 +8,8 @@ import (
 	indexer_testing "flare-ftso-indexer/testing"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestIndexer(t *testing.T) {
@@ -47,6 +49,12 @@ func TestIndexer(t *testing.T) {
 	if err != nil {
 		logger.Fatal("History run error: ", err)
 	}
+
+	// turn on the function to delete in the database everything that
+	// is older than the following interval
+	intervalSeconds := int(time.Now().Unix() - 1694605681)
+	go database.DropHistory(db, intervalSeconds, database.HistoryDropIntervalCheck)
+
 	// at the mock server add new blocks after some time
 	go increaseLastBlockAndStop()
 
@@ -56,6 +64,11 @@ func TestIndexer(t *testing.T) {
 		logger.Fatal("Continuous run error: ", err)
 	}
 
+	// correctness check
+	states, err := database.GetDBStates(db)
+	assert.Equal(t, uint64(1518), states.States[database.FirstDatabaseIndexStateName].Index)
+	assert.Equal(t, uint64(2401), states.States[database.NextDatabaseIndexStateName].Index)
+	assert.Equal(t, uint64(2499), states.States[database.LastChainIndexStateName].Index)
 }
 
 func increaseLastBlockAndStop() {

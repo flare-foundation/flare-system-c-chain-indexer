@@ -1,13 +1,8 @@
 package indexer
 
 import (
-	"context"
-	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"reflect"
-	"time"
-
-	"github.com/ethereum/go-ethereum/core/types"
 )
 
 type DatabaseStructData struct {
@@ -27,40 +22,8 @@ func NewDatabaseStructData() *DatabaseStructData {
 	return &transactionBatch
 }
 
-func (ci *BlockIndexer) dbStates() (map[string]*database.States, error) {
-	states := make(map[string]*database.States)
-	for _, name := range database.StateNames {
-		var state database.States
-		err := ci.db.Where(&database.States{Name: name}).First(&state).Error
-		if err != nil {
-			return nil, err
-		}
-		states[name] = &state
-	}
-
-	return states, nil
-}
-
-func (ci *BlockIndexer) fetchLastBlockIndex() (int, error) {
-	// todo: change to header by number when mocking is available
-	var lastBlock *types.Block
-	var err error
-	for j := 0; j < config.ReqRepeats; j++ {
-		ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
-		lastBlock, err = ci.client.BlockByNumber(ctx, nil)
-		cancelFunc()
-		if err == nil {
-			break
-		}
-	}
-	if err != nil {
-		return 0, err
-	}
-
-	return int(lastBlock.NumberU64()), nil
-}
-
-func (ci *BlockIndexer) saveData(data *DatabaseStructData, states map[string]*database.States, errChan chan error) {
+func (ci *BlockIndexer) saveData(data *DatabaseStructData, states *database.DBStates,
+	newIndex int, errChan chan error) {
 	var err error
 
 	databaseTx := ci.db.Begin()
@@ -69,7 +32,7 @@ func (ci *BlockIndexer) saveData(data *DatabaseStructData, states map[string]*da
 			databaseTx.Rollback()
 		}
 	}()
-
+	// todo: ignore tx if it is already in DB
 	if len(data.Transactions) != 0 {
 		err = databaseTx.Create(data.Transactions).Error
 		if err != nil {
@@ -94,14 +57,11 @@ func (ci *BlockIndexer) saveData(data *DatabaseStructData, states map[string]*da
 			}
 		}
 	}
-
-	for _, name := range database.StateNames {
-		err = databaseTx.Save(states[name]).Error
-		if err != nil {
-			databaseTx.Rollback()
-			errChan <- err
-			return
-		}
+	err = states.Update(ci.db, database.NextDatabaseIndexStateName, newIndex)
+	if err != nil {
+		databaseTx.Rollback()
+		errChan <- err
+		return
 	}
 
 	errChan <- databaseTx.Commit().Error

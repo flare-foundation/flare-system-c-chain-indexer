@@ -48,7 +48,7 @@ func ConnectAndInitializeTestDB(cfg *config.DBConfig, dropTables bool) (*gorm.DB
 
 	if dropTables {
 		for _, name := range StateNames {
-			s := &States{Name: name}
+			s := &State{Name: name}
 			s.UpdateIndex(0)
 			err = db.Create(s).Error
 			if err != nil {

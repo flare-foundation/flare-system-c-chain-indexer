@@ -9,6 +9,7 @@ username = "root"
 password = "root"
 log_queries = false
 opt_tables = "commit,revealBitvote,signResult,finalize,offerRewards"
+history_drop = 604800                                                # 7 days
 
 [logger]
 level = "INFO"

@@ -41,6 +41,10 @@ func main() {
 		}
 	}
 
+	if cfg.DB.HistoryDrop > 0 {
+		go database.DropHistory(db, cfg.DB.HistoryDrop, database.HistoryDropIntervalCheck)
+	}
+
 	for {
 		err = cIndexer.IndexContinuous()
 		if err != nil {

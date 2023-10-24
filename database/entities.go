@@ -3,9 +3,6 @@ package database
 import (
 	"flare-ftso-indexer/indexer/abi"
 	"reflect"
-	"time"
-
-	"gorm.io/gorm"
 )
 
 var (
@@ -28,13 +25,6 @@ var (
 // BaseEntity is an abstract entity, all other entities should be derived from it
 type BaseEntity struct {
 	ID uint64 `gorm:"primaryKey;unique"`
-}
-
-type States struct {
-	BaseEntity
-	Name    string `gorm:"type:varchar(50);index"`
-	Index   uint64
-	Updated time.Time
 }
 
 type FtsoTransaction struct {
@@ -108,23 +98,4 @@ type RewardOffer struct {
 	RemainderClaimer    string `gorm:"type:varchar(40)"`
 	Timestamp           uint64 `gorm:"index"`
 	TxHash              string `gorm:"type:varchar(64)"`
-}
-
-func (s *States) UpdateIndex(newIndex int) {
-	s.Index = uint64(newIndex)
-	s.Updated = time.Now()
-}
-
-func FetchDBStates(db *gorm.DB) (map[string]*States, error) {
-	states := make(map[string]*States)
-	for _, name := range StateNames {
-		var state States
-		err := db.Where(&States{Name: name}).First(&state).Error
-		if err != nil {
-			return nil, err
-		}
-		states[name] = &state
-	}
-
-	return states, nil
 }

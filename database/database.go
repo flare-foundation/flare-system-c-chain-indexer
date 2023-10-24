@@ -11,23 +11,13 @@ import (
 	"gorm.io/gorm/logger"
 )
 
-const (
-	LastChainIndexStateName     string = "last_chain_block"
-	NextDatabaseIndexStateName  string = "next_database_block" // aka last_database_block + 1
-	FirstDatabaseIndexStateName string = "first_database_block"
-)
-
 var (
 	// List entities to auto-migrate
 	entities = []interface{}{
-		States{},
+		State{},
 		FtsoTransaction{},
 	}
-	StateNames = []string{
-		FirstDatabaseIndexStateName,
-		NextDatabaseIndexStateName,
-		LastChainIndexStateName,
-	}
+	HistoryDropIntervalCheck = 30
 )
 
 func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
@@ -51,10 +41,10 @@ func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
 		return nil, err
 	}
 	// If the state info is not in the DB, create it
-	_, err = FetchDBStates(db)
+	_, err = GetDBStates(db)
 	if err != nil {
 		for _, name := range StateNames {
-			s := &States{Name: name}
+			s := &State{Name: name}
 			s.UpdateIndex(0)
 			err = db.Create(s).Error
 			if err != nil {
