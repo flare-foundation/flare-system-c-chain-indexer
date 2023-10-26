@@ -8,16 +8,16 @@ import (
 )
 
 const (
-	LastChainIndexStateName     string = "last_chain_block"
-	NextDatabaseIndexStateName  string = "next_database_block" // aka last_database_block + 1
-	FirstDatabaseIndexStateName string = "first_database_block"
+	LastChainIndexState     string = "last_chain_block"
+	NextDatabaseIndexState  string = "next_database_block" // aka last_database_block + 1
+	FirstDatabaseIndexState string = "first_database_block"
 )
 
 var (
 	StateNames = []string{
-		FirstDatabaseIndexStateName,
-		NextDatabaseIndexStateName,
-		LastChainIndexStateName,
+		FirstDatabaseIndexState,
+		NextDatabaseIndexState,
+		LastChainIndexState,
 	}
 	// States captures the state of the DB giving guaranties which
 	// blocks were indexed. The global variable is used/modified by
@@ -83,17 +83,17 @@ func (states *DBStates) UpdateAtStart(db *gorm.DB, startIndex, lastChainIndex in
 	var err error
 	// if make a break among saved blocks in the dataset is created,
 	// then we change the guaranties about the starting block
-	if int(states.States[NextDatabaseIndexStateName].Index) < startIndex {
-		err = states.Update(db, FirstDatabaseIndexStateName, startIndex)
+	if int(states.States[NextDatabaseIndexState].Index) < startIndex {
+		err = states.Update(db, FirstDatabaseIndexState, startIndex)
 		if err != nil {
 			return err
 		}
 	}
-	err = states.Update(db, NextDatabaseIndexStateName, startIndex)
+	err = states.Update(db, NextDatabaseIndexState, startIndex)
 	if err != nil {
 		return err
 	}
-	err = states.Update(db, LastChainIndexStateName, lastChainIndex)
+	err = states.Update(db, LastChainIndexState, lastChainIndex)
 	if err != nil {
 		return err
 	}

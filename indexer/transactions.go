@@ -83,8 +83,7 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 		block := transactionBatch.toBlock[i]
 		txData := hex.EncodeToString(tx.Data())
 		funcCall := abi.FtsoPrefixToFuncCall[txData[:8]]
-
-		fromAddress, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
+		fromAddress, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx) // todo: this is a bit slow
 		if err != nil {
 			return nil, err
 		}

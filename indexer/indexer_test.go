@@ -66,9 +66,9 @@ func TestIndexer(t *testing.T) {
 
 	// correctness check
 	states, err := database.GetDBStates(db)
-	assert.Equal(t, uint64(1518), states.States[database.FirstDatabaseIndexStateName].Index)
-	assert.Equal(t, uint64(2401), states.States[database.NextDatabaseIndexStateName].Index)
-	assert.Equal(t, uint64(2499), states.States[database.LastChainIndexStateName].Index)
+	assert.Equal(t, uint64(1518), states.States[database.FirstDatabaseIndexState].Index)
+	assert.Equal(t, uint64(2401), states.States[database.NextDatabaseIndexState].Index)
+	assert.Equal(t, uint64(2499), states.States[database.LastChainIndexState].Index)
 }
 
 func increaseLastBlockAndStop() {

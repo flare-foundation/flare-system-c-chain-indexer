@@ -149,7 +149,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 			if err != nil {
 				return err
 			}
-			States.Update(ci.db, database.LastChainIndexStateName, lastChainIndex)
+			States.Update(ci.db, database.LastChainIndexState, lastChainIndex)
 			if lastChainIndex > lastIndex && ci.params.StopIndex > lastIndex {
 				lastIndex = min(lastChainIndex, ci.params.StopIndex)
 				logger.Info("Updating the last block to %d", lastIndex)
@@ -223,17 +223,17 @@ func (ci *BlockIndexer) IndexContinuous() error {
 	for {
 		// useful for tests
 		if index > ci.params.StopIndex {
-			logger.Debug("Stopping the indexer at block %d", states.States[database.NextDatabaseIndexStateName].Index-1)
+			logger.Debug("Stopping the indexer at block %d", states.States[database.NextDatabaseIndexState].Index-1)
 			break
 		}
 		if index > lastIndex {
-			logger.Debug("Up to date, last block %d", states.States[database.LastChainIndexStateName].Index)
+			logger.Debug("Up to date, last block %d", states.States[database.LastChainIndexState].Index)
 			time.Sleep(time.Millisecond * time.Duration(ci.params.NewBlockCheckMillis))
 			lastIndex, err = ci.fetchLastBlockIndex()
 			if err != nil {
 				return err
 			}
-			states.Update(ci.db, database.LastChainIndexStateName, lastIndex)
+			states.Update(ci.db, database.LastChainIndexState, lastIndex)
 			continue
 		}
 		ci.requestBlocks(blockBatch, index, index+1, 0, lastIndex, errChan)
@@ -277,10 +277,10 @@ func (ci *BlockIndexer) IndexContinuous() error {
 
 func (ci *BlockIndexer) getIndexes(states *database.DBStates, lastIndex int) (int, int) {
 	var startIndex int
-	if ci.params.StartIndex < int(states.States[database.FirstDatabaseIndexStateName].Index) {
+	if ci.params.StartIndex < int(states.States[database.FirstDatabaseIndexState].Index) {
 		startIndex = ci.params.StartIndex
 	} else {
-		startIndex = max(int(states.States[database.NextDatabaseIndexStateName].Index), ci.params.StartIndex)
+		startIndex = max(int(states.States[database.NextDatabaseIndexState].Index), ci.params.StartIndex)
 	}
 	lastIndex = min(ci.params.StopIndex, lastIndex)
 

@@ -57,7 +57,7 @@ func (ci *BlockIndexer) saveData(data *DatabaseStructData, states *database.DBSt
 			}
 		}
 	}
-	err = states.Update(ci.db, database.NextDatabaseIndexStateName, newIndex)
+	err = states.Update(ci.db, database.NextDatabaseIndexState, newIndex)
 	if err != nil {
 		databaseTx.Rollback()
 		errChan <- err

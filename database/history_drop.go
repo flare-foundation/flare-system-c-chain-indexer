@@ -36,7 +36,7 @@ func DropHistory(db *gorm.DB, intervalSeconds, checkInterval int) {
 			}
 		}
 
-		err = States.Update(db, FirstDatabaseIndexStateName, int(lastTx.BlockId)+1)
+		err = States.Update(db, FirstDatabaseIndexState, int(lastTx.BlockId)+1)
 		if err != nil {
 			databaseTx.Rollback()
 			logger.Error("Failed to update state in the DB", err)
