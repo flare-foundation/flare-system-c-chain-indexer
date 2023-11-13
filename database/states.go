@@ -55,6 +55,7 @@ func GetDBStates(db *gorm.DB) (*DBStates, error) {
 		var state State
 		err := db.Where(&State{Name: name}).First(&state).Error
 		if err != nil {
+			States.Mutex.Unlock()
 			return nil, err
 		}
 		States.States[name] = &state

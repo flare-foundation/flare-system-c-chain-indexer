@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/hex"
 	"flare-ftso-indexer/config"
-	"flare-ftso-indexer/indexer/abi"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -79,17 +79,20 @@ func (ci *BlockIndexer) processBlocks(blockBatch *BlockBatch, batchTransactions 
 			if len(txData) < 8 {
 				continue
 			}
-			// todo: check contract's address
-			_, ok := abi.FtsoPrefixToFuncCall[txData[:8]]
-			if !ok {
+			funcSig := txData[:8]
+			if tx.To() == nil {
 				continue
 			}
-
-			batchTransactions.Lock()
-			batchTransactions.Transactions = append(batchTransactions.Transactions, tx)
-			batchTransactions.toBlock = append(batchTransactions.toBlock, block)
-			batchTransactions.toReceipt = append(batchTransactions.toReceipt, nil)
-			batchTransactions.Unlock()
+			contractAddress := strings.ToLower(tx.To().Hex()[2:])
+			if val, ok := ci.transactions[contractAddress]; ok {
+				if _, ok = val[funcSig]; ok {
+					batchTransactions.Lock()
+					batchTransactions.Transactions = append(batchTransactions.Transactions, tx)
+					batchTransactions.toBlock = append(batchTransactions.toBlock, block)
+					batchTransactions.toReceipt = append(batchTransactions.toReceipt, nil)
+					batchTransactions.Unlock()
+				}
+			}
 		}
 	}
 	errChan <- nil

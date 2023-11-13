@@ -30,12 +30,19 @@ type BaseEntity struct {
 type FtsoTransaction struct {
 	BaseEntity
 	Hash      string `gorm:"type:varchar(64);index;unique"`
-	Method    string `gorm:"type:varchar(50);index"`
-	Data      string `gorm:"type:varchar(10000)"` // todo: size
+	FuncSig   string `gorm:"type:varchar(50);index"`
+	Data      string `gorm:"type:string"`
 	BlockId   uint64
 	Status    uint64
 	From      string `gorm:"type:varchar(40);index"`
 	To        string `gorm:"type:varchar(40);index"`
+	Timestamp uint64 `gorm:"index"`
+}
+
+type FtsoLog struct {
+	BaseEntity
+	TxHash    string `gorm:"type:varchar(64);index;unique"`
+	Log       string `gorm:"type:string"`
 	Timestamp uint64 `gorm:"index"`
 }
 

@@ -1,6 +1,45 @@
 # This file serves as a template for the configuration file. Copy it and edit the values as needed.
 # Use --config parameter to specify the path to the configuration file.
 
+[indexer]
+start_index = 0
+new_block_check_millis = 1000
+batch_size = 1000
+num_parallel_req = 10
+timeout_millis = 1000
+collect = [
+    [
+        "22474d350ec2da53d717e30b96e9a2b7628ede5b",
+        "f14fcbc8",
+        true,
+        true,
+    ],
+    [
+        "22474d350ec2da53d717e30b96e9a2b7628ede5b",
+        "4369af80",
+        true,
+        true,
+    ],
+    [
+        "22474d350ec2da53d717e30b96e9a2b7628ede5b",
+        "46f073cf",
+        true,
+        true,
+    ],
+    [
+        "22474d350ec2da53d717e30b96e9a2b7628ede5b",
+        "901d0e19",
+        true,
+        true,
+    ],
+    [
+        "b682deef4f8e298d86bfc3e21f50c675151fb974",
+        "2636434d",
+        true,
+        true,
+    ],
+]
+
 [db]
 host = "localhost"
 port = 3306
@@ -22,11 +61,3 @@ node_url = "http://127.0.0.1:8545/"
 [epochs]
 first_epoch_start_sec = 1636070400
 epoch_duration_sec = 90
-
-[indexer]
-start_index = 0
-new_block_check_millis = 1000
-batch_size = 1000
-num_parallel_req = 10
-timeout_millis = 1000
-receipts = "commit,revealBitvote,signResult,finalize,offerRewards"

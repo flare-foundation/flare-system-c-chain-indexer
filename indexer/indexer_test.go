@@ -21,12 +21,23 @@ func TestIndexer(t *testing.T) {
 	// set configuration parameters
 	mockChainAddress := "http://localhost:5500"
 	cfgChain := config.ChainConfig{NodeURL: mockChainAddress}
-	cfgIndexer := config.IndexerConfig{StartIndex: 50, StopIndex: 2400, BatchSize: 500,
-		NumParallelReq: 4, NewBlockCheckMillis: 200, TimeoutMillis: 100, Receipts: "all"}
+	collect := [][4]interface{}{
+		{"22474d350ec2da53d717e30b96e9a2b7628ede5b", "f14fcbc8", true, true},
+		{"22474d350ec2da53d717e30b96e9a2b7628ede5b", "4369af80", true, true},
+		{"22474d350ec2da53d717e30b96e9a2b7628ede5b", "46f073cf", true, true},
+		{"22474d350ec2da53d717e30b96e9a2b7628ede5b", "901d0e19", true, true},
+		{"b682deef4f8e298d86bfc3e21f50c675151fb974", "2636434d", true, true},
+	}
+	cfgIndexer := config.IndexerConfig{
+		StartIndex: 50, StopIndex: 2400, BatchSize: 500, NumParallelReq: 4,
+		NewBlockCheckMillis: 200, TimeoutMillis: 100, Collect: collect,
+	}
 	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logger/logs/flare-ftso-indexer_test.log"}
-	cfgDB := config.DBConfig{Host: "localhost", Port: 3306, Database: "flare_ftso_indexer_test",
+	cfgDB := config.DBConfig{
+		Host: "localhost", Port: 3306, Database: "flare_ftso_indexer_test",
 		Username: "root", Password: "root",
-		OptTables: "commit,revealBitvote,signResult,offerRewards"} // for the test we do not use finalizations
+		OptTables: "commit,revealBitvote,signResult,offerRewards",
+	} // for the test we do not use finalizations
 	epochConfig := config.EpochConfig{FirstEpochStartSec: 1636070400, EpochDurationSec: 90}
 	cfg := config.Config{Indexer: cfgIndexer, Chain: cfgChain, Logger: cfgLog, DB: cfgDB, Epochs: epochConfig}
 	config.GlobalConfigCallback.Call(cfg)

@@ -18,7 +18,7 @@ func main() {
 	}
 	config.GlobalConfigCallback.Call(cfg)
 	logger.Info("Running with configuration: chain: %s, database: %s", cfg.Chain.NodeURL, cfg.DB.Database)
-
+	
 	abi.InitVotingAbi("indexer/abi/contracts/Voting.json", "indexer/abi/contracts/VotingRewardManager.json")
 	db, err := database.ConnectAndInitialize(&cfg.DB)
 	if err != nil {

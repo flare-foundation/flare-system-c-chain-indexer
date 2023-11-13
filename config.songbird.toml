@@ -6,6 +6,7 @@ username = "root"
 password = "root"
 log_queries = false
 opt_tables = ""
+history_drop = 604800                    # 7 days
 
 [logger]
 level = "INFO"
@@ -21,10 +22,23 @@ first_epoch_start_sec = 1636070400
 epoch_duration_sec = 90
 
 [indexer]
-start_index = 30000001
-stop_index = 30010000
+start_index = 44000000
+stop_index = 44010000
 new_block_check_millis = 1000
 batch_size = 2500
 num_parallel_req = 250
 timeout_millis = 500
-receipts = ""                 # can be "all"
+collect = [
+    [
+        "1000000000000000000000000000000000000003",
+        "60848b44",
+        false,
+        false,
+    ],
+    [
+        "1000000000000000000000000000000000000003",
+        "c5adc539",
+        false,
+        false,
+    ],
+]

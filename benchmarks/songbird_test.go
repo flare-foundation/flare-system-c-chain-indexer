@@ -18,11 +18,6 @@ func BenchmarkBlockRequests(b *testing.B) {
 	}
 	config.GlobalConfigCallback.Call(cfg)
 
-	// this can be used to benchmark the indexer on the FTSO
-	// protocol currently running on Songbird or Flare
-	abi.FtsoPrefixToFuncCall["60848b44"] = "revealPrices"
-	abi.FtsoPrefixToFuncCall["c5adc539"] = "submitPriceHashes"
-
 	for i := 0; i < b.N; i++ {
 		logger.Info("Running with configuration: chain: %s, database: %s", cfg.Chain.NodeURL, cfg.DB.Database)
 

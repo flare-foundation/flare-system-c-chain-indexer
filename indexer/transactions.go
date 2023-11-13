@@ -15,7 +15,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"golang.org/x/exp/slices"
 )
 
 type TransactionsBatch struct {
@@ -49,12 +48,12 @@ func (ci *BlockIndexer) getTransactionsReceipt(transactionBatch *TransactionsBat
 	start, stop int, errChan chan error) {
 	var receipt *types.Receipt
 	var err error
-	receiptCheck := strings.Split(ci.params.Receipts, ",")
 	for i := start; i < stop; i++ {
 		tx := transactionBatch.Transactions[i]
 		txData := hex.EncodeToString(tx.Data())
-		funcCall := abi.FtsoPrefixToFuncCall[txData[:8]]
-		if slices.Contains(receiptCheck, funcCall) || ci.params.Receipts == "all" {
+		funcSig := txData[:8]
+		contractAddress := strings.ToLower(tx.To().Hex()[2:])
+		if ci.transactions[contractAddress][funcSig][0] || ci.transactions[contractAddress][funcSig][1] {
 			for j := 0; j < config.ReqRepeats; j++ {
 				ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
 				receipt, err = ci.client.TransactionReceipt(ctx, tx.Hash())
@@ -82,7 +81,8 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 	for i, tx := range transactionBatch.Transactions {
 		block := transactionBatch.toBlock[i]
 		txData := hex.EncodeToString(tx.Data())
-		funcCall := abi.FtsoPrefixToFuncCall[txData[:8]]
+		funcSig := txData[:8]
+		contractAddress := strings.ToLower(tx.To().Hex()[2:])
 		fromAddress, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx) // todo: this is a bit slow
 		if err != nil {
 			return nil, err
@@ -91,13 +91,26 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 		status := uint64(2)
 		if transactionBatch.toReceipt[i] != nil {
 			status = transactionBatch.toReceipt[i].Status
+			// if it was chosen to get the logs of the transaction we process it
+			if ci.transactions[contractAddress][funcSig][1] {
+				log, err := json.Marshal(transactionBatch.toReceipt[i].Logs)
+				if err != nil {
+					return nil, err
+				}
+				dbLog := &database.FtsoLog{
+					TxHash:    tx.Hash().Hex()[2:],
+					Log:       string(log),
+					Timestamp: block.Time(),
+				}
+				data.Logs = append(data.Logs, dbLog)
+			}
 		}
 
 		dbTx := &database.FtsoTransaction{
 			Hash:      tx.Hash().Hex()[2:],
 			Data:      txData,
 			BlockId:   block.NumberU64(),
-			Method:    funcCall,
+			FuncSig:   funcSig,
 			Status:    status,
 			From:      fromAddress.Hex()[2:],
 			To:        tx.To().Hex()[2:],
@@ -105,6 +118,14 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 		}
 		data.Transactions = append(data.Transactions, dbTx)
 
+		// if the option to create a specific table is chosen, we process the transaction and extract info
+		funcName, ok := abi.FtsoPrefixToFuncCall[funcSig]
+		if !ok {
+			continue
+		}
+		if _, ok := ci.optTables[funcName]; !ok {
+			continue
+		}
 		parametersMap, err := abi.DecodeTxParams(tx.Data())
 		if err != nil {
 			// todo: to be removed, just for songbird benchmark
@@ -114,11 +135,7 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 			return nil, err
 		}
 
-		// if the option to create a specific table is chosen, we process the transaction and extract info
-		if _, ok := ci.optTables[funcCall]; !ok {
-			continue
-		}
-		switch funcCall {
+		switch funcName {
 		case abi.FtsoCommit:
 			commit, err := processCommit(parametersMap, fromAddress, epoch, block.Time(), tx.Hash().Hex()[2:])
 			if err != nil {

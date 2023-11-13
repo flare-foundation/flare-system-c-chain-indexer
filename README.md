@@ -23,7 +23,20 @@ start_index = 0 # the number of the block that the indexer will start with
 num_parallel_req = 100 # the number of threads doing requests to the chain in parallel
 batch_size = 1000 # the number of block that will be pushed to a database in a batch (should be divisible by num_parallel_req)
 new_block_check_millis = 1000 # interval for checking for new blocks
-receipts = "commit,revealBitvote,signResult,finalize,offerRewards" # which type of transactions should have their receipt checked if they succeeded
+collect = [ # specify which type of transactions should be indexed
+    [
+        "22474d350ec2da53d717e30b96e9a2b7628ede5b", # address of the contract
+        "f14fcbc8", # signature of the function on the contract
+        true, # should it be checked if the transaction succeeded
+        true, # should the log of the emitted events be saved to the database
+    ],
+    [
+        "22474d350ec2da53d717e30b96e9a2b7628ede5b",
+        "4369af80",
+        true,
+        true,
+    ]
+ ]
 
 [db]
 host = "localhost"

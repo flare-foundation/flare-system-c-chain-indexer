@@ -14,11 +14,12 @@ import (
 )
 
 type BlockIndexer struct {
-	db          *gorm.DB
-	params      config.IndexerConfig
-	epochParams config.EpochConfig
-	optTables   map[string]bool
-	client      *ethclient.Client
+	db           *gorm.DB
+	params       config.IndexerConfig
+	epochParams  config.EpochConfig
+	transactions map[string]map[string][2]bool
+	optTables    map[string]bool
+	client       *ethclient.Client
 }
 
 func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) {
@@ -34,6 +35,18 @@ func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) 
 	blockIndexer.params.BatchSize -= blockIndexer.params.BatchSize % blockIndexer.params.NumParallelReq
 
 	blockIndexer.epochParams = cfg.Epochs
+
+	blockIndexer.transactions = make(map[string]map[string][2]bool)
+	for _, transaction := range cfg.Indexer.Collect {
+		contactAddress := transaction[0].(string)
+		funcSig := transaction[1].(string)
+		status := transaction[2].(bool)
+		collectEvent := transaction[3].(bool)
+		if _, ok := blockIndexer.transactions[contactAddress]; !ok {
+			blockIndexer.transactions[contactAddress] = map[string][2]bool{}
+		}
+		blockIndexer.transactions[contactAddress][funcSig] = [2]bool{status, collectEvent}
+	}
 
 	blockIndexer.optTables = make(map[string]bool)
 	if cfg.DB.OptTables != "" {
@@ -174,12 +187,12 @@ func (ci *BlockIndexer) processAndSave(batchTransactions *TransactionsBatch,
 		return
 	}
 	logger.Info(
-		"Processed %d transactions, and extracted %d commits, %d reveals, %d signatures,"+
-			" %d finalizations, and %d reward offers in %d milliseconds",
-		len(batchTransactions.Transactions), len(transactionData.Commits),
-		len(transactionData.Reveals), len(transactionData.Signatures),
-		len(transactionData.Finalizations), len(transactionData.RewardOffers),
-		time.Since(startTime).Milliseconds(),
+		"Processed %d transactions, %d logs, and extracted %d commits, %d reveals,"+
+			"%d signatures, %d finalizations, and %d reward offers in %d milliseconds",
+		len(batchTransactions.Transactions), len(transactionData.Logs),
+		len(transactionData.Commits), len(transactionData.Reveals),
+		len(transactionData.Signatures), len(transactionData.Finalizations),
+		len(transactionData.RewardOffers), time.Since(startTime).Milliseconds(),
 	)
 
 	// Put transactions in the database

@@ -7,6 +7,7 @@ import (
 
 type DatabaseStructData struct {
 	Transactions  []*database.FtsoTransaction
+	Logs          []*database.FtsoLog
 	Commits       []*database.Commit
 	Reveals       []*database.Reveal
 	Signatures    []*database.SignatureData
@@ -17,7 +18,12 @@ type DatabaseStructData struct {
 func NewDatabaseStructData() *DatabaseStructData {
 	transactionBatch := DatabaseStructData{}
 	transactionBatch.Transactions = make([]*database.FtsoTransaction, 0)
+	transactionBatch.Logs = make([]*database.FtsoLog, 0)
 	transactionBatch.Commits = make([]*database.Commit, 0)
+	transactionBatch.Reveals = make([]*database.Reveal, 0)
+	transactionBatch.Signatures = make([]*database.SignatureData, 0)
+	transactionBatch.Finalizations = make([]*database.Finalization, 0)
+	transactionBatch.RewardOffers = make([]*database.RewardOffer, 0)
 
 	return &transactionBatch
 }
@@ -35,6 +41,15 @@ func (ci *BlockIndexer) saveData(data *DatabaseStructData, states *database.DBSt
 	// todo: ignore tx if it is already in DB
 	if len(data.Transactions) != 0 {
 		err = databaseTx.Create(data.Transactions).Error
+		if err != nil {
+			databaseTx.Rollback()
+			errChan <- err
+			return
+		}
+	}
+
+	if len(data.Logs) != 0 {
+		err = databaseTx.Create(data.Logs).Error
 		if err != nil {
 			databaseTx.Rollback()
 			errChan <- err

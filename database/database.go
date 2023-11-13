@@ -16,8 +16,9 @@ var (
 	entities = []interface{}{
 		State{},
 		FtsoTransaction{},
+		FtsoLog{},
 	}
-	HistoryDropIntervalCheck = 30
+	HistoryDropIntervalCheck = 60 * 30 // every 30 min
 )
 
 func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {

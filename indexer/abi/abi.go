@@ -110,7 +110,6 @@ func AbiPrefix(name string) (string, error) {
 	if err != nil {
 		return "", nil
 	}
-
 	return hex.EncodeToString(method.ID), nil
 }
 

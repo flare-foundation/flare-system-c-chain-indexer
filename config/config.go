@@ -50,13 +50,13 @@ type ChainConfig struct {
 }
 
 type IndexerConfig struct {
-	BatchSize           int    `toml:"batch_size"`
-	StartIndex          int    `toml:"start_index"`
-	StopIndex           int    `toml:"stop_index"`
-	NumParallelReq      int    `toml:"num_parallel_req"`
-	NewBlockCheckMillis int    `toml:"new_block_check_millis"`
-	TimeoutMillis       int    `toml:"timeout_millis"`
-	Receipts            string `toml:"receipts"`
+	BatchSize           int              `toml:"batch_size"`
+	StartIndex          int              `toml:"start_index"`
+	StopIndex           int              `toml:"stop_index"`
+	NumParallelReq      int              `toml:"num_parallel_req"`
+	NewBlockCheckMillis int              `toml:"new_block_check_millis"`
+	TimeoutMillis       int              `toml:"timeout_millis"`
+	Collect             [][4]interface{} `toml:"collect"`
 }
 
 // todo: should this be fixed?
@@ -77,7 +77,7 @@ func BuildConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	
 	return cfg, nil
 }
 
