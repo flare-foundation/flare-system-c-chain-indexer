@@ -13,7 +13,7 @@ func BenchmarkBlockRequests(b *testing.B) {
 	*config.CfgFlag = "../config.songbird.toml"
 	cfg, err := config.BuildConfig()
 	if err != nil {
-		logger.Fatal("Config error: ", err)
+		logger.Fatal("Config error: %s", err)
 		return
 	}
 	config.GlobalConfigCallback.Call(cfg)
@@ -26,15 +26,15 @@ func BenchmarkBlockRequests(b *testing.B) {
 		db, err := database.ConnectAndInitializeTestDB(&cfg.DB, true)
 		if err != nil {
 			// fmt.Println("Database connect and initialize error: ", err)
-			logger.Fatal("Database connect and initialize error: ", err)
+			logger.Fatal("Database connect and initialize error: %s", err)
 		}
 		cIndexer, err := indexer.CreateBlockIndexer(cfg, db)
 		if err != nil {
-			logger.Fatal("Indexer init error: ", err)
+			logger.Fatal("Indexer init error: %s", err)
 		}
 		err = cIndexer.IndexHistory()
 		if err != nil {
-			logger.Fatal("History run error: ", err)
+			logger.Fatal("History run error: %s", err)
 		}
 	}
 }

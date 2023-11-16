@@ -16,7 +16,7 @@ func DropHistory(db *gorm.DB, intervalSeconds, checkInterval int) {
 		err := db.Where("timestamp < ?", deleteStart.Unix()).Order("block_id desc").First(lastTx).Error
 		if err != nil {
 			if err.Error() != "record not found" {
-				logger.Error("Failed to check historic data in the DB", err)
+				logger.Error("Failed to check historic data in the DB: %s", err)
 			}
 			goto sleep
 		}
@@ -31,7 +31,7 @@ func DropHistory(db *gorm.DB, intervalSeconds, checkInterval int) {
 			err = db.Where("timestamp < ?", deleteStart.Unix()).Delete(&entity).Error
 			if err != nil {
 				databaseTx.Rollback()
-				logger.Error("Failed to delete historic data in the DB", err)
+				logger.Error("Failed to delete historic data in the DB: %s", err)
 				goto sleep
 			}
 		}
@@ -39,13 +39,13 @@ func DropHistory(db *gorm.DB, intervalSeconds, checkInterval int) {
 		err = States.Update(db, FirstDatabaseIndexState, int(lastTx.BlockId)+1)
 		if err != nil {
 			databaseTx.Rollback()
-			logger.Error("Failed to update state in the DB", err)
+			logger.Error("Failed to update state in the DB: %s", err)
 			goto sleep
 		}
 
 		err = databaseTx.Commit().Error
 		if err != nil {
-			logger.Error("Failed to delete the data the DB", err)
+			logger.Error("Failed to delete the data the DB: %s", err)
 			goto sleep
 		}
 		logger.Info("Deleted blocks up to index %d", lastTx.BlockId)

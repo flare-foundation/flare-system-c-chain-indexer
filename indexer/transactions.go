@@ -63,7 +63,7 @@ func (ci *BlockIndexer) getTransactionsReceipt(transactionBatch *TransactionsBat
 				}
 			}
 			if err != nil {
-				errChan <- err
+				errChan <- fmt.Errorf("getTransactionsReceipt: %w", err)
 				return
 			}
 		} else {
@@ -85,7 +85,7 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 		contractAddress := strings.ToLower(tx.To().Hex()[2:])
 		fromAddress, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx) // todo: this is a bit slow
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("processTransactions: Sender: %w", err)
 		}
 		epoch := abi.EpochFromTimeInt(block.Time(), ci.epochParams.FirstEpochStartSec, ci.epochParams.EpochDurationSec)
 		status := uint64(2)
@@ -95,7 +95,7 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 			if ci.transactions[contractAddress][funcSig][1] {
 				log, err := json.Marshal(transactionBatch.toReceipt[i].Logs)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("processTransactions: Marshall: %w", err)
 				}
 				dbLog := &database.FtsoLog{
 					TxHash:    tx.Hash().Hex()[2:],
@@ -132,39 +132,39 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 			if err.Error() == "not a method name" {
 				continue
 			}
-			return nil, err
+			return nil, fmt.Errorf("processTransactions: %w", err)
 		}
 
 		switch funcName {
 		case abi.FtsoCommit:
 			commit, err := processCommit(parametersMap, fromAddress, epoch, block.Time(), tx.Hash().Hex()[2:])
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("processTransactions: %w", err)
 			}
 
 			data.Commits = append(data.Commits, commit)
 		case abi.FtsoReveal:
 			reveal, err := processReveal(parametersMap, fromAddress, epoch, block.Time(), tx.Hash().Hex()[2:])
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("processTransactions: %w", err)
 			}
 			data.Reveals = append(data.Reveals, reveal)
 		case abi.FtsoSignature:
 			signatureData, err := processSignature(parametersMap, fromAddress, block.Time(), epoch, tx.Hash().Hex()[2:])
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("processTransactions: %w", err)
 			}
 			data.Signatures = append(data.Signatures, signatureData)
 		case abi.FtsoFinalize:
 			finalization, err := processFinalization(parametersMap, fromAddress, block.Time(), epoch, tx.Hash().Hex()[2:])
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("processTransactions: %w", err)
 			}
 			data.Finalizations = append(data.Finalizations, finalization)
 		case abi.FtsoOffers:
 			offers, err := processRewardOffers(parametersMap, fromAddress, block.Time(), epoch, tx.Hash().Hex()[2:])
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("processTransactions: %w", err)
 			}
 			data.RewardOffers = append(data.RewardOffers, offers...)
 		}
@@ -177,11 +177,11 @@ func processCommit(parametersMap map[string]interface{}, fromAddress common.Addr
 	epoch uint64, timestamp uint64, hash string) (*database.Commit, error) {
 	commitHashInterface, ok := parametersMap["_commitHash"]
 	if ok == false {
-		return nil, fmt.Errorf("input commitHash not found")
+		return nil, fmt.Errorf("processCommit: input commitHash not found")
 	}
 	commitHash, ok := commitHashInterface.([32]byte)
 	if ok == false {
-		return nil, fmt.Errorf("input commitHash not correctly formed")
+		return nil, fmt.Errorf("processCommit: input commitHash not correctly formed")
 	}
 	commit := &database.Commit{
 		Epoch:      epoch,
@@ -198,37 +198,37 @@ func processReveal(parametersMap map[string]interface{}, fromAddress common.Addr
 	epoch uint64, timestamp uint64, hash string) (*database.Reveal, error) {
 	randomInterface, ok := parametersMap["_random"]
 	if ok == false {
-		return nil, fmt.Errorf("input random not found")
+		return nil, fmt.Errorf("processReveal: input random not found")
 	}
 	random, ok := randomInterface.([32]byte)
 	if ok == false {
-		return nil, fmt.Errorf("input random not correctly formed")
+		return nil, fmt.Errorf("processReveal: input random not correctly formed")
 	}
 	merkleRootInterface, ok := parametersMap["_merkleRoot"]
 	if ok == false {
-		return nil, fmt.Errorf("input merkleRoot not found")
+		return nil, fmt.Errorf("processReveal: input merkleRoot not found")
 	}
 	merkleRoot, ok := merkleRootInterface.([32]byte)
 	if ok == false {
-		return nil, fmt.Errorf("input merkleRoot not correctly formed")
+		return nil, fmt.Errorf("processReveal: input merkleRoot not correctly formed")
 	}
 
 	bitVoteInterface, ok := parametersMap["_bitVote"]
 	if ok == false {
-		return nil, fmt.Errorf("input bitVote not found")
+		return nil, fmt.Errorf("processReveal: input bitVote not found")
 	}
 	bitVote, ok := bitVoteInterface.([]byte)
 	if ok == false {
-		return nil, fmt.Errorf("input bitVote not correctly formed")
+		return nil, fmt.Errorf("processReveal: input bitVote not correctly formed")
 	}
 
 	pricesInterface, ok := parametersMap["_prices"]
 	if ok == false {
-		return nil, fmt.Errorf("input prices not found")
+		return nil, fmt.Errorf("processReveal: input prices not found")
 	}
 	prices, ok := pricesInterface.([]byte)
 	if ok == false {
-		return nil, fmt.Errorf("input prices not correctly formed")
+		return nil, fmt.Errorf("processReveal: input prices not correctly formed")
 	}
 
 	reveal := &database.Reveal{
@@ -249,29 +249,29 @@ func processSignature(parametersMap map[string]interface{}, fromAddress common.A
 	timestamp uint64, blockEpoch uint64, hash string) (*database.SignatureData, error) {
 	epochInterface, ok := parametersMap["_epochId"]
 	if ok == false {
-		return nil, fmt.Errorf("input epoch not found")
+		return nil, fmt.Errorf("processSignature: input epoch not found")
 	}
 	epoch, ok := epochInterface.(*big.Int)
 	if ok == false {
-		return nil, fmt.Errorf("input epoch not correctly formed")
+		return nil, fmt.Errorf("processSignature: input epoch not correctly formed")
 	}
 
 	merkleRootInterface, ok := parametersMap["_merkleRoot"]
 	if ok == false {
-		return nil, fmt.Errorf("input merkleRoot not found")
+		return nil, fmt.Errorf("processSignature: input merkleRoot not found")
 	}
 	merkleRoot, ok := merkleRootInterface.([32]byte)
 	if ok == false {
-		return nil, fmt.Errorf("input merkleRoot not correctly formed")
+		return nil, fmt.Errorf("processSignature: input merkleRoot not correctly formed")
 	}
 
 	signatureInterface, ok := parametersMap["signature"]
 	if ok == false {
-		return nil, fmt.Errorf("input signature not found")
+		return nil, fmt.Errorf("processSignature: input signature not found")
 	}
 	signature, err := json.Marshal(signatureInterface)
 	if err != nil {
-		return nil, fmt.Errorf("input signature not correctly formed %s", err)
+		return nil, fmt.Errorf("processSignature: input signature not correctly formed %s", err)
 	}
 
 	signatureData := &database.SignatureData{
@@ -291,29 +291,29 @@ func processFinalization(parametersMap map[string]interface{}, fromAddress commo
 	timestamp uint64, blockEpoch uint64, hash string) (*database.Finalization, error) {
 	epochInterface, ok := parametersMap["_epochId"]
 	if ok == false {
-		return nil, fmt.Errorf("input epoch not found")
+		return nil, fmt.Errorf("processFinalization: input epoch not found")
 	}
 	epoch, ok := epochInterface.(*big.Int)
 	if ok == false {
-		return nil, fmt.Errorf("input epoch not correctly formed")
+		return nil, fmt.Errorf("processFinalization: input epoch not correctly formed")
 	}
 
 	merkleRootInterface, ok := parametersMap["_merkleRoot"]
 	if ok == false {
-		return nil, fmt.Errorf("input merkleRoot not found")
+		return nil, fmt.Errorf("processFinalization: input merkleRoot not found")
 	}
 	merkleRoot, ok := merkleRootInterface.([32]byte)
 	if ok == false {
-		return nil, fmt.Errorf("input merkleRoot not correctly formed")
+		return nil, fmt.Errorf("processFinalization: input merkleRoot not correctly formed")
 	}
 
 	signaturesInterface, ok := parametersMap["signatures"]
 	if ok == false {
-		return nil, fmt.Errorf("input signature not found")
+		return nil, fmt.Errorf("processFinalization: input signature not found")
 	}
 	signatures, err := json.Marshal(signaturesInterface)
 	if err != nil {
-		return nil, fmt.Errorf("input signatures not correctly formed %s", err)
+		return nil, fmt.Errorf("processFinalization: input signatures not correctly formed %s", err)
 	}
 
 	finalization := &database.Finalization{
@@ -333,17 +333,17 @@ func processRewardOffers(parametersMap map[string]interface{}, fromAddress commo
 	timestamp uint64, blockEpoch uint64, hash string) ([]*database.RewardOffer, error) {
 	offersInterface, ok := parametersMap["offers"]
 	if ok == false {
-		return nil, fmt.Errorf("input offers not found")
+		return nil, fmt.Errorf("processRewardOffers: input offers not found")
 	}
 	// type gymnastics
 	offersBytes, err := json.Marshal(offersInterface)
 	if err != nil {
-		return nil, fmt.Errorf("input offers not correctly formed %s", err)
+		return nil, fmt.Errorf("processRewardOffers: input offers not correctly formed %s", err)
 	}
 	var offers []abi.Offer
 	err = json.Unmarshal(offersBytes, &offers)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("processRewardOffers: %w", err)
 	}
 
 	rewardOffers := make([]*database.RewardOffer, len(offers))
@@ -354,7 +354,7 @@ func processRewardOffers(parametersMap map[string]interface{}, fromAddress commo
 		}
 		providers, err := json.Marshal(leadProvidersHex)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("processRewardOffers: %w", err)
 		}
 
 		rewardOffers[i] = &database.RewardOffer{

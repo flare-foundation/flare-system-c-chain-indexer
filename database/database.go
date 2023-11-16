@@ -19,12 +19,13 @@ var (
 		FtsoLog{},
 	}
 	HistoryDropIntervalCheck = 60 * 30 // every 30 min
+	DBTransactionBatchesSize = 1000
 )
 
 func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
 	db, err := Connect(cfg)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ConnectAndInitialize: Connect: %w", err)
 	}
 
 	if cfg.OptTables != "" {
@@ -39,7 +40,7 @@ func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
 	// Initialize - auto migrate
 	err = db.AutoMigrate(entities...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ConnectAndInitialize: AutoMigrate %w", err)
 	}
 	// If the state info is not in the DB, create it
 	_, err = GetDBStates(db)
@@ -49,7 +50,7 @@ func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
 			s.UpdateIndex(0)
 			err = db.Create(s).Error
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("ConnectAndInitialize: Create: %w", err)
 			}
 		}
 	}
@@ -76,7 +77,8 @@ func Connect(cfg *config.DBConfig) (*gorm.DB, error) {
 		gormLogLevel = logger.Silent
 	}
 	gormConfig := gorm.Config{
-		Logger: logger.Default.LogMode(gormLogLevel),
+		Logger:          logger.Default.LogMode(gormLogLevel),
+		CreateBatchSize: DBTransactionBatchesSize,
 	}
 	return gorm.Open(gormMysql.Open(dbConfig.FormatDSN()), &gormConfig)
 }

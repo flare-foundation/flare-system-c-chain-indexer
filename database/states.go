@@ -1,6 +1,7 @@
 package database
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -56,7 +57,7 @@ func GetDBStates(db *gorm.DB) (*DBStates, error) {
 		err := db.Where(&State{Name: name}).First(&state).Error
 		if err != nil {
 			States.Mutex.Unlock()
-			return nil, err
+			return nil, fmt.Errorf("GetDBStates: %w", err)
 		}
 		States.States[name] = &state
 	}
@@ -76,27 +77,30 @@ func (states *DBStates) UpdateDB(db *gorm.DB, name string) error {
 func (states *DBStates) Update(db *gorm.DB, name string, newIndex int) error {
 	states.UpdateIndex(name, newIndex)
 	err := states.UpdateDB(db, name)
+	if err != nil {
+		return fmt.Errorf("Update: %w", err)
+	}
 
-	return err
+	return nil
 }
 
 func (states *DBStates) UpdateAtStart(db *gorm.DB, startIndex, lastChainIndex int) error {
 	var err error
-	// if make a break among saved blocks in the dataset is created,
+	// if a break among saved blocks in the dataset is created,
 	// then we change the guaranties about the starting block
 	if int(states.States[NextDatabaseIndexState].Index) < startIndex {
 		err = states.Update(db, FirstDatabaseIndexState, startIndex)
 		if err != nil {
-			return err
+			return fmt.Errorf("UpdateAtStart: %w", err)
 		}
 	}
 	err = states.Update(db, NextDatabaseIndexState, startIndex)
 	if err != nil {
-		return err
+		return fmt.Errorf("UpdateAtStart: %w", err)
 	}
 	err = states.Update(db, LastChainIndexState, lastChainIndex)
 	if err != nil {
-		return err
+		return fmt.Errorf("UpdateAtStart: %w", err)
 	}
 
 	return nil

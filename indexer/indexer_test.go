@@ -48,17 +48,17 @@ func TestIndexer(t *testing.T) {
 	// connect to the database
 	db, err := database.ConnectAndInitializeTestDB(&cfgDB, true)
 	if err != nil {
-		logger.Fatal("Database connect and initialize error: ", err)
+		logger.Fatal("Database connect and initialize error: %s", err)
 	}
 	// create the indexer
 	cIndexer, err := CreateBlockIndexer(&cfg, db)
 	if err != nil {
-		logger.Fatal("Indexer init error: ", err)
+		logger.Fatal("Indexer init error: %s", err)
 	}
 	// index history with parallel processing
 	err = cIndexer.IndexHistory()
 	if err != nil {
-		logger.Fatal("History run error: ", err)
+		logger.Fatal("History run error: %s", err)
 	}
 
 	// turn on the function to delete in the database everything that
@@ -72,7 +72,7 @@ func TestIndexer(t *testing.T) {
 	// run indexer
 	err = cIndexer.IndexContinuous()
 	if err != nil {
-		logger.Fatal("Continuous run error: ", err)
+		logger.Fatal("Continuous run error: %s", err)
 	}
 
 	// correctness check

@@ -2,7 +2,10 @@ package indexer
 
 import (
 	"flare-ftso-indexer/database"
+	"fmt"
 	"reflect"
+
+	"gorm.io/gorm/clause"
 )
 
 type DatabaseStructData struct {
@@ -40,19 +43,20 @@ func (ci *BlockIndexer) saveData(data *DatabaseStructData, states *database.DBSt
 	}()
 	// todo: ignore tx if it is already in DB
 	if len(data.Transactions) != 0 {
-		err = databaseTx.Create(data.Transactions).Error
+		err = databaseTx.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(data.Transactions, database.DBTransactionBatchesSize).Error
 		if err != nil {
 			databaseTx.Rollback()
-			errChan <- err
+			errChan <- fmt.Errorf("saveData: CreateInBatches: %w", err)
 			return
 		}
 	}
+	// databaseTx.Clauses()
 
 	if len(data.Logs) != 0 {
-		err = databaseTx.Create(data.Logs).Error
+		err = databaseTx.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(data.Logs, database.DBTransactionBatchesSize).Error
 		if err != nil {
 			databaseTx.Rollback()
-			errChan <- err
+			errChan <- fmt.Errorf("saveData: CreateInBatches: %w", err)
 			return
 		}
 	}
@@ -63,10 +67,10 @@ func (ci *BlockIndexer) saveData(data *DatabaseStructData, states *database.DBSt
 			// check if the option to save is chosen
 			typeOf := reflect.ValueOf(slice).Index(0).Type().String()[1:]
 			if _, ok := ci.optTables[database.InterfaceTypeToMethod[typeOf]]; ok {
-				err = databaseTx.Create(slice).Error
+				err = databaseTx.Clauses(clause.OnConflict{UpdateAll: true}).CreateInBatches(slice, database.DBTransactionBatchesSize).Error
 				if err != nil {
 					databaseTx.Rollback()
-					errChan <- err
+					errChan <- fmt.Errorf("saveData: CreateInBatches: %w", err)
 					return
 				}
 			}
@@ -75,9 +79,13 @@ func (ci *BlockIndexer) saveData(data *DatabaseStructData, states *database.DBSt
 	err = states.Update(ci.db, database.NextDatabaseIndexState, newIndex)
 	if err != nil {
 		databaseTx.Rollback()
-		errChan <- err
+		errChan <- fmt.Errorf("saveData: Update: %w", err)
 		return
 	}
+	err = databaseTx.Commit().Error
+	if err != nil {
+		errChan <- fmt.Errorf("saveData: Commit: %w", err)
 
-	errChan <- databaseTx.Commit().Error
+	}
+	errChan <- nil
 }

@@ -5,6 +5,7 @@ import (
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer/abi"
 	"flare-ftso-indexer/logger"
+	"fmt"
 	"strings"
 	"time"
 
@@ -53,7 +54,7 @@ func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) 
 		methods := strings.Split(cfg.DB.OptTables, ",")
 		for _, method := range methods {
 			if slices.Contains(abi.FtsoMethods, method) == false {
-				logger.Error("Unrecognized optional table name %s", method)
+				logger.Error("Unrecognized optional table name: %s", method)
 				continue
 			}
 			blockIndexer.optTables[method] = true
@@ -63,7 +64,7 @@ func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) 
 	var err error
 	blockIndexer.client, err = ethclient.Dial(cfg.Chain.NodeURL)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("CreateBlockIndexer: Dial: %w", err)
 	}
 
 	return &blockIndexer, nil
@@ -73,16 +74,16 @@ func (ci *BlockIndexer) IndexHistory() error {
 	// Get start and end block number
 	States, err := database.GetDBStates(ci.db)
 	if err != nil {
-		return err
+		return fmt.Errorf("IndexHistory: %w", err)
 	}
 	lastChainIndex, err := ci.fetchLastBlockIndex()
 	if err != nil {
-		return err
+		return fmt.Errorf("IndexHistory: %w", err)
 	}
 	startIndex, lastIndex := ci.getIndexes(States, lastChainIndex)
 	err = States.UpdateAtStart(ci.db, startIndex, lastChainIndex)
 	if err != nil {
-		return err
+		return fmt.Errorf("IndexHistory: %w", err)
 	}
 	logger.Info("Starting to index blocks from %d to %d", startIndex, lastIndex)
 
@@ -104,7 +105,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 		for i := 0; i < ci.params.NumParallelReq; i++ {
 			err := <-blockErrChan
 			if err != nil {
-				return err
+				return fmt.Errorf("IndexHistory: %w", err)
 			}
 		}
 		logger.Info(
@@ -116,7 +117,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 		// before processing new transactions
 		err = <-databaseErrChan
 		if err != nil {
-			return err
+			return fmt.Errorf("IndexHistory: %w", err)
 		}
 
 		// Process blocks
@@ -125,7 +126,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 		go ci.processBlocks(blockBatch, batchTransactions, 0, ci.params.BatchSize, blockErrChan)
 		err = <-blockErrChan
 		if err != nil {
-			return err
+			return fmt.Errorf("IndexHistory: %w", err)
 		}
 		logger.Info(
 			"Successfully extracted %d transactions in %d milliseconds",
@@ -144,7 +145,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 		for i := 0; i < ci.params.NumParallelReq; i++ {
 			err := <-blockErrChan
 			if err != nil {
-				return err
+				return fmt.Errorf("IndexHistory: %w", err)
 			}
 		}
 		logger.Info(
@@ -160,7 +161,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 		if j+ci.params.BatchSize <= lastIndex && j+2*ci.params.BatchSize > lastIndex {
 			lastChainIndex, err := ci.fetchLastBlockIndex()
 			if err != nil {
-				return err
+				return fmt.Errorf("IndexHistory: %w", err)
 			}
 			States.Update(ci.db, database.LastChainIndexState, lastChainIndex)
 			if lastChainIndex > lastIndex && ci.params.StopIndex > lastIndex {
@@ -172,7 +173,7 @@ func (ci *BlockIndexer) IndexHistory() error {
 
 	err = <-databaseErrChan
 	if err != nil {
-		return err
+		return fmt.Errorf("IndexHistory: %w", err)
 	}
 
 	return nil
@@ -183,7 +184,7 @@ func (ci *BlockIndexer) processAndSave(batchTransactions *TransactionsBatch,
 	startTime := time.Now()
 	transactionData, err := ci.processTransactions(batchTransactions)
 	if err != nil {
-		errChan <- err
+		errChan <- fmt.Errorf("processAndSave: %w", err)
 		return
 	}
 	logger.Info(
@@ -201,7 +202,7 @@ func (ci *BlockIndexer) processAndSave(batchTransactions *TransactionsBatch,
 	ci.saveData(transactionData, states, newIndex, errChan2)
 	err = <-errChan2
 	if err != nil {
-		errChan <- err
+		errChan <- fmt.Errorf("processAndSave: %w", err)
 		return
 	}
 	logger.Info(
@@ -217,16 +218,16 @@ func (ci *BlockIndexer) IndexContinuous() error {
 	// Get start and end block number
 	states, err := database.GetDBStates(ci.db)
 	if err != nil {
-		return err
+		return fmt.Errorf("IndexContinuous: %w", err)
 	}
 	lastChainIndex, err := ci.fetchLastBlockIndex()
 	if err != nil {
-		return err
+		return fmt.Errorf("IndexContinuous: %w", err)
 	}
 	index, lastIndex := ci.getIndexes(states, lastChainIndex)
 	err = states.UpdateAtStart(ci.db, index, lastChainIndex)
 	if err != nil {
-		return err
+		return fmt.Errorf("IndexContinuous: %w", err)
 	}
 	logger.Info("Continuously indexing blocks from %d", index)
 
@@ -244,7 +245,7 @@ func (ci *BlockIndexer) IndexContinuous() error {
 			time.Sleep(time.Millisecond * time.Duration(ci.params.NewBlockCheckMillis))
 			lastIndex, err = ci.fetchLastBlockIndex()
 			if err != nil {
-				return err
+				return fmt.Errorf("IndexContinuous: %w", err)
 			}
 			states.Update(ci.db, database.LastChainIndexState, lastIndex)
 			continue
@@ -252,32 +253,32 @@ func (ci *BlockIndexer) IndexContinuous() error {
 		ci.requestBlocks(blockBatch, index, index+1, 0, lastIndex, errChan)
 		err := <-errChan
 		if err != nil {
-			return err
+			return fmt.Errorf("IndexContinuous: %w", err)
 		}
 		batchTransactions := NewTransactionsBatch()
 		ci.processBlocks(blockBatch, batchTransactions, 0, 1, errChan)
 		err = <-errChan
 		if err != nil {
-			return err
+			return fmt.Errorf("IndexContinuous: %w", err)
 		}
 
 		ci.getTransactionsReceipt(batchTransactions, 0, len(batchTransactions.Transactions),
 			errChan)
 		err = <-errChan
 		if err != nil {
-			return err
+			return fmt.Errorf("IndexContinuous: %w", err)
 		}
 
 		transactionData, err := ci.processTransactions(batchTransactions)
 		if err != nil {
-			return err
+			return fmt.Errorf("IndexContinuous: %w", err)
 		}
 
 		index += 1
 		ci.saveData(transactionData, states, index, errChan)
 		err = <-errChan
 		if err != nil {
-			return err
+			return fmt.Errorf("IndexContinuous: %w", err)
 		}
 
 		if index%1000 == 0 {

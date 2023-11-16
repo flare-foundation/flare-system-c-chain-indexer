@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"flare-ftso-indexer/config"
+	"fmt"
 	"math/big"
 	"strings"
 	"sync"
@@ -37,7 +38,7 @@ func (ci *BlockIndexer) fetchLastBlockIndex() (int, error) {
 		}
 	}
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("fetchLastBlockIndex: %w", err)
 	}
 
 	return int(lastBlock.NumberU64()), nil
@@ -59,7 +60,7 @@ func (ci *BlockIndexer) requestBlocks(blockBatch *BlockBatch, start, stop, listI
 				}
 			}
 			if err != nil {
-				errChan <- err
+				errChan <- fmt.Errorf("requestBlocks: %w", err)
 				return
 			}
 		}

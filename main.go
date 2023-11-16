@@ -13,28 +13,28 @@ func main() {
 	flag.Parse()
 	cfg, err := config.BuildConfig()
 	if err != nil {
-		logger.Fatal("Config error: ", err)
+		logger.Fatal("Config error: %s", err)
 		return
 	}
 	config.GlobalConfigCallback.Call(cfg)
 	logger.Info("Running with configuration: chain: %s, database: %s", cfg.Chain.NodeURL, cfg.DB.Database)
-	
+
 	abi.InitVotingAbi("indexer/abi/contracts/Voting.json", "indexer/abi/contracts/VotingRewardManager.json")
 	db, err := database.ConnectAndInitialize(&cfg.DB)
 	if err != nil {
-		logger.Fatal("Database connect and initialize error: ", err)
+		logger.Fatal("Database connect and initialize error: %s", err)
 		return
 	}
 
 	cIndexer, err := indexer.CreateBlockIndexer(cfg, db)
 	if err != nil {
-		logger.Error("Indexer init error: ", err)
+		logger.Error("Indexer init error: %s", err)
 		return
 	}
 	for {
 		err = cIndexer.IndexHistory()
 		if err != nil {
-			logger.Error("History run error: ", err)
+			logger.Error("History run error: %s", err)
 			logger.Info("Restarting indexing history from the current state")
 		} else {
 			break
@@ -48,7 +48,7 @@ func main() {
 	for {
 		err = cIndexer.IndexContinuous()
 		if err != nil {
-			logger.Error("Run error: ", err)
+			logger.Error("Run error: %s", err)
 			logger.Info("Restarting from the current state")
 		}
 	}
