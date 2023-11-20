@@ -22,8 +22,8 @@ first_epoch_start_sec = 1636070400
 epoch_duration_sec = 90
 
 [indexer]
-start_index = 44500000
-stop_index = 44510000
+start_index = 0
+stop_index = 0
 new_block_check_millis = 1000
 batch_size = 2500
 num_parallel_req = 250

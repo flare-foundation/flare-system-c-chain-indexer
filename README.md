@@ -15,7 +15,8 @@ parameters can also be configured using environment variables. See the list belo
 
 Config file can be specified using the command line parameter `--config`, e.g., `./flare-ftso-indexer --config config.toml`.
 The default config file name is `config.toml`.
-Below is the list of configuration parameters for all clients, most are self-explanatory.
+Below is the list of configuration parameters for all clients, most are self-explanatory. Note that the chain URL needs to
+allow many simultaneous if the indexer is set index big amount of data.
 
 ```toml
 [indexer]
@@ -45,7 +46,7 @@ database = "flare_ftso_indexer"
 username = "root"
 password = "root"
 log_queries = true
-opt_tables = "commit,revealBitvote,signResult,finalize,offerRewards" # which type of transactions should have their data extracted and saved into a separate DB table
+opt_tables = "commit,revealBitvote,signResult,finalize,offerRewards" # which type of transactions should have their data extracted and saved into a separate DB table (this can be used only if the indexer is indexing FTSO scaling)
 history_drop = 604800 # Enable deleting the transactions that are older (timestamp of the block) than history_drop (in seconds)
 
 [logger]

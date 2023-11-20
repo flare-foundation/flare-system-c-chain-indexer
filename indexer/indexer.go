@@ -188,7 +188,7 @@ func (ci *BlockIndexer) processAndSave(batchTransactions *TransactionsBatch,
 		return
 	}
 	logger.Info(
-		"Processed %d transactions, %d logs, and extracted %d commits, %d reveals,"+
+		"Processed %d transactions, %d logs, and extracted %d commits, %d reveals, "+
 			"%d signatures, %d finalizations, and %d reward offers in %d milliseconds",
 		len(batchTransactions.Transactions), len(transactionData.Logs),
 		len(transactionData.Commits), len(transactionData.Reveals),

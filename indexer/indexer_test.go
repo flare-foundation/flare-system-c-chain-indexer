@@ -50,6 +50,14 @@ func TestIndexer(t *testing.T) {
 	if err != nil {
 		logger.Fatal("Database connect and initialize error: %s", err)
 	}
+
+	// set a new starting index based on the history drop interval
+	historyDropIntervalSeconds := 10000
+	cfg.Indexer.StartIndex, err = database.GetMinBlockWithHistoryDrop(cfg.Indexer.StartIndex, historyDropIntervalSeconds, cfg.Chain.NodeURL)
+	if err != nil {
+		logger.Fatal("Could not set the starting index: %s", err)
+	}
+
 	// create the indexer
 	cIndexer, err := CreateBlockIndexer(&cfg, db)
 	if err != nil {
@@ -61,13 +69,12 @@ func TestIndexer(t *testing.T) {
 		logger.Fatal("History run error: %s", err)
 	}
 
-	// turn on the function to delete in the database everything that
-	// is older than the following interval
-	intervalSeconds := int(time.Now().Unix() - 1694605681)
-	go database.DropHistory(db, intervalSeconds, database.HistoryDropIntervalCheck)
-
 	// at the mock server add new blocks after some time
 	go increaseLastBlockAndStop()
+
+	// turn on the function to delete in the database everything that
+	// is older than the historyDrop interval
+	go database.DropHistory(db, historyDropIntervalSeconds, database.HistoryDropIntervalCheck, cfgChain.NodeURL)
 
 	// run indexer
 	err = cIndexer.IndexContinuous()
@@ -77,9 +84,9 @@ func TestIndexer(t *testing.T) {
 
 	// correctness check
 	states, err := database.GetDBStates(db)
-	assert.Equal(t, uint64(1518), states.States[database.FirstDatabaseIndexState].Index)
-	assert.Equal(t, uint64(2401), states.States[database.NextDatabaseIndexState].Index)
-	assert.Equal(t, uint64(2499), states.States[database.LastChainIndexState].Index)
+	assert.Equal(t, 1212, int(states.States[database.FirstDatabaseIndexState].Index))
+	assert.Equal(t, 2401, int(states.States[database.NextDatabaseIndexState].Index))
+	assert.Equal(t, 2499, int(states.States[database.LastChainIndexState].Index))
 }
 
 func increaseLastBlockAndStop() {

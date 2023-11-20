@@ -26,6 +26,19 @@ func main() {
 		return
 	}
 
+	var startIndex int
+	if cfg.DB.HistoryDrop > 0 {
+		startIndex, err = database.GetMinBlockWithHistoryDrop(cfg.Indexer.StartIndex, cfg.DB.HistoryDrop, cfg.Chain.NodeURL)
+		if err != nil {
+			logger.Fatal("Could not set the starting index: %s", err)
+			return
+		}
+	}
+	if startIndex != cfg.Indexer.StartIndex {
+		logger.Info("Setting new startIndex due to history drop: %d", startIndex)
+		cfg.Indexer.StartIndex = startIndex
+	}
+
 	cIndexer, err := indexer.CreateBlockIndexer(cfg, db)
 	if err != nil {
 		logger.Error("Indexer init error: %s", err)
@@ -42,7 +55,7 @@ func main() {
 	}
 
 	if cfg.DB.HistoryDrop > 0 {
-		go database.DropHistory(db, cfg.DB.HistoryDrop, database.HistoryDropIntervalCheck)
+		go database.DropHistory(db, cfg.DB.HistoryDrop, database.HistoryDropIntervalCheck, cfg.Chain.NodeURL)
 	}
 
 	for {
