@@ -1,108 +1,37 @@
 package database
 
-import (
-	"flare-ftso-indexer/indexer/abi"
-	"reflect"
-)
-
-var (
-	MethodToInterface = map[string]interface{}{
-		abi.FtsoCommit:    Commit{},
-		abi.FtsoReveal:    Reveal{},
-		abi.FtsoSignature: SignatureData{},
-		abi.FtsoFinalize:  Finalization{},
-		abi.FtsoOffers:    RewardOffer{},
-	}
-	InterfaceTypeToMethod = map[string]string{
-		reflect.TypeOf(Commit{}).String():        abi.FtsoCommit,
-		reflect.TypeOf(Reveal{}).String():        abi.FtsoReveal,
-		reflect.TypeOf(SignatureData{}).String(): abi.FtsoSignature,
-		reflect.TypeOf(Finalization{}).String():  abi.FtsoFinalize,
-		reflect.TypeOf(RewardOffer{}).String():   abi.FtsoOffers,
-	}
-)
-
 // BaseEntity is an abstract entity, all other entities should be derived from it
 type BaseEntity struct {
 	ID uint64 `gorm:"primaryKey;unique"`
 }
 
-type FtsoTransaction struct {
+type Transaction struct {
 	BaseEntity
-	Hash      string `gorm:"type:varchar(64);index;unique"`
-	FuncSig   string `gorm:"type:varchar(50);index"`
-	Data      string `gorm:"type:string"`
-	BlockId   uint64
-	Status    uint64
-	From      string `gorm:"type:varchar(40);index"`
-	To        string `gorm:"type:varchar(40);index"`
-	Timestamp uint64 `gorm:"index"`
+	Hash             string `gorm:"type:varchar(64);index;unique"`
+	FunctionSig      string `gorm:"type:varchar(50);index"`
+	Input            string `gorm:"type:string"`
+	BlockNumber      uint64
+	BlockHash        string `gorm:"type:varchar(64)"`
+	TransactionIndex uint64
+	FromAddress      string `gorm:"type:varchar(40);index"`
+	ToAddress        string `gorm:"type:varchar(40);index"`
+	Status           uint64
+	Value            string `gorm:"type:string"`
+	GasPrice         string `gorm:"type:string"`
+	Gas              uint64
+	Timestamp        uint64 `gorm:"index"`
 }
 
-type FtsoLog struct {
+type Log struct {
 	BaseEntity
-	TxHash    string `gorm:"type:varchar(64);index;unique"`
-	Log       string `gorm:"type:string"`
-	Timestamp uint64 `gorm:"index"`
-}
-
-type Commit struct {
-	BaseEntity
-	Epoch      uint64
-	Address    string `gorm:"type:varchar(40)"`
-	CommitHash string `gorm:"type:varchar(64)"`
-	Timestamp  uint64 `gorm:"index"`
-	TxHash     string `gorm:"type:varchar(64);unique"`
-}
-
-type Reveal struct {
-	BaseEntity
-	Epoch      uint64
-	Address    string `gorm:"type:varchar(40)"`
-	Random     string `gorm:"type:varchar(64)"`
-	MerkleRoot string `gorm:"type:varchar(64)"`
-	BitVote    string `gorm:"type:varchar(2)"`
-	Prices     string `gorm:"type:varchar(1000)"`
-	Timestamp  uint64 `gorm:"index"`
-	TxHash     string `gorm:"type:varchar(64);unique"`
-}
-
-type SignatureData struct {
-	BaseEntity
-	Epoch          uint64
-	SignatureEpoch uint64
-	Address        string `gorm:"type:varchar(40)"`
-	MerkleRoot     string `gorm:"type:varchar(64)"`
-	Signature      string `gorm:"type:varchar(1000)"`
-	Timestamp      uint64
-	TxHash         string `gorm:"type:varchar(64);unique"`
-}
-
-type Finalization struct {
-	BaseEntity
-	Epoch          uint64
-	SignatureEpoch uint64
-	Address        string `gorm:"type:varchar(40)"`
-	MerkleRoot     string `gorm:"type:varchar(64)"`
-	Signatures     string `gorm:"type:varchar(10000)"`
-	Timestamp      uint64 `gorm:"index"`
-	TxHash         string `gorm:"type:varchar(64)"`
-}
-
-type RewardOffer struct {
-	BaseEntity
-	Epoch               uint64
-	Address             string `gorm:"type:varchar(40)"`
-	Amount              uint64
-	CurrencyAddress     string `gorm:"type:varchar(40)"`
-	OfferSymbol         string `gorm:"type:varchar(8)"`
-	QuoteSymbol         string `gorm:"type:varchar(8)"`
-	LeadProviders       string `gorm:"type:varchar(1000)"`
-	RewardBeltPPM       uint64
-	ElasticBandWidthPPM uint64
-	IqrSharePPM         uint64
-	PctSharePPM         uint64
-	RemainderClaimer    string `gorm:"type:varchar(40)"`
-	Timestamp           uint64 `gorm:"index"`
-	TxHash              string `gorm:"type:varchar(64)"`
+	TransactionID uint64      `gorm:"uniqueIndex:id_index_unique"`
+	Transaction   Transaction `gorm:"constraint:OnUpdate:CASCADE"`
+	Address       string      `gorm:"type:varchar(40);index"`
+	Data          string      `gorm:"type:string"`
+	Topic0        string      `gorm:"type:varchar(64);index"`
+	Topic1        string      `gorm:"type:varchar(64);index"`
+	Topic2        string      `gorm:"type:varchar(64);index"`
+	Topic3        string      `gorm:"type:varchar(64);index"`
+	LogIndex      uint64      `gorm:"uniqueIndex:id_index_unique"`
+	Timestamp     uint64      `gorm:"index"`
 }

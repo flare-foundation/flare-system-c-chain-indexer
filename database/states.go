@@ -10,14 +10,14 @@ import (
 
 const (
 	LastChainIndexState     string = "last_chain_block"
-	NextDatabaseIndexState  string = "next_database_block" // aka last_database_block + 1
+	LastDatabaseIndexState  string = "last_database_block"
 	FirstDatabaseIndexState string = "first_database_block"
 )
 
 var (
 	StateNames = []string{
 		FirstDatabaseIndexState,
-		NextDatabaseIndexState,
+		LastDatabaseIndexState,
 		LastChainIndexState,
 	}
 	// States captures the state of the DB giving guaranties which
@@ -28,9 +28,10 @@ var (
 
 type State struct {
 	BaseEntity
-	Name    string `gorm:"type:varchar(50);index"`
-	Index   uint64
-	Updated time.Time
+	Name           string `gorm:"type:varchar(50);index"`
+	Index          uint64
+	BlockTimestamp uint64
+	Updated        time.Time
 }
 
 type DBStates struct {
@@ -45,9 +46,10 @@ func NewStates() *DBStates {
 	return states
 }
 
-func (s *State) UpdateIndex(newIndex int) {
+func (s *State) UpdateIndex(newIndex, blockTimestamp int) {
 	s.Index = uint64(newIndex)
 	s.Updated = time.Now()
+	s.BlockTimestamp = uint64(blockTimestamp)
 }
 
 func GetDBStates(db *gorm.DB) (*DBStates, error) {
@@ -66,16 +68,16 @@ func GetDBStates(db *gorm.DB) (*DBStates, error) {
 	return States, nil
 }
 
-func (states *DBStates) UpdateIndex(name string, newIndex int) {
-	states.States[name].UpdateIndex(newIndex)
+func (states *DBStates) UpdateIndex(name string, newIndex, blockTimestamp int) {
+	states.States[name].UpdateIndex(newIndex, blockTimestamp)
 }
 
 func (states *DBStates) UpdateDB(db *gorm.DB, name string) error {
 	return db.Save(states.States[name]).Error
 }
 
-func (states *DBStates) Update(db *gorm.DB, name string, newIndex int) error {
-	states.UpdateIndex(name, newIndex)
+func (states *DBStates) Update(db *gorm.DB, name string, newIndex, blockTimestamp int) error {
+	states.UpdateIndex(name, newIndex, blockTimestamp)
 	err := states.UpdateDB(db, name)
 	if err != nil {
 		return fmt.Errorf("Update: %w", err)
@@ -84,24 +86,26 @@ func (states *DBStates) Update(db *gorm.DB, name string, newIndex int) error {
 	return nil
 }
 
-func (states *DBStates) UpdateAtStart(db *gorm.DB, startIndex, lastChainIndex int) error {
+func (states *DBStates) UpdateAtStart(db *gorm.DB, startIndex, startBlockTimestamp,
+	lastChainIndex, lastBlockTimestamp, stopIndex int) (int, int, error) {
 	var err error
-	// if a break among saved blocks in the dataset is created,
-	// then we change the guaranties about the starting block
-	if int(states.States[NextDatabaseIndexState].Index) < startIndex {
-		err = states.Update(db, FirstDatabaseIndexState, startIndex)
+	if startIndex >= int(states.States[FirstDatabaseIndexState].Index) && startIndex <= int(states.States[FirstDatabaseIndexState].Index)+1 {
+		startIndex = int(states.States[LastDatabaseIndexState].Index + 1)
+	} else {
+		// if startIndex is set before existing data in the DB or a break among saved blocks
+		// in the DB is created, then we change the guaranties about the starting block
+		err = states.Update(db, FirstDatabaseIndexState, startIndex, startBlockTimestamp)
 		if err != nil {
-			return fmt.Errorf("UpdateAtStart: %w", err)
+			return 0, 0, fmt.Errorf("UpdateAtStart: %w", err)
 		}
 	}
-	err = states.Update(db, NextDatabaseIndexState, startIndex)
+
+	err = states.Update(db, LastChainIndexState, lastChainIndex, lastBlockTimestamp)
 	if err != nil {
-		return fmt.Errorf("UpdateAtStart: %w", err)
-	}
-	err = states.Update(db, LastChainIndexState, lastChainIndex)
-	if err != nil {
-		return fmt.Errorf("UpdateAtStart: %w", err)
+		return 0, 0, fmt.Errorf("UpdateAtStart: %w", err)
 	}
 
-	return nil
+	lastIndex := min(stopIndex, lastChainIndex)
+
+	return startIndex, lastIndex, nil
 }

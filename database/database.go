@@ -3,7 +3,6 @@ package database
 import (
 	"flare-ftso-indexer/config"
 	"fmt"
-	"strings"
 
 	"github.com/go-sql-driver/mysql"
 	gormMysql "gorm.io/driver/mysql"
@@ -15,8 +14,8 @@ var (
 	// List entities to auto-migrate
 	entities = []interface{}{
 		State{},
-		FtsoTransaction{},
-		FtsoLog{},
+		Transaction{},
+		Log{},
 	}
 	HistoryDropIntervalCheck = 60 * 30 // every 30 min
 	DBTransactionBatchesSize = 1000
@@ -28,15 +27,6 @@ func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
 		return nil, fmt.Errorf("ConnectAndInitialize: Connect: %w", err)
 	}
 
-	if cfg.OptTables != "" {
-		optTables := strings.Split(cfg.OptTables, ",")
-		for _, method := range optTables {
-			entity, ok := MethodToInterface[method]
-			if ok {
-				entities = append(entities, entity)
-			}
-		}
-	}
 	// Initialize - auto migrate
 	err = db.AutoMigrate(entities...)
 	if err != nil {
@@ -47,7 +37,7 @@ func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
 	if err != nil {
 		for _, name := range StateNames {
 			s := &State{Name: name}
-			s.UpdateIndex(0)
+			s.UpdateIndex(0, 0)
 			err = db.Create(s).Error
 			if err != nil {
 				return nil, fmt.Errorf("ConnectAndInitialize: Create: %w", err)

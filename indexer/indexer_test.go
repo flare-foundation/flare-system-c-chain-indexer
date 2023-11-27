@@ -3,7 +3,6 @@ package indexer
 import (
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
-	"flare-ftso-indexer/indexer/abi"
 	"flare-ftso-indexer/logger"
 	indexer_testing "flare-ftso-indexer/testing"
 	"testing"
@@ -26,7 +25,7 @@ func TestIndexer(t *testing.T) {
 		{"22474d350ec2da53d717e30b96e9a2b7628ede5b", "4369af80", true, true},
 		{"22474d350ec2da53d717e30b96e9a2b7628ede5b", "46f073cf", true, true},
 		{"22474d350ec2da53d717e30b96e9a2b7628ede5b", "901d0e19", true, true},
-		{"b682deef4f8e298d86bfc3e21f50c675151fb974", "2636434d", true, true},
+		{"b682deef4f8e298d86bfc3e21f50c675151fb974", "2636434d", true, false},
 	}
 	cfgIndexer := config.IndexerConfig{
 		StartIndex: 50, StopIndex: 2400, BatchSize: 500, NumParallelReq: 4,
@@ -36,14 +35,9 @@ func TestIndexer(t *testing.T) {
 	cfgDB := config.DBConfig{
 		Host: "localhost", Port: 3306, Database: "flare_ftso_indexer_test",
 		Username: "root", Password: "root",
-		OptTables: "commit,revealBitvote,signResult,offerRewards",
 	} // for the test we do not use finalizations
-	epochConfig := config.EpochConfig{FirstEpochStartSec: 1636070400, EpochDurationSec: 90}
-	cfg := config.Config{Indexer: cfgIndexer, Chain: cfgChain, Logger: cfgLog, DB: cfgDB, Epochs: epochConfig}
+	cfg := config.Config{Indexer: cfgIndexer, Chain: cfgChain, Logger: cfgLog, DB: cfgDB}
 	config.GlobalConfigCallback.Call(cfg)
-
-	// init info about contract that will be indexed
-	abi.InitVotingAbi("abi/contracts/Voting.json", "abi/contracts/VotingRewardManager.json")
 
 	// connect to the database
 	db, err := database.ConnectAndInitializeTestDB(&cfgDB, true)
@@ -84,8 +78,8 @@ func TestIndexer(t *testing.T) {
 
 	// correctness check
 	states, err := database.GetDBStates(db)
-	assert.Equal(t, 1212, int(states.States[database.FirstDatabaseIndexState].Index))
-	assert.Equal(t, 2401, int(states.States[database.NextDatabaseIndexState].Index))
+	assert.Equal(t, 1213, int(states.States[database.FirstDatabaseIndexState].Index))
+	assert.Equal(t, 2400, int(states.States[database.LastDatabaseIndexState].Index))
 	assert.Equal(t, 2499, int(states.States[database.LastChainIndexState].Index))
 }
 

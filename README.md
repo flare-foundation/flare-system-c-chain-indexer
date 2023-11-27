@@ -1,35 +1,33 @@
 # Flare FTSO indexer ![build and test](https://github.com/flare-foundation/flare-ftso-indexer/actions/workflows/build_and_test.yml/badge.svg)
 
 This code implements a fast and parallelized indexer of C-chain that fetches data needed for
-FTSO protocol. It saves the data in a mysql database.
+various Flare protocols. It saves the data in a MySQL database.
 
 ### Prerequisites
 
-The indexer is implemented in Go (tested with version 1.21). A running mysql database to save the data (we provide a
+The indexer is implemented in Go (tested with version 1.21). A running MySQL database to save the data is needed (we provide a
 docker-compose.yaml file for automatic deployment of a database).
 
 ### Configuration
 
-The configuration is read from `toml` file. Some configuration
-parameters can also be configured using environment variables. See the list below.
-
-Config file can be specified using the command line parameter `--config`, e.g., `./flare-ftso-indexer --config config.toml`.
+The configuration is read from a `toml` file. Config file can be specified using the command line parameter `--config`, e.g., `./flare-ftso-indexer --config config.toml`.
 The default config file name is `config.toml`.
-Below is the list of configuration parameters for all clients, most are self-explanatory. Note that the chain URL needs to
-allow many simultaneous if the indexer is set index big amount of data.
+Below is the list of configuration parameters, most are self-explanatory. Note that the chain node, to which the indexer connects
+(parameter `node_url`), needs to allow many simultaneous request if the indexer is about to index big amount of data.
 
 ```toml
 [indexer]
 start_index = 0 # the number of the block that the indexer will start with
+stop_index = 0 # the number of the block that the indexer will stop with; set 0 or skip to index indefinitely
 num_parallel_req = 100 # the number of threads doing requests to the chain in parallel
-batch_size = 1000 # the number of block that will be pushed to a database in a batch (should be divisible by num_parallel_req)
+batch_size = 1000 # the number of blocks that will be pushed to a database in a batch (should be divisible by num_parallel_req)
 new_block_check_millis = 1000 # interval for checking for new blocks
-collect = [ # specify which type of transactions should be indexed
+collect = [ # specify which types of transactions should be indexed
     [
         "22474d350ec2da53d717e30b96e9a2b7628ede5b", # address of the contract
         "f14fcbc8", # signature of the function on the contract
-        true, # should it be checked if the transaction succeeded
-        true, # should the log of the emitted events be saved to the database
+        true, # boolean indicating if it should be checked if the transaction succeeded
+        true, # boolean indicating if the logs of the emitted events should be saved to the database
     ],
     [
         "22474d350ec2da53d717e30b96e9a2b7628ede5b",
@@ -45,9 +43,8 @@ port = 3306
 database = "flare_ftso_indexer"
 username = "root"
 password = "root"
-log_queries = true
-opt_tables = "commit,revealBitvote,signResult,finalize,offerRewards" # which type of transactions should have their data extracted and saved into a separate DB table (this can be used only if the indexer is indexing FTSO scaling)
-history_drop = 604800 # Enable deleting the transactions that are older (timestamp of the block) than history_drop (in seconds)
+log_queries = false
+history_drop = 604800 # Enable deleting the transactions and logs in DB that are older (timestamp of the block) than history_drop (in seconds); set 0 or skip to turn off
 
 [logger]
 level = "INFO"
@@ -56,10 +53,6 @@ console = true
 
 [chain]
 node_url = "http://127.0.0.1:8545/"
-
-[epochs]
-first_epoch_start_sec = 1636070400 # time in seconds of the first epoch
-epoch_duration_sec = 90 # duration in seconds of every epoch
 ```
 
 ### Database

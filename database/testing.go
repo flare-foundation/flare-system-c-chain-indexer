@@ -2,9 +2,6 @@ package database
 
 import (
 	"flare-ftso-indexer/config"
-	"strings"
-
-	logger2 "flare-ftso-indexer/logger"
 
 	"gorm.io/gorm"
 )
@@ -20,17 +17,6 @@ func ConnectAndInitializeTestDB(cfg *config.DBConfig, dropTables bool) (*gorm.DB
 	db, err := Connect(cfg)
 	if err != nil {
 		return nil, err
-	}
-	if cfg.OptTables != "" {
-		optTables := strings.Split(cfg.OptTables, ",")
-		for _, method := range optTables {
-			entity, ok := MethodToInterface[method]
-			if ok {
-				entities = append(entities, entity)
-			} else {
-				logger2.Error("Unrecognized optional table name %s", method)
-			}
-		}
 	}
 
 	if dropTables {
@@ -49,7 +35,7 @@ func ConnectAndInitializeTestDB(cfg *config.DBConfig, dropTables bool) (*gorm.DB
 	if dropTables {
 		for _, name := range StateNames {
 			s := &State{Name: name}
-			s.UpdateIndex(0)
+			s.UpdateIndex(0, 0)
 			err = db.Create(s).Error
 			if err != nil {
 				return nil, err

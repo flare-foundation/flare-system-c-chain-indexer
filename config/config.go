@@ -24,7 +24,6 @@ type Config struct {
 	Logger  LoggerConfig  `toml:"logger"`
 	Chain   ChainConfig   `toml:"chain"`
 	Indexer IndexerConfig `toml:"indexer"`
-	Epochs  EpochConfig   `toml:"epochs"`
 }
 
 type LoggerConfig struct {
@@ -41,7 +40,6 @@ type DBConfig struct {
 	Username    string `toml:"username"`
 	Password    string `toml:"password"`
 	LogQueries  bool   `toml:"log_queries"`
-	OptTables   string `toml:"opt_tables"`
 	HistoryDrop int    `toml:"history_drop"`
 }
 
@@ -59,12 +57,6 @@ type IndexerConfig struct {
 	Collect             [][4]interface{} `toml:"collect"`
 }
 
-// todo: should this be fixed?
-type EpochConfig struct {
-	FirstEpochStartSec int `toml:"first_epoch_start_sec"`
-	EpochDurationSec   int `toml:"epoch_duration_sec"`
-}
-
 func newConfig() *Config {
 	return &Config{}
 }
@@ -77,7 +69,7 @@ func BuildConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	
+
 	return cfg, nil
 }
 

@@ -28,7 +28,8 @@ func DropHistory(db *gorm.DB, intervalSeconds, checkInterval int, nodeURL string
 	var deleteStart int
 	for {
 		var databaseTx *gorm.DB
-		lastTx := &FtsoTransaction{}
+		lastTx := &Transaction{}
+		firstTx := &Transaction{}
 
 		lastBlockTime, _, err := GetBlockTimestamp(nil, client)
 		if err != nil {
@@ -38,7 +39,7 @@ func DropHistory(db *gorm.DB, intervalSeconds, checkInterval int, nodeURL string
 
 		deleteStart = lastBlockTime - intervalSeconds
 
-		err = db.Where("timestamp < ?", deleteStart).Order("block_id desc").First(lastTx).Error
+		err = db.Where("timestamp < ?", deleteStart).Order("block_number desc").First(lastTx).Error
 		if err != nil {
 			if err.Error() != "record not found" {
 				logger.Error("Failed to check historic data in the DB: %s", err)
@@ -52,7 +53,10 @@ func DropHistory(db *gorm.DB, intervalSeconds, checkInterval int, nodeURL string
 				databaseTx.Rollback()
 			}
 		}()
-		for _, entity := range entities[1:] {
+
+		// delete in reverse to not break foreign keys
+		for i := len(entities) - 1; i >= 1; i-- {
+			entity := entities[i]
 			err = db.Where("timestamp < ?", deleteStart).Delete(&entity).Error
 			if err != nil {
 				databaseTx.Rollback()
@@ -61,7 +65,13 @@ func DropHistory(db *gorm.DB, intervalSeconds, checkInterval int, nodeURL string
 			}
 		}
 
-		err = States.Update(db, FirstDatabaseIndexState, int(lastTx.BlockId)+1)
+		err = db.Where("timestamp >= ?", deleteStart).Order("block_number").First(firstTx).Error
+		if err != nil {
+			databaseTx.Rollback()
+			logger.Error("Failed to get first transaction in the DB: %s", err)
+			goto sleep
+		}
+		err = States.Update(db, FirstDatabaseIndexState, int(firstTx.BlockNumber), int(firstTx.Timestamp))
 		if err != nil {
 			databaseTx.Rollback()
 			logger.Error("Failed to update state in the DB: %s", err)
@@ -73,7 +83,7 @@ func DropHistory(db *gorm.DB, intervalSeconds, checkInterval int, nodeURL string
 			logger.Error("Failed to delete the data the DB: %s", err)
 			goto sleep
 		}
-		logger.Info("Deleted blocks up to index %d", lastTx.BlockId)
+		logger.Info("Deleted blocks up to index %d", lastTx.BlockNumber)
 
 	sleep:
 		time.Sleep(time.Duration(checkInterval) * time.Second)

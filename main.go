@@ -5,7 +5,6 @@ import (
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer"
-	"flare-ftso-indexer/indexer/abi"
 	"flare-ftso-indexer/logger"
 )
 
@@ -19,7 +18,6 @@ func main() {
 	config.GlobalConfigCallback.Call(cfg)
 	logger.Info("Running with configuration: chain: %s, database: %s", cfg.Chain.NodeURL, cfg.DB.Database)
 
-	abi.InitVotingAbi("indexer/abi/contracts/Voting.json", "indexer/abi/contracts/VotingRewardManager.json")
 	db, err := database.ConnectAndInitialize(&cfg.DB)
 	if err != nil {
 		logger.Fatal("Database connect and initialize error: %s", err)
@@ -33,10 +31,10 @@ func main() {
 			logger.Fatal("Could not set the starting index: %s", err)
 			return
 		}
-	}
-	if startIndex != cfg.Indexer.StartIndex {
-		logger.Info("Setting new startIndex due to history drop: %d", startIndex)
-		cfg.Indexer.StartIndex = startIndex
+		if startIndex != cfg.Indexer.StartIndex {
+			logger.Info("Setting new startIndex due to history drop: %d", startIndex)
+			cfg.Indexer.StartIndex = startIndex
+		}
 	}
 
 	cIndexer, err := indexer.CreateBlockIndexer(cfg, db)

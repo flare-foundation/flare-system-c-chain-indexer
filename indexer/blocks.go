@@ -25,23 +25,46 @@ func NewBlockBatch(batchSize int) *BlockBatch {
 	return &blockBatch
 }
 
-func (ci *BlockIndexer) fetchLastBlockIndex() (int, error) {
-	// todo: change to header by number when mocking is available
-	var lastBlock *types.Block
+func (ci *BlockIndexer) fetchBlock(index int) (*types.Block, error) {
+	var block *types.Block
+	indexBigInt := new(big.Int)
+	if index >= 0 {
+		indexBigInt.SetInt64(int64(index))
+	} else {
+		indexBigInt = nil
+	}
+
 	var err error
 	for j := 0; j < config.ReqRepeats; j++ {
 		ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
-		lastBlock, err = ci.client.BlockByNumber(ctx, nil)
+		block, err = ci.client.BlockByNumber(ctx, indexBigInt)
 		cancelFunc()
 		if err == nil {
 			break
 		}
 	}
 	if err != nil {
-		return 0, fmt.Errorf("fetchLastBlockIndex: %w", err)
+		return nil, fmt.Errorf("fetchBlock: %w", err)
 	}
 
-	return int(lastBlock.NumberU64()), nil
+	return block, nil
+}
+func (ci *BlockIndexer) fetchLastBlockIndex() (int, int, error) {
+	lastBlock, err := ci.fetchBlock(-1)
+	if err != nil {
+		return 0, 0, fmt.Errorf("fetchLastBlockIndex: %w", err)
+	}
+
+	return int(lastBlock.NumberU64()), int(lastBlock.Time()), nil
+}
+
+func (ci *BlockIndexer) fetchBlockTimestamp(index int) (int, error) {
+	lastBlock, err := ci.fetchBlock(index)
+	if err != nil {
+		return 0, fmt.Errorf("fetchBlockTimestamp: %w", err)
+	}
+
+	return int(lastBlock.Time()), nil
 }
 
 func (ci *BlockIndexer) requestBlocks(blockBatch *BlockBatch, start, stop, listIndex, lastIndex int, errChan chan error) {
@@ -51,14 +74,7 @@ func (ci *BlockIndexer) requestBlocks(blockBatch *BlockBatch, start, stop, listI
 		if i > lastIndex {
 			block = &types.Block{}
 		} else {
-			for j := 0; j < config.ReqRepeats; j++ {
-				ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
-				block, err = ci.client.BlockByNumber(ctx, big.NewInt(int64(i)))
-				cancelFunc()
-				if err == nil {
-					break
-				}
-			}
+			block, err = ci.fetchBlock(i)
 			if err != nil {
 				errChan <- fmt.Errorf("requestBlocks: %w", err)
 				return
@@ -75,7 +91,7 @@ func (ci *BlockIndexer) requestBlocks(blockBatch *BlockBatch, start, stop, listI
 func (ci *BlockIndexer) processBlocks(blockBatch *BlockBatch, batchTransactions *TransactionsBatch, start, stop int, errChan chan error) {
 	for i := start; i < stop; i++ {
 		block := blockBatch.Blocks[i]
-		for _, tx := range block.Transactions() {
+		for txIndex, tx := range block.Transactions() {
 			txData := hex.EncodeToString(tx.Data())
 			if len(txData) < 8 {
 				continue
@@ -91,6 +107,7 @@ func (ci *BlockIndexer) processBlocks(blockBatch *BlockBatch, batchTransactions 
 					batchTransactions.Transactions = append(batchTransactions.Transactions, tx)
 					batchTransactions.toBlock = append(batchTransactions.toBlock, block)
 					batchTransactions.toReceipt = append(batchTransactions.toReceipt, nil)
+					batchTransactions.toIndex = append(batchTransactions.toIndex, uint64(txIndex))
 					batchTransactions.Unlock()
 				}
 			}
