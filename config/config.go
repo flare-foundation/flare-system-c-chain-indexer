@@ -34,13 +34,14 @@ type LoggerConfig struct {
 }
 
 type DBConfig struct {
-	Host        string `toml:"host"`
-	Port        int    `toml:"port"`
-	Database    string `toml:"database"`
-	Username    string `toml:"username"`
-	Password    string `toml:"password"`
-	LogQueries  bool   `toml:"log_queries"`
-	HistoryDrop int    `toml:"history_drop"`
+	Host             string `toml:"host"`
+	Port             int    `toml:"port"`
+	Database         string `toml:"database"`
+	Username         string `toml:"username"`
+	Password         string `toml:"password"`
+	LogQueries       bool   `toml:"log_queries"`
+	HistoryDrop      int    `toml:"history_drop"`
+	DropTableAtStart bool   `toml:"drop_table_at_start"`
 }
 
 type ChainConfig struct {
@@ -52,9 +53,11 @@ type IndexerConfig struct {
 	StartIndex          int              `toml:"start_index"`
 	StopIndex           int              `toml:"stop_index"`
 	NumParallelReq      int              `toml:"num_parallel_req"`
+	LogRange            int              `toml:"log_range"`
 	NewBlockCheckMillis int              `toml:"new_block_check_millis"`
 	TimeoutMillis       int              `toml:"timeout_millis"`
-	Collect             [][4]interface{} `toml:"collect"`
+	CollectTransactions [][4]interface{} `toml:"collect_transactions"`
+	CollectLogs         [][2]string      `toml:"collect_logs"`
 }
 
 func newConfig() *Config {

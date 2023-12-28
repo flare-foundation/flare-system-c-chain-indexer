@@ -61,6 +61,8 @@ func main() {
 		if err != nil {
 			logger.Error("Run error: %s", err)
 			logger.Info("Restarting from the current state")
+		} else {
+			break
 		}
 	}
 }

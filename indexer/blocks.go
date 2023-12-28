@@ -101,15 +101,29 @@ func (ci *BlockIndexer) processBlocks(blockBatch *BlockBatch, batchTransactions 
 				continue
 			}
 			contractAddress := strings.ToLower(tx.To().Hex()[2:])
-			if val, ok := ci.transactions[contractAddress]; ok {
-				if _, ok = val[funcSig]; ok {
-					batchTransactions.Lock()
-					batchTransactions.Transactions = append(batchTransactions.Transactions, tx)
-					batchTransactions.toBlock = append(batchTransactions.toBlock, block)
-					batchTransactions.toReceipt = append(batchTransactions.toReceipt, nil)
-					batchTransactions.toIndex = append(batchTransactions.toIndex, uint64(txIndex))
-					batchTransactions.Unlock()
+			check := false
+			policy := [2]bool{false, false}
+
+			for _, address := range []string{contractAddress, "undefined"} {
+				if val, ok := ci.transactions[address]; ok {
+					for _, sig := range []string{funcSig, "undefined"} {
+						if pol, ok := val[sig]; ok {
+							check = true
+							policy[0] = policy[0] || pol[0]
+							policy[1] = policy[1] || pol[1]
+						}
+					}
 				}
+			}
+
+			if check {
+				batchTransactions.Lock()
+				batchTransactions.Transactions = append(batchTransactions.Transactions, tx)
+				batchTransactions.toBlock = append(batchTransactions.toBlock, block)
+				batchTransactions.toReceipt = append(batchTransactions.toReceipt, nil)
+				batchTransactions.toIndex = append(batchTransactions.toIndex, uint64(txIndex))
+				batchTransactions.toPolicy = append(batchTransactions.toPolicy, policy)
+				batchTransactions.Unlock()
 			}
 		}
 	}

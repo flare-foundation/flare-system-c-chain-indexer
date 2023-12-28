@@ -21,11 +21,12 @@ start_index = 0 # the number of the block that the indexer will start with
 stop_index = 0 # the number of the block that the indexer will stop with; set 0 or skip to index indefinitely
 num_parallel_req = 100 # the number of threads doing requests to the chain in parallel
 batch_size = 1000 # the number of blocks that will be pushed to a database in a batch (should be divisible by num_parallel_req)
+log_range = 10 # the size of the interval of blocks used to request logs in each request; suggested value is log_range = batch_size / num_parallel_req; note that a blockchain node might have an upper bound on this
 new_block_check_millis = 1000 # interval for checking for new blocks
-collect = [ # specify which types of transactions should be indexed
+collect_transactions = [ # specify which types of transactions should be indexed
     [
-        "22474d350ec2da53d717e30b96e9a2b7628ede5b", # address of the contract
-        "f14fcbc8", # signature of the function on the contract
+        "22474d350ec2da53d717e30b96e9a2b7628ede5b", # address of the contract (can be "undefined")
+        "f14fcbc8", # signature of the function on the contract  (can be "undefined")
         true, # boolean indicating if it should be checked if the transaction succeeded
         true, # boolean indicating if the logs of the emitted events should be saved to the database
     ],
@@ -35,7 +36,13 @@ collect = [ # specify which types of transactions should be indexed
         true,
         true,
     ]
- ]
+]
+collect_logs = [ # specify which types of logs should be indexed (besides those obtained from the transactions specified above)
+    [
+        "b682deef4f8e298d86bfc3e21f50c675151fb974", # address of the contract calling the log (can be "undefined")
+        "undefined", # topic0 of the log  (can be "undefined")
+    ],
+]
 
 [db]
 host = "localhost"
@@ -44,6 +51,7 @@ database = "flare_ftso_indexer"
 username = "root"
 password = "root"
 log_queries = false
+drop_table_at_start = true
 history_drop = 604800 # Enable deleting the transactions and logs in DB that are older (timestamp of the block) than history_drop (in seconds); set 0 or skip to turn off
 
 [logger]

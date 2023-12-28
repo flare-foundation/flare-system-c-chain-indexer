@@ -4,6 +4,8 @@ import (
 	"flare-ftso-indexer/config"
 	"fmt"
 
+	logger2 "flare-ftso-indexer/logger"
+
 	"github.com/go-sql-driver/mysql"
 	gormMysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -19,12 +21,20 @@ var (
 	}
 	HistoryDropIntervalCheck = 60 * 30 // every 30 min
 	DBTransactionBatchesSize = 1000
+	TransactionId            = uint64(1)
 )
 
 func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
 	db, err := Connect(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("ConnectAndInitialize: Connect: %w", err)
+	}
+
+	if cfg.DropTableAtStart {
+		err = db.Migrator().DropTable(entities...)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// Initialize - auto migrate
@@ -43,6 +53,15 @@ func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
 				return nil, fmt.Errorf("ConnectAndInitialize: Create: %w", err)
 			}
 		}
+	}
+	maxIndexTx := &Transaction{}
+	err = db.Last(maxIndexTx).Error
+	if err != nil {
+		if err.Error() != "record not found" {
+			logger2.Error("Failed to obtain ID data from DB: %s", err)
+		}
+	} else {
+		TransactionId = maxIndexTx.ID + 1
 	}
 
 	return db, nil

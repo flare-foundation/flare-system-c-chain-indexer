@@ -5,6 +5,7 @@ database = "flare_ftso_indexer_songbird"
 username = "root"
 password = "root"
 log_queries = false
+drop_table_at_start = true
 # history_drop = 604800                    # 7 days
 
 [logger]
@@ -17,13 +18,14 @@ node_url = "https://songbird-node2.flare.space/ext/C/rpc"
 # node_url = "wss://songbird-node2.flare.space/ext/C/ws"
 
 [indexer]
-start_index = 46199000
-stop_index = 0
+start_index = 48800000
+stop_index = 48810000
 new_block_check_millis = 1000
 batch_size = 2500
 num_parallel_req = 250
+log_range = 10
 timeout_millis = 1000
-collect = [
+collect_transactions = [
     [
         "1000000000000000000000000000000000000003",
         "60848b44",
@@ -36,4 +38,17 @@ collect = [
         true,
         true,
     ],
+    # [
+    #     "undefined",
+    #     "undefined",
+    #     false,
+    #     false,
+    # ],
+]
+collect_logs = [
+    [
+        "1000000000000000000000000000000000000003",
+        "a32444a31df2f9a116229eec3193d223a6bad89f7670ff17b8e5c7014a377da1",
+    ],
+    # ["undefined", "undefined"],
 ]

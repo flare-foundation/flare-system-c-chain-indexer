@@ -1,6 +1,7 @@
 package database
 
 import (
+	"flare-ftso-indexer/logger"
 	"fmt"
 	"sync"
 	"time"
@@ -89,7 +90,8 @@ func (states *DBStates) Update(db *gorm.DB, name string, newIndex, blockTimestam
 func (states *DBStates) UpdateAtStart(db *gorm.DB, startIndex, startBlockTimestamp,
 	lastChainIndex, lastBlockTimestamp, stopIndex int) (int, int, error) {
 	var err error
-	if startIndex >= int(states.States[FirstDatabaseIndexState].Index) && startIndex <= int(states.States[FirstDatabaseIndexState].Index)+1 {
+	if startIndex >= int(states.States[FirstDatabaseIndexState].Index) && startIndex <= int(states.States[LastDatabaseIndexState].Index)+1 {
+		logger.Info("Data from blocks %d to %d already in the database", startIndex, int(states.States[LastDatabaseIndexState].Index))
 		startIndex = int(states.States[LastDatabaseIndexState].Index + 1)
 	} else {
 		// if startIndex is set before existing data in the DB or a break among saved blocks
