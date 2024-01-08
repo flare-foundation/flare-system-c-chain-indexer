@@ -11,7 +11,10 @@ import (
 )
 
 func TestMockChain(t *testing.T) {
-	go MockChain(5500, "chain_copy/blocks.json", "chain_copy/transactions.json")
+	go func() {
+		err := MockChain(5500, "chain_copy/blocks.json", "chain_copy/transactions.json")
+		assert.NoError(t, err)
+	}()
 
 	time.Sleep(time.Second * 3)
 

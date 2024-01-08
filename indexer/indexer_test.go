@@ -8,12 +8,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestIndexer(t *testing.T) {
 	// mock blockchain
-	go indexer_testing.MockChain(5500, "../testing/chain_copy/blocks.json", "../testing/chain_copy/transactions.json")
+	go func() {
+		err := indexer_testing.MockChain(5500, "../testing/chain_copy/blocks.json", "../testing/chain_copy/transactions.json")
+		if err != nil {
+			logger.Fatal("Mock chain error: %s", err)
+		}
+	}()
+
 	time.Sleep(3 * time.Second)
 	indexer_testing.ChainLastBlock = 2000
 
@@ -47,13 +54,19 @@ func TestIndexer(t *testing.T) {
 
 	// set a new starting index based on the history drop interval
 	historyDropIntervalSeconds := 10000
-	cfg.Indexer.StartIndex, err = database.GetMinBlockWithHistoryDrop(cfg.Indexer.StartIndex, historyDropIntervalSeconds, cfg.Chain.NodeURL)
+
+	ethClient, err := ethclient.Dial(cfg.Chain.NodeURL)
+	if err != nil {
+		logger.Fatal("Could not connect to the Ethereum node: %s", err)
+	}
+
+	cfg.Indexer.StartIndex, err = database.GetMinBlockWithHistoryDrop(cfg.Indexer.StartIndex, historyDropIntervalSeconds, ethClient)
 	if err != nil {
 		logger.Fatal("Could not set the starting index: %s", err)
 	}
 
 	// create the indexer
-	cIndexer, err := CreateBlockIndexer(&cfg, db)
+	cIndexer, err := CreateBlockIndexer(&cfg, db, ethClient)
 	if err != nil {
 		logger.Fatal("Indexer init error: %s", err)
 	}
@@ -68,7 +81,7 @@ func TestIndexer(t *testing.T) {
 
 	// turn on the function to delete in the database everything that
 	// is older than the historyDrop interval
-	go database.DropHistory(db, historyDropIntervalSeconds, database.HistoryDropIntervalCheck, cfgChain.NodeURL)
+	go database.DropHistory(db, historyDropIntervalSeconds, database.HistoryDropIntervalCheck, ethClient)
 
 	// run indexer
 	err = cIndexer.IndexContinuous()
@@ -78,6 +91,7 @@ func TestIndexer(t *testing.T) {
 
 	// correctness check
 	states, err := database.GetDBStates(db)
+	assert.NoError(t, err)
 	assert.Equal(t, 1213, int(states.States[database.FirstDatabaseIndexState].Index))
 	assert.Equal(t, 2400, int(states.States[database.LastDatabaseIndexState].Index))
 	assert.Equal(t, 2499, int(states.States[database.LastChainIndexState].Index))

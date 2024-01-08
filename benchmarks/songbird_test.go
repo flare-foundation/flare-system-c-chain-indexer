@@ -6,6 +6,8 @@ import (
 	"flare-ftso-indexer/indexer"
 	"flare-ftso-indexer/logger"
 	"testing"
+
+	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 func BenchmarkBlockRequests(b *testing.B) {
@@ -25,7 +27,13 @@ func BenchmarkBlockRequests(b *testing.B) {
 		if err != nil {
 			logger.Fatal("Database connect and initialize error: %s", err)
 		}
-		cIndexer, err := indexer.CreateBlockIndexer(cfg, db)
+
+		ethClient, err := ethclient.Dial(cfg.Chain.NodeURL)
+		if err != nil {
+			logger.Fatal("Eth client error: %s", err)
+		}
+
+		cIndexer, err := indexer.CreateBlockIndexer(cfg, db, ethClient)
 		if err != nil {
 			logger.Fatal("Indexer init error: %s", err)
 		}

@@ -81,7 +81,7 @@ func (ci *BlockIndexer) processLogs(logsBatch *LogsBatch, blockBatch *BlockBatch
 			Timestamp:       blockBatch.Blocks[log.BlockNumber-uint64(firstBlockNum)].Time(),
 		}
 		// check if the log was not obtained from transactions already
-		if check, _ := data.LogHashIndexCheck[dbLog.TransactionHash+strconv.Itoa(int(dbLog.LogIndex))]; !check {
+		if check := data.LogHashIndexCheck[dbLog.TransactionHash+strconv.Itoa(int(dbLog.LogIndex))]; !check {
 			data.Logs = append(data.Logs, dbLog)
 		}
 	}
