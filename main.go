@@ -6,6 +6,8 @@ import (
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer"
 	"flare-ftso-indexer/logger"
+
+	"github.com/ethereum/go-ethereum/ethclient"
 )
 
 func main() {
@@ -16,7 +18,13 @@ func main() {
 		return
 	}
 	config.GlobalConfigCallback.Call(cfg)
+
 	logger.Info("Running with configuration: chain: %s, database: %s", cfg.Chain.NodeURL, cfg.DB.Database)
+
+	ethClient, err := dialRPCNode(cfg)
+	if err != nil {
+		logger.Fatal("Could not connect to the RPC node: %s", err)
+	}
 
 	db, err := database.ConnectAndInitialize(&cfg.DB)
 	if err != nil {
@@ -26,7 +34,7 @@ func main() {
 
 	var startIndex int
 	if cfg.DB.HistoryDrop > 0 {
-		startIndex, err = database.GetMinBlockWithHistoryDrop(cfg.Indexer.StartIndex, cfg.DB.HistoryDrop, cfg.Chain.NodeURL)
+		startIndex, err = database.GetMinBlockWithHistoryDrop(cfg.Indexer.StartIndex, cfg.DB.HistoryDrop, ethClient)
 		if err != nil {
 			logger.Fatal("Could not set the starting index: %s", err)
 			return
@@ -37,7 +45,7 @@ func main() {
 		}
 	}
 
-	cIndexer, err := indexer.CreateBlockIndexer(cfg, db)
+	cIndexer, err := indexer.CreateBlockIndexer(cfg, db, ethClient)
 	if err != nil {
 		logger.Error("Indexer init error: %s", err)
 		return
@@ -53,7 +61,7 @@ func main() {
 	}
 
 	if cfg.DB.HistoryDrop > 0 {
-		go database.DropHistory(db, cfg.DB.HistoryDrop, database.HistoryDropIntervalCheck, cfg.Chain.NodeURL)
+		go database.DropHistory(db, cfg.DB.HistoryDrop, database.HistoryDropIntervalCheck, ethClient)
 	}
 
 	for {
@@ -65,4 +73,13 @@ func main() {
 			break
 		}
 	}
+}
+
+func dialRPCNode(cfg *config.Config) (*ethclient.Client, error) {
+	nodeURL, err := cfg.Chain.FullNodeURL()
+	if err != nil {
+		return nil, err
+	}
+
+	return ethclient.Dial(nodeURL.String())
 }

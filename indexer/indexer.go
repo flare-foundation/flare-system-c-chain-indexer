@@ -19,7 +19,7 @@ type BlockIndexer struct {
 	client       *ethclient.Client
 }
 
-func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) {
+func CreateBlockIndexer(cfg *config.Config, db *gorm.DB, ethClient *ethclient.Client) (*BlockIndexer, error) {
 	blockIndexer := BlockIndexer{}
 	blockIndexer.db = db
 	blockIndexer.params = cfg.Indexer
@@ -43,11 +43,7 @@ func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) 
 		blockIndexer.transactions[contactAddress][funcSig] = [2]bool{status, collectEvent}
 	}
 
-	var err error
-	blockIndexer.client, err = ethclient.Dial(cfg.Chain.NodeURL)
-	if err != nil {
-		return nil, fmt.Errorf("CreateBlockIndexer: Dial: %w", err)
-	}
+	blockIndexer.client = ethClient
 	if blockIndexer.params.LogRange == 0 {
 		blockIndexer.params.LogRange = 1
 	}

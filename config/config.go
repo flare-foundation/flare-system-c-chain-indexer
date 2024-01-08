@@ -3,9 +3,11 @@ package config
 import (
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
 
 	"github.com/BurntSushi/toml"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -46,6 +48,7 @@ type DBConfig struct {
 
 type ChainConfig struct {
 	NodeURL string `toml:"node_url"`
+	APIKey  string `toml:"api_key"`
 }
 
 type IndexerConfig struct {
@@ -91,4 +94,19 @@ func ParseConfigFile(cfg *Config, fileName string) error {
 
 func (c Config) LoggerConfig() LoggerConfig {
 	return c.Logger
+}
+
+func (cc ChainConfig) FullNodeURL() (*url.URL, error) {
+	u, err := url.Parse(cc.NodeURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "error parsing node url")
+	}
+
+	if cc.APIKey != "" {
+		q := u.Query()
+		q.Set("x-apikey", cc.APIKey)
+		u.RawQuery = q.Encode()
+	}
+
+	return u, nil
 }

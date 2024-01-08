@@ -13,18 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func DropHistory(db *gorm.DB, intervalSeconds, checkInterval int, nodeURL string) error {
-	var client *ethclient.Client
-	var err error
-	for {
-		client, err = ethclient.Dial(nodeURL)
-		if err != nil {
-			logger.Error("Failed to dial node: %s", err)
-			time.Sleep(time.Duration(checkInterval) * time.Second)
-		}
-		break
-	}
-
+func DropHistory(db *gorm.DB, intervalSeconds, checkInterval int, client *ethclient.Client) error {
 	var deleteStart int
 	for {
 		var databaseTx *gorm.DB
@@ -90,11 +79,7 @@ func DropHistory(db *gorm.DB, intervalSeconds, checkInterval int, nodeURL string
 	}
 }
 
-func GetMinBlockWithHistoryDrop(firstIndex, intervalSeconds int, nodeURL string) (int, error) {
-	client, err := ethclient.Dial(nodeURL)
-	if err != nil {
-		return 0, fmt.Errorf("GetMinBlockWithHistoryDrop: %w", err)
-	}
+func GetMinBlockWithHistoryDrop(firstIndex, intervalSeconds int, client *ethclient.Client) (int, error) {
 	firstTime, _, err := GetBlockTimestamp(big.NewInt(int64(firstIndex)), client)
 	if err != nil {
 		return 0, fmt.Errorf("GetMinBlockWithHistoryDrop: %w", err)
