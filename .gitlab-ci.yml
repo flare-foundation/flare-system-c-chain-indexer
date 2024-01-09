@@ -1,0 +1,34 @@
+stages:
+  - build
+  - test
+
+variables:
+  GOPATH: /go
+  MYSQL_ROOT_PASSWORD: root
+
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - ${GOPATH}/pkg/mod
+    - ${GOPATH}/bin
+
+before_script:
+  - go get -u golang.org/x/tools/cmd/gofmt
+  - go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
+
+Build:
+  stage: build
+  image: golang:1.21
+  script:
+    - '! gofmt -l . | grep -q .'
+    - golangci-lint run --timeout 5m0s
+    - go build ./...
+
+Test:
+  stage: test
+  image: golang:1.21
+  services:
+    - mysql:latest
+  script:
+    - sleep 10  # Wait for MySQL to fully start
+    - go test ./...
