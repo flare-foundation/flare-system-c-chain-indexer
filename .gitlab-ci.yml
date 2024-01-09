@@ -13,8 +13,7 @@ cache:
     - ${GOPATH}/bin
 
 before_script:
-  - go get -u golang.org/x/tools/cmd/gofmt
-  - go get -u github.com/golangci/golangci-lint/cmd/golangci-lint
+  - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
 
 Build:
   stage: build
