@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
@@ -19,7 +20,7 @@ type BlockIndexer struct {
 	client       *ethclient.Client
 }
 
-func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) {
+func CreateBlockIndexer(cfg *config.Config, db *gorm.DB, ethClient *ethclient.Client) (*BlockIndexer, error) {
 	blockIndexer := BlockIndexer{}
 	blockIndexer.db = db
 	blockIndexer.params = cfg.Indexer
@@ -43,11 +44,7 @@ func CreateBlockIndexer(cfg *config.Config, db *gorm.DB) (*BlockIndexer, error) 
 		blockIndexer.transactions[contactAddress][funcSig] = [2]bool{status, collectEvent}
 	}
 
-	var err error
-	blockIndexer.client, err = ethclient.Dial(cfg.Chain.NodeURL)
-	if err != nil {
-		return nil, fmt.Errorf("CreateBlockIndexer: Dial: %w", err)
-	}
+	blockIndexer.client = ethClient
 	if blockIndexer.params.LogRange == 0 {
 		blockIndexer.params.LogRange = 1
 	}
@@ -189,7 +186,12 @@ func (ci *BlockIndexer) IndexHistory() error {
 			if err != nil {
 				return fmt.Errorf("IndexHistory: %w", err)
 			}
-			States.Update(ci.db, database.LastChainIndexState, lastChainIndex, lastChainTimestamp)
+
+			err := States.Update(ci.db, database.LastChainIndexState, lastChainIndex, lastChainTimestamp)
+			if err != nil {
+				return errors.Wrap(err, "States.Update")
+			}
+
 			if lastChainIndex > lastIndex && ci.params.StopIndex > lastIndex {
 				lastIndex = min(lastChainIndex, ci.params.StopIndex)
 				logger.Info("Updating the last block to %d", lastIndex)
@@ -282,7 +284,12 @@ func (ci *BlockIndexer) IndexContinuous() error {
 			if err != nil {
 				return fmt.Errorf("IndexContinuous: %w", err)
 			}
-			states.Update(ci.db, database.LastChainIndexState, lastIndex, lastChainTimestamp)
+
+			err := states.Update(ci.db, database.LastChainIndexState, lastIndex, lastChainTimestamp)
+			if err != nil {
+				return errors.Wrap(err, "States.Update")
+			}
+
 			continue
 		}
 		ci.requestBlocks(blockBatch, index, index+1, 0, lastIndex, errChan)
@@ -338,16 +345,4 @@ func (ci *BlockIndexer) IndexContinuous() error {
 	}
 
 	return nil
-}
-
-func (ci *BlockIndexer) getIndexes(states *database.DBStates, lastIndex int) (int, int) {
-	var startIndex int
-	if ci.params.StartIndex < int(states.States[database.FirstDatabaseIndexState].Index) {
-		startIndex = ci.params.StartIndex
-	} else {
-		startIndex = max(int(states.States[database.LastDatabaseIndexState].Index+1), ci.params.StartIndex)
-	}
-	lastIndex = min(ci.params.StopIndex, lastIndex)
-
-	return startIndex, lastIndex
 }

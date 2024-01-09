@@ -82,8 +82,19 @@ func ChainMockResponses(writer http.ResponseWriter, request *http.Request, block
 	}
 
 	methodBytes, err := form["method"].MarshalJSON()
+	if err != nil {
+		fmt.Printf("Error marshaling method: %v\n", err)
+		http.Error(writer, "Invalid method", http.StatusBadRequest)
+		return
+	}
+
 	var method string
 	err = json.Unmarshal(methodBytes, &method)
+	if err != nil {
+		fmt.Printf("Error unmarshaling method: %v\n", err)
+		http.Error(writer, "Invalid method", http.StatusInternalServerError)
+		return
+	}
 
 	if method == "eth_getBlockByNumber" {
 		iBig := new(big.Int)

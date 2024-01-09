@@ -29,6 +29,10 @@ func CopyChain(address string, start, stop int) (map[int][]byte, map[string][]by
 		iHex := fmt.Sprintf("0x%x", i)
 		req := PostToChain{Method: "eth_getBlockByNumber", Id: 31337, Jsonrpc: "2.0", Params: []interface{}{iHex, true}}
 		reqBytes, err := json.Marshal(req)
+		if err != nil {
+			return nil, nil, err
+		}
+
 		r, err := http.NewRequest("POST", address, bytes.NewBuffer(reqBytes))
 		if err != nil {
 			return nil, nil, err
@@ -66,6 +70,10 @@ func CopyChain(address string, start, stop int) (map[int][]byte, map[string][]by
 			hashHex := fmt.Sprintf("0x%x", tx.Hash())
 			req := PostToChain{Method: "eth_getTransactionReceipt", Id: 31337, Jsonrpc: "2.0", Params: []interface{}{hashHex}}
 			reqBytes, err := json.Marshal(req)
+			if err != nil {
+				return nil, nil, err
+			}
+
 			r, err := http.NewRequest("POST", address, bytes.NewBuffer(reqBytes))
 			if err != nil {
 				return nil, nil, err
