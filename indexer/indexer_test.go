@@ -8,11 +8,25 @@ import (
 	"testing"
 	"time"
 
+	"github.com/caarlos0/env/v10"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/assert"
 )
 
+type testConfig struct {
+	DBHost     string `env:"DB_HOST" envDefault:"localhost"`
+	DBPort     int    `env:"DB_PORT" envDefault:"3306"`
+	DBName     string `env:"DB_NAME" envDefault:"flare_ftso_indexer_test"`
+	DBUsername string `env:"DB_USERNAME" envDefault:"root"`
+	DBPassword string `env:"DB_PASSWORD" envDefault:"root"`
+}
+
 func TestIndexer(t *testing.T) {
+	var tCfg testConfig
+	if err := env.Parse(&tCfg); err != nil {
+		t.Fatal("Config parse error:", err)
+	}
+
 	// mock blockchain
 	go func() {
 		err := indexer_testing.MockChain(5500, "../testing/chain_copy/blocks.json", "../testing/chain_copy/transactions.json")
@@ -40,8 +54,8 @@ func TestIndexer(t *testing.T) {
 	}
 	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logger/logs/flare-ftso-indexer_test.log"}
 	cfgDB := config.DBConfig{
-		Host: "localhost", Port: 3306, Database: "flare_ftso_indexer_test",
-		Username: "root", Password: "root", DropTableAtStart: true,
+		Host: tCfg.DBHost, Port: tCfg.DBPort, Database: tCfg.DBName,
+		Username: tCfg.DBUsername, Password: tCfg.DBPassword, DropTableAtStart: true,
 	}
 	cfg := config.Config{Indexer: cfgIndexer, Chain: cfgChain, Logger: cfgLog, DB: cfgDB}
 	config.GlobalConfigCallback.Call(cfg)

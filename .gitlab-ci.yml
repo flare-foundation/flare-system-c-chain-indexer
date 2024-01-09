@@ -5,6 +5,7 @@ stages:
 variables:
   GOPATH: /go
   MYSQL_ROOT_PASSWORD: root
+  MYSQL_DATABASE: flare_ftso_indexer_test
 
 cache:
   key: ${CI_COMMIT_REF_SLUG}
@@ -26,6 +27,12 @@ Build:
 Test:
   stage: test
   image: golang:1.21
+  variables:
+    DB_HOST: mysql
+    DB_PORT: 3306
+    DB_NAME: ${MYSQL_DATABASE}
+    DB_USERNAME: root
+    DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
   services:
     - mysql:latest
   before_script:
@@ -33,5 +40,5 @@ Test:
     - wget -O /usr/local/bin/wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh
     - chmod +x /usr/local/bin/wait-for-it.sh
   script:
-    - /usr/local/bin/wait-for-it.sh localhost:3306 --timeout=300 -- echo "MySQL is up"
+    - /usr/local/bin/wait-for-it.sh "${DB_HOST}:${DB_PORT}" --timeout=300 -- echo "MySQL is up"
     - go test ./...
