@@ -5,6 +5,7 @@ import (
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/logger"
 	indexer_testing "flare-ftso-indexer/testing"
+	"fmt"
 	"testing"
 	"time"
 
@@ -14,11 +15,12 @@ import (
 )
 
 type testConfig struct {
-	DBHost     string `env:"DB_HOST" envDefault:"localhost"`
-	DBPort     int    `env:"DB_PORT" envDefault:"3306"`
-	DBName     string `env:"DB_NAME" envDefault:"flare_ftso_indexer_test"`
-	DBUsername string `env:"DB_USERNAME" envDefault:"root"`
-	DBPassword string `env:"DB_PASSWORD" envDefault:"root"`
+	DBHost        string `env:"DB_HOST" envDefault:"localhost"`
+	DBPort        int    `env:"DB_PORT" envDefault:"3306"`
+	DBName        string `env:"DB_NAME" envDefault:"flare_ftso_indexer_test"`
+	DBUsername    string `env:"DB_USERNAME" envDefault:"root"`
+	DBPassword    string `env:"DB_PASSWORD" envDefault:"root"`
+	MockChainPort int    `env:"MOCK_CHAIN_PORT" envDefault:"5500"`
 }
 
 func TestIndexer(t *testing.T) {
@@ -29,7 +31,11 @@ func TestIndexer(t *testing.T) {
 
 	// mock blockchain
 	go func() {
-		err := indexer_testing.MockChain(5500, "../testing/chain_copy/blocks.json", "../testing/chain_copy/transactions.json")
+		err := indexer_testing.MockChain(
+			tCfg.MockChainPort,
+			"../testing/chain_copy/blocks.json",
+			"../testing/chain_copy/transactions.json",
+		)
 		if err != nil {
 			logger.Fatal("Mock chain error: %s", err)
 		}
@@ -39,7 +45,7 @@ func TestIndexer(t *testing.T) {
 	indexer_testing.ChainLastBlock = 2000
 
 	// set configuration parameters
-	mockChainAddress := "http://localhost:5500"
+	mockChainAddress := fmt.Sprintf("http://localhost:%d", tCfg.MockChainPort)
 	cfgChain := config.ChainConfig{NodeURL: mockChainAddress}
 	collectTransactions := [][4]interface{}{
 		{"22474d350ec2da53d717e30b96e9a2b7628ede5b", "f14fcbc8", true, true},

@@ -33,6 +33,7 @@ Test:
     DB_NAME: ${MYSQL_DATABASE}
     DB_USERNAME: root
     DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    MOCK_CHAIN_PORT: 2426
   services:
     - mysql:latest
   before_script:
