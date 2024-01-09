@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/BurntSushi/toml v1.2.1
+	github.com/caarlos0/env/v10 v10.0.0
 	github.com/ethereum/go-ethereum v1.13.2
 	github.com/go-sql-driver/mysql v1.7.0
 	github.com/gorilla/mux v1.8.0
