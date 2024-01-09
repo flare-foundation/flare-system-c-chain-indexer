@@ -41,5 +41,5 @@ Test:
     - wget -O /usr/local/bin/wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh
     - chmod +x /usr/local/bin/wait-for-it.sh
   script:
-    - /usr/local/bin/wait-for-it.sh "${DB_HOST}:${DB_PORT}" --timeout=300 -- echo "MySQL is up"
+    - /usr/local/bin/wait-for-it.sh "${DB_HOST}:${DB_PORT}" --timeout=300 && echo "MySQL is up"
     - go test ./...
