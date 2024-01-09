@@ -12,12 +12,12 @@ cache:
     - ${GOPATH}/pkg/mod
     - ${GOPATH}/bin
 
-before_script:
-  - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
 
 Build:
   stage: build
   image: golang:1.21
+  before_script:
+    - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
   script:
     - '! gofmt -l . | grep -q .'
     - golangci-lint run --timeout 5m0s
@@ -28,6 +28,10 @@ Test:
   image: golang:1.21
   services:
     - mysql:latest
+  before_script:
+    - apt-get update && apt-get install -y wget
+    - wget -O /usr/local/bin/wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh
+    - chmod +x /usr/local/bin/wait-for-it.sh
   script:
-    - sleep 10  # Wait for MySQL to fully start
+    - /usr/local/bin/wait-for-it.sh localhost:3306 --timeout=300 -- echo "MySQL is up"
     - go test ./...
