@@ -6,6 +6,8 @@ variables:
   GOPATH: /go
   MYSQL_ROOT_PASSWORD: root
   MYSQL_DATABASE: flare_ftso_indexer_test
+  GOLANG_VERSION: "1.21"
+  GOLINT_VERSION: "v1.55.2"
 
 cache:
   key: ${CI_COMMIT_REF_SLUG}
@@ -14,19 +16,25 @@ cache:
     - ${GOPATH}/bin
 
 
-Build:
+build:
   stage: build
-  image: golang:1.21
-  before_script:
-    - curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.55.2
+  image: golang:${GOLANG_VERSION}
+  needs: []
+  script:
+    - go build ./...
+
+lint:
+  stage: test
+  needs: []
+  image: golangci/golangci-lint:${GOLINT_VERSION}
   script:
     - '! gofmt -l . | grep -q .'
     - golangci-lint run --timeout 5m0s
-    - go build ./...
 
-Test:
+test:
   stage: test
-  image: golang:1.21
+  image: golang:${GOLANG_VERSION}
+  needs: []
   variables:
     DB_HOST: mysql
     DB_PORT: 3306
@@ -36,10 +44,5 @@ Test:
     MOCK_CHAIN_PORT: 2426
   services:
     - mysql:latest
-  before_script:
-    - apt-get update && apt-get install -y wget
-    - wget -O /usr/local/bin/wait-for-it.sh https://raw.githubusercontent.com/vishnubob/wait-for-it/master/wait-for-it.sh
-    - chmod +x /usr/local/bin/wait-for-it.sh
   script:
-    - /usr/local/bin/wait-for-it.sh "${DB_HOST}:${DB_PORT}" --timeout=300 && echo "MySQL is up"
     - go test ./...
