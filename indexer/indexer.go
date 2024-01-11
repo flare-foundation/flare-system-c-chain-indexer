@@ -5,7 +5,6 @@ import (
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/logger"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -33,15 +32,17 @@ func CreateBlockIndexer(cfg *config.Config, db *gorm.DB, ethClient *ethclient.Cl
 	blockIndexer.params.BatchSize -= blockIndexer.params.BatchSize % blockIndexer.params.NumParallelReq
 
 	blockIndexer.transactions = make(map[string]map[string][2]bool)
-	for _, transaction := range cfg.Indexer.CollectTransactions {
-		contactAddress := strings.ToLower(transaction[0].(string))
-		funcSig := strings.ToLower(transaction[1].(string))
-		status := transaction[2].(bool)
-		collectEvent := transaction[3].(bool)
-		if _, ok := blockIndexer.transactions[contactAddress]; !ok {
-			blockIndexer.transactions[contactAddress] = map[string][2]bool{}
+	for i := range cfg.Indexer.CollectTransactions {
+		transaction := &cfg.Indexer.CollectTransactions[i]
+		contractAddress := transaction.ContractAddress
+
+		if _, ok := blockIndexer.transactions[contractAddress]; !ok {
+			blockIndexer.transactions[contractAddress] = map[string][2]bool{}
 		}
-		blockIndexer.transactions[contactAddress][funcSig] = [2]bool{status, collectEvent}
+
+		blockIndexer.transactions[contractAddress][transaction.FuncSig] = [2]bool{
+			transaction.Status, transaction.CollectEvents,
+		}
 	}
 
 	blockIndexer.client = ethClient
