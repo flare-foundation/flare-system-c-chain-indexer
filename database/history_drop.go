@@ -15,9 +15,11 @@ import (
 	"gorm.io/gorm"
 )
 
-func DropHistory(db *gorm.DB, intervalSeconds, checkInterval int, client *ethclient.Client) {
+func DropHistory(
+	ctx context.Context, db *gorm.DB, intervalSeconds, checkInterval int, client *ethclient.Client,
+) {
 	for {
-		err := dropHistoryIteration(db, intervalSeconds, checkInterval, client)
+		err := dropHistoryIteration(ctx, db, intervalSeconds, checkInterval, client)
 		if err != nil {
 			if errMsg := err.Error(); !strings.Contains(errMsg, "record not found") {
 				logger.Error(errMsg)
@@ -28,12 +30,14 @@ func DropHistory(db *gorm.DB, intervalSeconds, checkInterval int, client *ethcli
 	}
 }
 
-func dropHistoryIteration(db *gorm.DB, intervalSeconds, checkInterval int, client *ethclient.Client) error {
+func dropHistoryIteration(
+	ctx context.Context, db *gorm.DB, intervalSeconds, checkInterval int, client *ethclient.Client,
+) error {
 	var databaseTx *gorm.DB
 	lastTx := &Transaction{}
 	firstTx := &Transaction{}
 
-	lastBlockTime, _, err := GetBlockTimestamp(nil, client)
+	lastBlockTime, _, err := GetBlockTimestamp(ctx, nil, client)
 	if err != nil {
 		return errors.Wrap(err, "Failed to get the latest time")
 	}
@@ -83,14 +87,16 @@ func dropHistoryIteration(db *gorm.DB, intervalSeconds, checkInterval int, clien
 	return nil
 }
 
-func GetMinBlockWithHistoryDrop(firstIndex, intervalSeconds int, client *ethclient.Client) (int, error) {
-	firstTime, _, err := GetBlockTimestamp(big.NewInt(int64(firstIndex)), client)
+func GetMinBlockWithHistoryDrop(
+	ctx context.Context, firstIndex, intervalSeconds int, client *ethclient.Client,
+) (int, error) {
+	firstTime, _, err := GetBlockTimestamp(ctx, big.NewInt(int64(firstIndex)), client)
 	if err != nil {
 		return 0, fmt.Errorf("GetMinBlockWithHistoryDrop: %w", err)
 	}
 
 	var lastTime, endIndex int
-	lastTime, endIndex, err = GetBlockTimestamp(nil, client)
+	lastTime, endIndex, err = GetBlockTimestamp(ctx, nil, client)
 
 	if err != nil {
 		return 0, fmt.Errorf("GetMinBlockWithHistoryDrop: %w", err)
@@ -103,7 +109,7 @@ func GetMinBlockWithHistoryDrop(firstIndex, intervalSeconds int, client *ethclie
 	for endIndex-firstIndex > 1 {
 		newIndex := (firstIndex + endIndex) / 2
 
-		newTime, _, err := GetBlockTimestamp(big.NewInt(int64(newIndex)), client)
+		newTime, _, err := GetBlockTimestamp(ctx, big.NewInt(int64(newIndex)), client)
 		if err != nil {
 			return 0, fmt.Errorf("GetMinBlockWithHistoryDrop: %w", err)
 		}
@@ -117,11 +123,11 @@ func GetMinBlockWithHistoryDrop(firstIndex, intervalSeconds int, client *ethclie
 	return firstIndex, nil
 }
 
-func GetBlockTimestamp(index *big.Int, client *ethclient.Client) (int, int, error) {
+func GetBlockTimestamp(ctx context.Context, index *big.Int, client *ethclient.Client) (int, int, error) {
 	var block *types.Block
 	var err error
 	for j := 0; j < config.ReqRepeats; j++ {
-		ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(1000)*time.Millisecond)
+		ctx, cancelFunc := context.WithTimeout(ctx, time.Duration(1000)*time.Millisecond)
 		block, err = client.BlockByNumber(ctx, index)
 		cancelFunc()
 		if err == nil {

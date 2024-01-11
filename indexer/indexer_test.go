@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"context"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/logger"
@@ -24,6 +25,8 @@ type testConfig struct {
 }
 
 func TestIndexer(t *testing.T) {
+	ctx := context.Background()
+
 	var tCfg testConfig
 	if err := env.Parse(&tCfg); err != nil {
 		t.Fatal("Config parse error:", err)
@@ -108,7 +111,9 @@ func TestIndexer(t *testing.T) {
 		logger.Fatal("Could not connect to the Ethereum node: %s", err)
 	}
 
-	cfg.Indexer.StartIndex, err = database.GetMinBlockWithHistoryDrop(cfg.Indexer.StartIndex, historyDropIntervalSeconds, ethClient)
+	cfg.Indexer.StartIndex, err = database.GetMinBlockWithHistoryDrop(
+		ctx, cfg.Indexer.StartIndex, historyDropIntervalSeconds, ethClient,
+	)
 	if err != nil {
 		logger.Fatal("Could not set the starting index: %s", err)
 	}
@@ -116,7 +121,7 @@ func TestIndexer(t *testing.T) {
 	// create the indexer
 	cIndexer := CreateBlockIndexer(&cfg, db, ethClient)
 	// index history with parallel processing
-	err = cIndexer.IndexHistory()
+	err = cIndexer.IndexHistory(ctx)
 	if err != nil {
 		logger.Fatal("History run error: %s", err)
 	}
@@ -126,10 +131,12 @@ func TestIndexer(t *testing.T) {
 
 	// turn on the function to delete in the database everything that
 	// is older than the historyDrop interval
-	go database.DropHistory(db, historyDropIntervalSeconds, database.HistoryDropIntervalCheck, ethClient)
+	go database.DropHistory(
+		ctx, db, historyDropIntervalSeconds, database.HistoryDropIntervalCheck, ethClient,
+	)
 
 	// run indexer
-	err = cIndexer.IndexContinuous()
+	err = cIndexer.IndexContinuous(ctx)
 	if err != nil {
 		logger.Fatal("Continuous run error: %s", err)
 	}
