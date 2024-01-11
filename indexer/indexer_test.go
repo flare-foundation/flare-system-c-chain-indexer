@@ -47,13 +47,41 @@ func TestIndexer(t *testing.T) {
 	// set configuration parameters
 	mockChainAddress := fmt.Sprintf("http://localhost:%d", tCfg.MockChainPort)
 	cfgChain := config.ChainConfig{NodeURL: mockChainAddress}
-	collectTransactions := [][4]interface{}{
-		{"22474d350ec2da53d717e30b96e9a2b7628ede5b", "f14fcbc8", true, true},
-		{"22474d350ec2da53d717e30b96e9a2b7628ede5b", "4369af80", true, true},
-		{"22474d350ec2da53d717e30b96e9a2b7628ede5b", "46f073cf", true, true},
-		{"22474d350ec2da53d717e30b96e9a2b7628ede5b", "901d0e19", true, true},
-		{"b682deef4f8e298d86bfc3e21f50c675151fb974", "2636434d", true, false},
-	} // for the test we do not use finalizations
+
+	// for the test we do not use finalizations
+	collectTransactions := []config.TransactionInfo{
+		{
+			ContractAddress: "22474d350ec2da53d717e30b96e9a2b7628ede5b",
+			FuncSig:         "f14fcbc8",
+			Status:          true,
+			CollectEvents:   true,
+		},
+		{
+			ContractAddress: "22474d350ec2da53d717e30b96e9a2b7628ede5b",
+			FuncSig:         "4369af80",
+			Status:          true,
+			CollectEvents:   true,
+		},
+		{
+			ContractAddress: "22474d350ec2da53d717e30b96e9a2b7628ede5b",
+			FuncSig:         "46f073cf",
+			Status:          true,
+			CollectEvents:   true,
+		},
+		{
+			ContractAddress: "22474d350ec2da53d717e30b96e9a2b7628ede5b",
+			FuncSig:         "901d0e19",
+			Status:          true,
+			CollectEvents:   true,
+		},
+		{
+			ContractAddress: "b682deef4f8e298d86bfc3e21f50c675151fb974",
+			FuncSig:         "2636434d",
+			Status:          true,
+			CollectEvents:   false,
+		},
+	}
+
 	cfgIndexer := config.IndexerConfig{
 		StartIndex: 50, StopIndex: 2400, BatchSize: 500, NumParallelReq: 4,
 		NewBlockCheckMillis: 200, TimeoutMillis: 100, CollectTransactions: collectTransactions,
