@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/hex"
 	"flare-ftso-indexer/database"
-	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 )
 
 type LogsBatch struct {
@@ -27,7 +27,9 @@ func NewLogsBatch() *LogsBatch {
 	return &transactionBatch
 }
 
-func (ci *BlockIndexer) requestLogs(logsBatch *LogsBatch, logInfo [2]string, start, stop, last_chain_block int, errChan chan error) {
+func (ci *BlockIndexer) requestLogs(
+	logsBatch *LogsBatch, logInfo [2]string, start, stop, last_chain_block int,
+) error {
 	for i := start; i < stop && i <= last_chain_block; i += ci.params.LogRange {
 		toBlock := min(i+ci.params.LogRange-1, last_chain_block)
 		var addresses []common.Address
@@ -47,7 +49,7 @@ func (ci *BlockIndexer) requestLogs(logsBatch *LogsBatch, logInfo [2]string, sta
 		}
 		logs, err := ci.client.FilterLogs(context.Background(), query)
 		if err != nil {
-			errChan <- fmt.Errorf("requestLogs: %w", err)
+			return errors.Wrap(err, "client.FilterLogs")
 		}
 
 		logsBatch.Mutex.Lock()
@@ -55,7 +57,7 @@ func (ci *BlockIndexer) requestLogs(logsBatch *LogsBatch, logInfo [2]string, sta
 		logsBatch.Mutex.Unlock()
 	}
 
-	errChan <- nil
+	return nil
 }
 
 func (ci *BlockIndexer) processLogs(logsBatch *LogsBatch, blockBatch *BlockBatch,

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 )
 
 type BlockBatch struct {
@@ -67,7 +68,9 @@ func (ci *BlockIndexer) fetchBlockTimestamp(index int) (int, error) {
 	return int(lastBlock.Time()), nil
 }
 
-func (ci *BlockIndexer) requestBlocks(blockBatch *BlockBatch, start, stop, listIndex, lastIndex int, errChan chan error) {
+func (ci *BlockIndexer) requestBlocks(
+	blockBatch *BlockBatch, start, stop, listIndex, lastIndex int,
+) error {
 	for i := start; i < stop; i++ {
 		var block *types.Block
 		var err error
@@ -76,19 +79,21 @@ func (ci *BlockIndexer) requestBlocks(blockBatch *BlockBatch, start, stop, listI
 		} else {
 			block, err = ci.fetchBlock(i)
 			if err != nil {
-				errChan <- fmt.Errorf("requestBlocks: %w", err)
-				return
+				return errors.Wrap(err, "ci.fetchBlock")
 			}
 		}
+
 		blockBatch.Lock()
 		blockBatch.Blocks[listIndex+i-start] = block
 		blockBatch.Unlock()
 	}
 
-	errChan <- nil
+	return nil
 }
 
-func (ci *BlockIndexer) processBlocks(blockBatch *BlockBatch, batchTransactions *TransactionsBatch, start, stop int, errChan chan error) {
+func (ci *BlockIndexer) processBlocks(
+	blockBatch *BlockBatch, batchTransactions *TransactionsBatch, start, stop int,
+) {
 	for i := start; i < stop; i++ {
 		block := blockBatch.Blocks[i]
 		for txIndex, tx := range block.Transactions() {
@@ -127,5 +132,4 @@ func (ci *BlockIndexer) processBlocks(blockBatch *BlockBatch, batchTransactions 
 			}
 		}
 	}
-	errChan <- nil
 }
