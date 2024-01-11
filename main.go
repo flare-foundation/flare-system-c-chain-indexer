@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
@@ -15,12 +16,12 @@ import (
 )
 
 func main() {
-	if err := run(); err != nil {
+	if err := run(context.Background()); err != nil {
 		logger.Fatal("Fatal error: %s", err)
 	}
 }
 
-func run() error {
+func run(ctx context.Context) error {
 	flag.Parse()
 	cfg, err := config.BuildConfig()
 	if err != nil {
@@ -42,7 +43,7 @@ func run() error {
 	}
 
 	if cfg.DB.HistoryDrop > 0 {
-		startIndex, err := database.GetMinBlockWithHistoryDrop(cfg.Indexer.StartIndex, cfg.DB.HistoryDrop, ethClient)
+		startIndex, err := database.GetMinBlockWithHistoryDrop(ctx, cfg.Indexer.StartIndex, cfg.DB.HistoryDrop, ethClient)
 		if err != nil {
 			return errors.Wrap(err, "Could not set the starting indexs")
 		}
@@ -53,7 +54,7 @@ func run() error {
 		}
 	}
 
-	return runIndexer(cfg, db, ethClient)
+	return runIndexer(ctx, cfg, db, ethClient)
 }
 
 func dialRPCNode(cfg *config.Config) (*ethclient.Client, error) {
@@ -65,24 +66,36 @@ func dialRPCNode(cfg *config.Config) (*ethclient.Client, error) {
 	return ethclient.Dial(nodeURL.String())
 }
 
-func runIndexer(cfg *config.Config, db *gorm.DB, ethClient *ethclient.Client) error {
+func runIndexer(ctx context.Context, cfg *config.Config, db *gorm.DB, ethClient *ethclient.Client) error {
 	cIndexer := indexer.CreateBlockIndexer(cfg, db, ethClient)
 	bOff := backoff.NewExponentialBackOff()
 
-	err := backoff.RetryNotify(cIndexer.IndexHistory, bOff, func(err error, d time.Duration) {
-		logger.Error("Index history error: %s", err)
-	})
+	err := backoff.RetryNotify(
+		func() error {
+			return cIndexer.IndexHistory(ctx)
+		},
+		bOff,
+		func(err error, d time.Duration) {
+			logger.Error("Index history error: %s", err)
+		},
+	)
 	if err != nil {
 		return errors.Wrap(err, "Index history fatal error")
 	}
 
 	if cfg.DB.HistoryDrop > 0 {
-		go database.DropHistory(db, cfg.DB.HistoryDrop, database.HistoryDropIntervalCheck, ethClient)
+		go database.DropHistory(ctx, db, cfg.DB.HistoryDrop, database.HistoryDropIntervalCheck, ethClient)
 	}
 
-	err = backoff.RetryNotify(cIndexer.IndexContinuous, bOff, func(err error, d time.Duration) {
-		logger.Error("Index continuous error: %s", err)
-	})
+	err = backoff.RetryNotify(
+		func() error {
+			return cIndexer.IndexContinuous(ctx)
+		},
+		bOff,
+		func(err error, d time.Duration) {
+			logger.Error("Index continuous error: %s", err)
+		},
+	)
 	if err != nil {
 		return errors.Wrap(err, "Index continuous fatal error")
 	}

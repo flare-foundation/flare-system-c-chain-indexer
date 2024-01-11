@@ -20,7 +20,9 @@ type PostToChain struct {
 	Params  []interface{} `json:"params"`
 }
 
-func CopyChain(address string, start, stop int) (map[int][]byte, map[string][]byte, error) {
+func CopyChain(
+	ctx context.Context, address string, start, stop int,
+) (map[int][]byte, map[string][]byte, error) {
 	client := &http.Client{}
 	blockDict := make(map[int][]byte)
 	txDict := make(map[string][]byte)
@@ -62,7 +64,7 @@ func CopyChain(address string, start, stop int) (map[int][]byte, map[string][]by
 	}
 
 	for i := start; i < stop; i++ {
-		block, err := ethClient.BlockByNumber(context.Background(), big.NewInt(int64(i)))
+		block, err := ethClient.BlockByNumber(ctx, big.NewInt(int64(i)))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -103,7 +105,9 @@ func CopyChain(address string, start, stop int) (map[int][]byte, map[string][]by
 // Assuming that the chain is running on 8545, this function will copy all the info needed
 // to replay the chain.
 func main() {
-	blockDict, txDict, err := CopyChain("http://localhost:8545", 0, 2500)
+	ctx := context.Background()
+
+	blockDict, txDict, err := CopyChain(ctx, "http://localhost:8545", 0, 2500)
 	if err != nil {
 		fmt.Println(err)
 		panic(err)

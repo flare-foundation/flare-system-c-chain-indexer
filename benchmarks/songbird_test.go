@@ -1,6 +1,7 @@
 package benchmarks
 
 import (
+	"context"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer"
@@ -11,6 +12,8 @@ import (
 )
 
 func BenchmarkBlockRequests(b *testing.B) {
+	ctx := context.Background()
+
 	*config.CfgFlag = "../config.songbird.toml"
 	cfg, err := config.BuildConfig()
 	if err != nil {
@@ -35,7 +38,7 @@ func BenchmarkBlockRequests(b *testing.B) {
 
 		cIndexer := indexer.CreateBlockIndexer(cfg, db, ethClient)
 
-		err = cIndexer.IndexHistory()
+		err = cIndexer.IndexHistory(ctx)
 		if err != nil {
 			logger.Fatal("History run error: %s", err)
 		}

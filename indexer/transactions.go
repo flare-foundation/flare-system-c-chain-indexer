@@ -45,7 +45,7 @@ func countReceipts(txs *TransactionsBatch) int {
 }
 
 func (ci *BlockIndexer) getTransactionsReceipt(
-	transactionBatch *TransactionsBatch, start, stop int,
+	ctx context.Context, transactionBatch *TransactionsBatch, start, stop int,
 ) error {
 	var receipt *types.Receipt
 	var err error
@@ -53,7 +53,7 @@ func (ci *BlockIndexer) getTransactionsReceipt(
 		tx := transactionBatch.Transactions[i]
 		if transactionBatch.toPolicy[i][0] || transactionBatch.toPolicy[i][1] {
 			for j := 0; j < config.ReqRepeats; j++ {
-				ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
+				ctx, cancelFunc := context.WithTimeout(ctx, time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
 				receipt, err = ci.client.TransactionReceipt(ctx, tx.Hash())
 				cancelFunc()
 				if err == nil {

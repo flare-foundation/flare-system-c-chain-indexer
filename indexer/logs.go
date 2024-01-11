@@ -28,7 +28,7 @@ func NewLogsBatch() *LogsBatch {
 }
 
 func (ci *BlockIndexer) requestLogs(
-	logsBatch *LogsBatch, logInfo [2]string, start, stop, last_chain_block int,
+	ctx context.Context, logsBatch *LogsBatch, logInfo [2]string, start, stop, last_chain_block int,
 ) error {
 	for i := start; i < stop && i <= last_chain_block; i += ci.params.LogRange {
 		toBlock := min(i+ci.params.LogRange-1, last_chain_block)
@@ -47,7 +47,7 @@ func (ci *BlockIndexer) requestLogs(
 			Addresses: addresses,
 			Topics:    topic,
 		}
-		logs, err := ci.client.FilterLogs(context.Background(), query)
+		logs, err := ci.client.FilterLogs(ctx, query)
 		if err != nil {
 			return errors.Wrap(err, "client.FilterLogs")
 		}

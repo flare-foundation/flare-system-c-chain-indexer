@@ -11,6 +11,8 @@ import (
 )
 
 func TestMockChain(t *testing.T) {
+	ctx := context.Background()
+
 	go func() {
 		err := MockChain(5500, "chain_copy/blocks.json", "chain_copy/transactions.json")
 		assert.NoError(t, err)
@@ -22,12 +24,12 @@ func TestMockChain(t *testing.T) {
 	assert.NoError(t, err)
 
 	blockNum := uint64(2001)
-	block, err := client.BlockByNumber(context.Background(), big.NewInt(int64(blockNum)))
+	block, err := client.BlockByNumber(ctx, big.NewInt(int64(blockNum)))
 	assert.NoError(t, err)
 	assert.Equal(t, block.NumberU64(), blockNum)
 
 	for _, tx := range block.Transactions() {
-		receipt, err := client.TransactionReceipt(context.Background(), tx.Hash())
+		receipt, err := client.TransactionReceipt(ctx, tx.Hash())
 		assert.NoError(t, err)
 		assert.Equal(t, receipt.TxHash, tx.Hash())
 	}

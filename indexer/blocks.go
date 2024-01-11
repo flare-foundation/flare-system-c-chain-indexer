@@ -26,7 +26,7 @@ func NewBlockBatch(batchSize int) *BlockBatch {
 	return &blockBatch
 }
 
-func (ci *BlockIndexer) fetchBlock(index int) (*types.Block, error) {
+func (ci *BlockIndexer) fetchBlock(ctx context.Context, index int) (*types.Block, error) {
 	var block *types.Block
 	indexBigInt := new(big.Int)
 	if index >= 0 {
@@ -37,7 +37,8 @@ func (ci *BlockIndexer) fetchBlock(index int) (*types.Block, error) {
 
 	var err error
 	for j := 0; j < config.ReqRepeats; j++ {
-		ctx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
+		ctx, cancelFunc := context.WithTimeout(ctx, time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
+
 		block, err = ci.client.BlockByNumber(ctx, indexBigInt)
 		cancelFunc()
 		if err == nil {
@@ -45,13 +46,14 @@ func (ci *BlockIndexer) fetchBlock(index int) (*types.Block, error) {
 		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("fetchBlock: %w", err)
+		return nil, errors.Wrap(err, "ci.client.BlockByNumber")
 	}
 
 	return block, nil
 }
-func (ci *BlockIndexer) fetchLastBlockIndex() (int, int, error) {
-	lastBlock, err := ci.fetchBlock(-1)
+
+func (ci *BlockIndexer) fetchLastBlockIndex(ctx context.Context) (int, int, error) {
+	lastBlock, err := ci.fetchBlock(ctx, -1)
 	if err != nil {
 		return 0, 0, fmt.Errorf("fetchLastBlockIndex: %w", err)
 	}
@@ -59,8 +61,8 @@ func (ci *BlockIndexer) fetchLastBlockIndex() (int, int, error) {
 	return int(lastBlock.NumberU64()), int(lastBlock.Time()), nil
 }
 
-func (ci *BlockIndexer) fetchBlockTimestamp(index int) (int, error) {
-	lastBlock, err := ci.fetchBlock(index)
+func (ci *BlockIndexer) fetchBlockTimestamp(ctx context.Context, index int) (int, error) {
+	lastBlock, err := ci.fetchBlock(ctx, index)
 	if err != nil {
 		return 0, fmt.Errorf("fetchBlockTimestamp: %w", err)
 	}
@@ -69,7 +71,7 @@ func (ci *BlockIndexer) fetchBlockTimestamp(index int) (int, error) {
 }
 
 func (ci *BlockIndexer) requestBlocks(
-	blockBatch *BlockBatch, start, stop, listIndex, lastIndex int,
+	ctx context.Context, blockBatch *BlockBatch, start, stop, listIndex, lastIndex int,
 ) error {
 	for i := start; i < stop; i++ {
 		var block *types.Block
@@ -77,7 +79,7 @@ func (ci *BlockIndexer) requestBlocks(
 		if i > lastIndex {
 			block = &types.Block{}
 		} else {
-			block, err = ci.fetchBlock(i)
+			block, err = ci.fetchBlock(ctx, i)
 			if err != nil {
 				return errors.Wrap(err, "ci.fetchBlock")
 			}
