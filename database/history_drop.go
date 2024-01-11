@@ -33,7 +33,6 @@ func DropHistory(
 func dropHistoryIteration(
 	ctx context.Context, db *gorm.DB, intervalSeconds, checkInterval int, client *ethclient.Client,
 ) error {
-	var databaseTx *gorm.DB
 	lastTx := &Transaction{}
 	firstTx := &Transaction{}
 
@@ -49,42 +48,29 @@ func dropHistoryIteration(
 		return errors.Wrap(err, "Failed to check historic data in the DB")
 	}
 
-	databaseTx = db.Begin()
-	defer func() {
-		if r := recover(); r != nil {
-			databaseTx.Rollback()
+	return db.Transaction(func(tx *gorm.DB) error {
+		// delete in reverse to not break foreign keys
+		for i := len(entities) - 1; i >= 1; i-- {
+			entity := entities[i]
+			err = tx.Where("timestamp < ?", deleteStart).Delete(&entity).Error
+			if err != nil {
+				return errors.Wrap(err, "Failed to delete historic data in the DB")
+			}
 		}
-	}()
 
-	// delete in reverse to not break foreign keys
-	for i := len(entities) - 1; i >= 1; i-- {
-		entity := entities[i]
-		err = db.Where("timestamp < ?", deleteStart).Delete(&entity).Error
+		err = tx.Where("timestamp >= ?", deleteStart).Order("block_number").First(firstTx).Error
 		if err != nil {
-			databaseTx.Rollback()
-			return errors.Wrap(err, "Failed to delete historic data in the DB")
+			return errors.Wrap(err, "Failed to get first transaction in the DB: %s")
 		}
-	}
 
-	err = db.Where("timestamp >= ?", deleteStart).Order("block_number").First(firstTx).Error
-	if err != nil {
-		databaseTx.Rollback()
-		return errors.Wrap(err, "Failed to get first transaction in the DB: %s")
-	}
+		err = States.Update(tx, FirstDatabaseIndexState, int(firstTx.BlockNumber), int(firstTx.Timestamp))
+		if err != nil {
+			return errors.Wrap(err, "Failed to update state in the DB")
+		}
 
-	err = States.Update(db, FirstDatabaseIndexState, int(firstTx.BlockNumber), int(firstTx.Timestamp))
-	if err != nil {
-		databaseTx.Rollback()
-		return errors.Wrap(err, "Failed to update state in the DB")
-	}
-
-	err = databaseTx.Commit().Error
-	if err != nil {
-		return errors.Wrap(err, "Failed to delete the data the DB")
-	}
-
-	logger.Info("Deleted blocks up to index %d", lastTx.BlockNumber)
-	return nil
+		logger.Info("Deleted blocks up to index %d", lastTx.BlockNumber)
+		return nil
+	})
 }
 
 func GetMinBlockWithHistoryDrop(
