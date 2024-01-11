@@ -17,8 +17,13 @@ import (
 type BlockIndexer struct {
 	db           *gorm.DB
 	params       config.IndexerConfig
-	transactions map[string]map[string][2]bool
+	transactions map[string]map[string]transactionsPolicy
 	client       *ethclient.Client
+}
+
+type transactionsPolicy struct {
+	status        bool
+	collectEvents bool
 }
 
 func CreateBlockIndexer(cfg *config.Config, db *gorm.DB, ethClient *ethclient.Client) *BlockIndexer {
@@ -56,19 +61,20 @@ func updateParams(params config.IndexerConfig) config.IndexerConfig {
 	return params
 }
 
-func makeTransactions(txInfo []config.TransactionInfo) map[string]map[string][2]bool {
-	transactions := make(map[string]map[string][2]bool)
+func makeTransactions(txInfo []config.TransactionInfo) map[string]map[string]transactionsPolicy {
+	transactions := make(map[string]map[string]transactionsPolicy)
 
 	for i := range txInfo {
 		transaction := &txInfo[i]
 		contractAddress := transaction.ContractAddress
 
 		if _, ok := transactions[contractAddress]; !ok {
-			transactions[contractAddress] = make(map[string][2]bool)
+			transactions[contractAddress] = make(map[string]transactionsPolicy)
 		}
 
-		transactions[contractAddress][transaction.FuncSig] = [2]bool{
-			transaction.Status, transaction.CollectEvents,
+		transactions[contractAddress][transaction.FuncSig] = transactionsPolicy{
+			status:        transaction.Status,
+			collectEvents: transaction.CollectEvents,
 		}
 	}
 

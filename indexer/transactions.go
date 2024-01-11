@@ -20,7 +20,7 @@ type TransactionsBatch struct {
 	toBlock      []*types.Block
 	toIndex      []uint64
 	toReceipt    []*types.Receipt
-	toPolicy     [][2]bool
+	toPolicy     []transactionsPolicy
 	sync.Mutex
 }
 
@@ -51,7 +51,7 @@ func (ci *BlockIndexer) getTransactionsReceipt(
 	var err error
 	for i := start; i < stop; i++ {
 		tx := transactionBatch.Transactions[i]
-		if transactionBatch.toPolicy[i][0] || transactionBatch.toPolicy[i][1] {
+		if transactionBatch.toPolicy[i].status || transactionBatch.toPolicy[i].collectEvents {
 			for j := 0; j < config.ReqRepeats; j++ {
 				ctx, cancelFunc := context.WithTimeout(ctx, time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
 				receipt, err = ci.client.TransactionReceipt(ctx, tx.Hash())
@@ -108,7 +108,7 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 		database.TransactionId += 1
 
 		// if it was chosen to get the logs of the transaction we process it
-		if transactionBatch.toReceipt[i] != nil && transactionBatch.toPolicy[i][1] {
+		if transactionBatch.toReceipt[i] != nil && transactionBatch.toPolicy[i].collectEvents {
 			receipt := transactionBatch.toReceipt[i]
 			for _, log := range receipt.Logs {
 				topics := make([]string, 4)

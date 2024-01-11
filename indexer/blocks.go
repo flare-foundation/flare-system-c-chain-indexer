@@ -20,22 +20,15 @@ type BlockBatch struct {
 }
 
 func NewBlockBatch(batchSize int) *BlockBatch {
-	blockBatch := BlockBatch{}
-	blockBatch.Blocks = make([]*types.Block, batchSize)
-
-	return &blockBatch
+	return &BlockBatch{Blocks: make([]*types.Block, batchSize)}
 }
 
-func (ci *BlockIndexer) fetchBlock(ctx context.Context, index int) (*types.Block, error) {
-	var block *types.Block
-	indexBigInt := new(big.Int)
+func (ci *BlockIndexer) fetchBlock(ctx context.Context, index int) (block *types.Block, err error) {
+	var indexBigInt *big.Int
 	if index >= 0 {
-		indexBigInt.SetInt64(int64(index))
-	} else {
-		indexBigInt = nil
+		indexBigInt = new(big.Int).SetInt64(int64(index))
 	}
 
-	var err error
 	for j := 0; j < config.ReqRepeats; j++ {
 		ctx, cancelFunc := context.WithTimeout(ctx, time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
 
@@ -75,10 +68,12 @@ func (ci *BlockIndexer) requestBlocks(
 ) error {
 	for i := start; i < stop; i++ {
 		var block *types.Block
-		var err error
+
 		if i > lastIndex {
 			block = &types.Block{}
 		} else {
+			var err error
+
 			block, err = ci.fetchBlock(ctx, i)
 			if err != nil {
 				return errors.Wrap(err, "ci.fetchBlock")
@@ -99,25 +94,27 @@ func (ci *BlockIndexer) processBlocks(
 	for i := start; i < stop; i++ {
 		block := blockBatch.Blocks[i]
 		for txIndex, tx := range block.Transactions() {
+			if tx.To() == nil {
+				continue
+			}
+
 			txData := hex.EncodeToString(tx.Data())
 			if len(txData) < 8 {
 				continue
 			}
+
 			funcSig := txData[:8]
-			if tx.To() == nil {
-				continue
-			}
 			contractAddress := strings.ToLower(tx.To().Hex()[2:])
 			check := false
-			policy := [2]bool{false, false}
+			policy := transactionsPolicy{status: false, collectEvents: false}
 
 			for _, address := range []string{contractAddress, "undefined"} {
 				if val, ok := ci.transactions[address]; ok {
 					for _, sig := range []string{funcSig, "undefined"} {
 						if pol, ok := val[sig]; ok {
 							check = true
-							policy[0] = policy[0] || pol[0]
-							policy[1] = policy[1] || pol[1]
+							policy.status = policy.status || pol.status
+							policy.collectEvents = policy.collectEvents || pol.collectEvents
 						}
 					}
 				}
