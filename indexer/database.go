@@ -2,7 +2,8 @@ package indexer
 
 import (
 	"flare-ftso-indexer/database"
-	"fmt"
+
+	"github.com/pkg/errors"
 )
 
 type DatabaseStructData struct {
@@ -20,10 +21,9 @@ func NewDatabaseStructData() *DatabaseStructData {
 	return &data
 }
 
-func (ci *BlockIndexer) saveData(data *DatabaseStructData, states *database.DBStates,
-	lastDBIndex, lastDBTimestamp int, errChan chan error) {
-	var err error
-
+func (ci *BlockIndexer) saveData(
+	data *DatabaseStructData, states *database.DBStates, lastDBIndex, lastDBTimestamp int,
+) error {
 	databaseTx := ci.db.Begin()
 	defer func() {
 		if r := recover(); r != nil {
@@ -32,34 +32,32 @@ func (ci *BlockIndexer) saveData(data *DatabaseStructData, states *database.DBSt
 	}()
 	if len(data.Transactions) != 0 {
 		// insert transactions in the database, if an entry already exists, give error
-		err = databaseTx.CreateInBatches(data.Transactions, database.DBTransactionBatchesSize).Error
+		err := databaseTx.CreateInBatches(data.Transactions, database.DBTransactionBatchesSize).Error
 		if err != nil {
 			databaseTx.Rollback()
-			errChan <- fmt.Errorf("saveData: CreateInBatches1: %w", err)
-			return
+			return errors.Wrap(err, "saveData: CreateInBatches1")
 		}
 	}
 
 	if len(data.Logs) != 0 {
 		// insert logs in the database, if an entry already exists, give error
-		err = databaseTx.CreateInBatches(data.Logs, database.DBTransactionBatchesSize).Error
+		err := databaseTx.CreateInBatches(data.Logs, database.DBTransactionBatchesSize).Error
 		if err != nil {
 			databaseTx.Rollback()
-			errChan <- fmt.Errorf("saveData: CreateInBatches2: %w", err)
-			return
+			return errors.Wrap(err, "saveData: CreateInBatches2")
 		}
 	}
 
-	err = states.Update(ci.db, database.LastDatabaseIndexState, lastDBIndex, lastDBTimestamp)
+	err := states.Update(ci.db, database.LastDatabaseIndexState, lastDBIndex, lastDBTimestamp)
 	if err != nil {
 		databaseTx.Rollback()
-		errChan <- fmt.Errorf("saveData: Update: %w", err)
-		return
+		return errors.Wrap(err, "saveData: Update")
 	}
+
 	err = databaseTx.Commit().Error
 	if err != nil {
-		errChan <- fmt.Errorf("saveData: Commit: %w", err)
-
+		return errors.Wrap(err, "saveData: Commit")
 	}
-	errChan <- nil
+
+	return nil
 }

@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 )
 
 type TransactionsBatch struct {
@@ -43,8 +44,9 @@ func countReceipts(txs *TransactionsBatch) int {
 	return i
 }
 
-func (ci *BlockIndexer) getTransactionsReceipt(transactionBatch *TransactionsBatch,
-	start, stop int, errChan chan error) {
+func (ci *BlockIndexer) getTransactionsReceipt(
+	transactionBatch *TransactionsBatch, start, stop int,
+) error {
 	var receipt *types.Receipt
 	var err error
 	for i := start; i < stop; i++ {
@@ -59,8 +61,7 @@ func (ci *BlockIndexer) getTransactionsReceipt(transactionBatch *TransactionsBat
 				}
 			}
 			if err != nil {
-				errChan <- fmt.Errorf("getTransactionsReceipt: %w", err)
-				return
+				return errors.Wrap(err, "getTransactionsReceipt")
 			}
 		} else {
 			receipt = nil
@@ -69,7 +70,7 @@ func (ci *BlockIndexer) getTransactionsReceipt(transactionBatch *TransactionsBat
 		transactionBatch.toReceipt[i] = receipt
 	}
 
-	errChan <- nil
+	return nil
 }
 
 func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch) (*DatabaseStructData, error) {

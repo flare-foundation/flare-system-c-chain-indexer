@@ -114,10 +114,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	// create the indexer
-	cIndexer, err := CreateBlockIndexer(&cfg, db, ethClient)
-	if err != nil {
-		logger.Fatal("Indexer init error: %s", err)
-	}
+	cIndexer := CreateBlockIndexer(&cfg, db, ethClient)
 	// index history with parallel processing
 	err = cIndexer.IndexHistory()
 	if err != nil {
