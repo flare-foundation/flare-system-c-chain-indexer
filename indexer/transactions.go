@@ -6,6 +6,7 @@ import (
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"fmt"
+	"math/big"
 	"strings"
 	"sync"
 
@@ -114,7 +115,11 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 		// if it was chosen to get the logs of the transaction we process it
 		if receipt != nil && policy.collectEvents {
 			for _, log := range receipt.Logs {
-				dbLog := buildDBLog(dbTx, log, block)
+				dbLog, err := buildDBLog(dbTx, log, block)
+				if err != nil {
+					return nil, err
+				}
+
 				data.Logs = append(data.Logs, dbLog)
 
 				key := fmt.Sprintf("%s%d", dbLog.TransactionHash, dbLog.LogIndex)
@@ -161,7 +166,11 @@ func buildDBTx(
 	}, nil
 }
 
-func buildDBLog(dbTx *database.Transaction, log *types.Log, block *types.Block) *database.Log {
+func buildDBLog(dbTx *database.Transaction, log *types.Log, block *types.Block) (*database.Log, error) {
+	if blockNum := block.Number(); blockNum.Cmp(new(big.Int).SetUint64(log.BlockNumber)) != 0 {
+		return nil, errors.Errorf("block number mismatch %s != %d", blockNum, log.BlockNumber)
+	}
+
 	var topics [numTopics]string
 
 	for j := 0; j < numTopics; j++ {
@@ -183,5 +192,6 @@ func buildDBLog(dbTx *database.Transaction, log *types.Log, block *types.Block) 
 		TransactionHash: log.TxHash.Hex()[2:],
 		LogIndex:        uint64(log.Index),
 		Timestamp:       block.Time(),
-	}
+		BlockNumber:     log.BlockNumber,
+	}, nil
 }
