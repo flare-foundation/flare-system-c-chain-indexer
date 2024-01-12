@@ -108,9 +108,9 @@ func (ci *BlockIndexer) processBlocks(
 			check := false
 			policy := transactionsPolicy{status: false, collectEvents: false}
 
-			for _, address := range []string{contractAddress, "undefined"} {
+			for _, address := range []string{contractAddress, undefined} {
 				if val, ok := ci.transactions[address]; ok {
-					for _, sig := range []string{funcSig, "undefined"} {
+					for _, sig := range []string{funcSig, undefined} {
 						if pol, ok := val[sig]; ok {
 							check = true
 							policy.status = policy.status || pol.status
