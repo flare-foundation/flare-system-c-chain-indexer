@@ -35,4 +35,5 @@ type Log struct {
 	TransactionHash string      `gorm:"type:varchar(64);uniqueIndex:hash_index_unique"`
 	LogIndex        uint64      `gorm:"uniqueIndex:hash_index_unique"`
 	Timestamp       uint64      `gorm:"index"`
+	BlockNumber     uint64      `gorm:"index"`
 }

@@ -77,6 +77,11 @@ func (ci *BlockIndexer) processLogs(
 			}
 		}
 
+		block := blockBatch.Blocks[log.BlockNumber-uint64(firstBlockNum)]
+		if blockNum := block.Number(); blockNum.Cmp(new(big.Int).SetUint64(log.BlockNumber)) != 0 {
+			return errors.Errorf("block number mismatch: %s != %d", blockNum, log.BlockNumber)
+		}
+
 		dbLog := &database.Log{
 			Address:         strings.ToLower(log.Address.Hex()[2:]),
 			Data:            hex.EncodeToString(log.Data),
@@ -86,7 +91,8 @@ func (ci *BlockIndexer) processLogs(
 			Topic3:          topics[3],
 			TransactionHash: log.TxHash.Hex()[2:],
 			LogIndex:        uint64(log.Index),
-			Timestamp:       blockBatch.Blocks[log.BlockNumber-uint64(firstBlockNum)].Time(),
+			Timestamp:       block.Time(),
+			BlockNumber:     log.BlockNumber,
 		}
 
 		// check if the log was not obtained from transactions already
