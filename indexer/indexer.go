@@ -14,6 +14,12 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	nullTopic = "NULL"
+	numTopics = 4
+	undefined = "undefined"
+)
+
 type BlockIndexer struct {
 	db           *gorm.DB
 	params       config.IndexerConfig
@@ -189,7 +195,7 @@ func (ci *BlockIndexer) obtainBlocksBatch(
 
 func (ci *BlockIndexer) processBlocksBatch(blockBatch *BlockBatch) *TransactionsBatch {
 	startTime := time.Now()
-	transactionsBatch := NewTransactionsBatch()
+	transactionsBatch := new(TransactionsBatch)
 
 	ci.processBlocks(blockBatch, transactionsBatch, 0, ci.params.BatchSize)
 	logger.Info(
@@ -232,7 +238,7 @@ func (ci *BlockIndexer) processTransactionsBatch(
 func (ci *BlockIndexer) obtainLogsBatch(
 	ctx context.Context, batchIx, lastBlockNumInRound int,
 ) (*LogsBatch, error) {
-	logsBatch := NewLogsBatch()
+	logsBatch := new(LogsBatch)
 	startTime := time.Now()
 	numRequests := (ci.params.BatchSize / ci.params.LogRange)
 	perRunner := (numRequests / ci.params.NumParallelReq)
@@ -425,7 +431,7 @@ func (ci *BlockIndexer) indexContinuousIteration(
 		return errors.Wrap(err, "ci.requestBlocks")
 	}
 
-	transactionsBatch := NewTransactionsBatch()
+	transactionsBatch := new(TransactionsBatch)
 	ci.processBlocks(blockBatch, transactionsBatch, 0, 1)
 
 	err = ci.getTransactionsReceipt(ctx, transactionsBatch, 0, len(transactionsBatch.Transactions))
@@ -433,7 +439,7 @@ func (ci *BlockIndexer) indexContinuousIteration(
 		return errors.Wrap(err, "ci.getTransactionsReceipt")
 	}
 
-	logsBatch := NewLogsBatch()
+	logsBatch := new(LogsBatch)
 	for _, logInfo := range ci.params.CollectLogs {
 		err = ci.requestLogs(ctx, logsBatch, logInfo, index, index+1, index)
 		if err != nil {

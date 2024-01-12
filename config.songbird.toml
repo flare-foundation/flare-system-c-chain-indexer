@@ -25,13 +25,6 @@ batch_size = 2500
 num_parallel_req = 250
 log_range = 10
 timeout_millis = 1000
-collect_logs = [
-    [
-        "1000000000000000000000000000000000000003",
-        "a32444a31df2f9a116229eec3193d223a6bad89f7670ff17b8e5c7014a377da1",
-    ],
-    # ["undefined", "undefined"],
-]
 
 [[indexer.collect_transactions]]
 contract_address = "1000000000000000000000000000000000000003"
@@ -44,3 +37,7 @@ contract_address = "1000000000000000000000000000000000000003"
 func_sig = "c5adc539"
 status = true
 collect_events = true
+
+[[indexer.collect_logs]]
+contract_address = "1000000000000000000000000000000000000003"
+topic = "a32444a31df2f9a116229eec3193d223a6bad89f7670ff17b8e5c7014a377da1"

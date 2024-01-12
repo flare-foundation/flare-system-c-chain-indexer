@@ -3,9 +3,10 @@ package indexer
 import (
 	"context"
 	"encoding/hex"
+	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
+	"fmt"
 	"math/big"
-	"strconv"
 	"strings"
 	"sync"
 
@@ -20,33 +21,31 @@ type LogsBatch struct {
 	sync.Mutex
 }
 
-func NewLogsBatch() *LogsBatch {
-	transactionBatch := LogsBatch{}
-	transactionBatch.Logs = make([]types.Log, 0)
-
-	return &transactionBatch
-}
-
 func (ci *BlockIndexer) requestLogs(
-	ctx context.Context, logsBatch *LogsBatch, logInfo [2]string, start, stop, last_chain_block int,
+	ctx context.Context, logsBatch *LogsBatch, logInfo config.LogInfo, start, stop, last_chain_block int,
 ) error {
 	for i := start; i < stop && i <= last_chain_block; i += ci.params.LogRange {
 		toBlock := min(i+ci.params.LogRange-1, last_chain_block)
+
 		var addresses []common.Address
-		if logInfo[0] != "undefined" {
+		if logInfo.ContractAddress != undefined {
 			addresses = []common.Address{
-				common.HexToAddress(strings.ToLower(logInfo[0]))}
+				common.HexToAddress(strings.ToLower(logInfo.ContractAddress)),
+			}
 		}
+
 		var topic [][]common.Hash
-		if logInfo[1] != "undefined" {
-			topic = [][]common.Hash{{common.HexToHash(strings.ToLower(logInfo[1]))}}
+		if logInfo.Topic != undefined {
+			topic = [][]common.Hash{{common.HexToHash(strings.ToLower(logInfo.Topic))}}
 		}
+
 		query := ethereum.FilterQuery{
 			FromBlock: big.NewInt(int64(i)),
 			ToBlock:   big.NewInt(int64(toBlock)),
 			Addresses: addresses,
 			Topics:    topic,
 		}
+
 		logs, err := ci.client.FilterLogs(ctx, query)
 		if err != nil {
 			return errors.Wrap(err, "client.FilterLogs")
@@ -60,17 +59,21 @@ func (ci *BlockIndexer) requestLogs(
 	return nil
 }
 
-func (ci *BlockIndexer) processLogs(logsBatch *LogsBatch, blockBatch *BlockBatch,
-	firstBlockNum int, data *DatabaseStructData) error {
-	for _, log := range logsBatch.Logs {
-		topics := make([]string, 4)
-		for j := 0; j < 4; j++ {
+func (ci *BlockIndexer) processLogs(
+	logsBatch *LogsBatch, blockBatch *BlockBatch, firstBlockNum int, data *DatabaseStructData,
+) error {
+	for i := range logsBatch.Logs {
+		log := &logsBatch.Logs[i]
+
+		var topics [numTopics]string
+		for j := 0; j < numTopics; j++ {
 			if len(log.Topics) > j {
 				topics[j] = log.Topics[j].Hex()[2:]
 			} else {
-				topics[j] = "NULL"
+				topics[j] = nullTopic
 			}
 		}
+
 		dbLog := &database.Log{
 			Address:         strings.ToLower(log.Address.Hex()[2:]),
 			Data:            hex.EncodeToString(log.Data),
@@ -82,8 +85,10 @@ func (ci *BlockIndexer) processLogs(logsBatch *LogsBatch, blockBatch *BlockBatch
 			LogIndex:        uint64(log.Index),
 			Timestamp:       blockBatch.Blocks[log.BlockNumber-uint64(firstBlockNum)].Time(),
 		}
+
 		// check if the log was not obtained from transactions already
-		if check := data.LogHashIndexCheck[dbLog.TransactionHash+strconv.Itoa(int(dbLog.LogIndex))]; !check {
+		key := fmt.Sprintf("%s%d", dbLog.TransactionHash, dbLog.LogIndex)
+		if !data.LogHashIndexCheck[key] {
 			data.Logs = append(data.Logs, dbLog)
 		}
 	}

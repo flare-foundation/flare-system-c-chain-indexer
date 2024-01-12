@@ -60,7 +60,7 @@ type IndexerConfig struct {
 	NewBlockCheckMillis int               `toml:"new_block_check_millis"`
 	TimeoutMillis       int               `toml:"timeout_millis"`
 	CollectTransactions []TransactionInfo `toml:"collect_transactions"`
-	CollectLogs         [][2]string       `toml:"collect_logs"`
+	CollectLogs         []LogInfo         `toml:"collect_logs"`
 }
 
 type TransactionInfo struct {
@@ -68,6 +68,11 @@ type TransactionInfo struct {
 	FuncSig         string `toml:"func_sig"`
 	Status          bool   `toml:"status"`
 	CollectEvents   bool   `toml:"collect_events"`
+}
+
+type LogInfo struct {
+	ContractAddress string `toml:"contract_address"`
+	Topic           string `toml:"topic"`
 }
 
 func newConfig() *Config {

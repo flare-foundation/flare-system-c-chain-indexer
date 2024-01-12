@@ -6,7 +6,6 @@ import (
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"fmt"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -24,15 +23,6 @@ type TransactionsBatch struct {
 	sync.Mutex
 }
 
-func NewTransactionsBatch() *TransactionsBatch {
-	transactionBatch := TransactionsBatch{}
-	transactionBatch.Transactions = make([]*types.Transaction, 0)
-	transactionBatch.toBlock = make([]*types.Block, 0)
-	transactionBatch.toReceipt = make([]*types.Receipt, 0)
-
-	return &transactionBatch
-}
-
 func countReceipts(txs *TransactionsBatch) int {
 	i := 0
 	for _, e := range txs.toReceipt {
@@ -47,11 +37,13 @@ func countReceipts(txs *TransactionsBatch) int {
 func (ci *BlockIndexer) getTransactionsReceipt(
 	ctx context.Context, transactionBatch *TransactionsBatch, start, stop int,
 ) error {
-	var receipt *types.Receipt
-	var err error
 	for i := start; i < stop; i++ {
 		tx := transactionBatch.Transactions[i]
+		var receipt *types.Receipt
+
 		if transactionBatch.toPolicy[i].status || transactionBatch.toPolicy[i].collectEvents {
+			var err error
+
 			for j := 0; j < config.ReqRepeats; j++ {
 				ctx, cancelFunc := context.WithTimeout(ctx, time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
 				receipt, err = ci.client.TransactionReceipt(ctx, tx.Hash())
@@ -60,11 +52,10 @@ func (ci *BlockIndexer) getTransactionsReceipt(
 					break
 				}
 			}
+
 			if err != nil {
 				return errors.Wrap(err, "getTransactionsReceipt")
 			}
-		} else {
-			receipt = nil
 		}
 
 		transactionBatch.toReceipt[i] = receipt
@@ -75,18 +66,22 @@ func (ci *BlockIndexer) getTransactionsReceipt(
 
 func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch) (*DatabaseStructData, error) {
 	data := NewDatabaseStructData()
+
 	for i, tx := range transactionBatch.Transactions {
 		block := transactionBatch.toBlock[i]
 		txData := hex.EncodeToString(tx.Data())
 		funcSig := txData[:8]
+
 		fromAddress, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx) // todo: this is a bit slow
 		if err != nil {
 			return nil, fmt.Errorf("processTransactions: Sender: %w", err)
 		}
+
 		status := uint64(2)
 		if transactionBatch.toReceipt[i] != nil {
 			status = transactionBatch.toReceipt[i].Status
 		}
+
 		base := database.BaseEntity{ID: database.TransactionId}
 		dbTx := &database.Transaction{
 			BaseEntity:       base,
@@ -105,20 +100,23 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 			Timestamp:        block.Time(),
 		}
 		data.Transactions = append(data.Transactions, dbTx)
-		database.TransactionId += 1
+		database.TransactionId += 1 // TODO should this be atomic/locked?
 
 		// if it was chosen to get the logs of the transaction we process it
 		if transactionBatch.toReceipt[i] != nil && transactionBatch.toPolicy[i].collectEvents {
 			receipt := transactionBatch.toReceipt[i]
+
 			for _, log := range receipt.Logs {
-				topics := make([]string, 4)
-				for j := 0; j < 4; j++ {
+				var topics [numTopics]string
+
+				for j := 0; j < numTopics; j++ {
 					if len(log.Topics) > j {
 						topics[j] = log.Topics[j].Hex()[2:]
 					} else {
-						topics[j] = "NULL"
+						topics[j] = nullTopic
 					}
 				}
+
 				dbLog := &database.Log{
 					TransactionID:   dbTx.ID,
 					Address:         log.Address.Hex()[2:],
@@ -131,8 +129,11 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 					LogIndex:        uint64(log.Index),
 					Timestamp:       block.Time(),
 				}
+
 				data.Logs = append(data.Logs, dbLog)
-				data.LogHashIndexCheck[dbLog.TransactionHash+strconv.Itoa(int(dbLog.LogIndex))] = true
+
+				key := fmt.Sprintf("%s%d", dbLog.TransactionHash, dbLog.LogIndex)
+				data.LogHashIndexCheck[key] = true
 			}
 		}
 	}
