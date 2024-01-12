@@ -5,16 +5,17 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/pkg/errors"
 )
 
 var (
-	ReqRepeats           int                          = 20
-	TimeoutMillisDefault int                          = 1000
-	GlobalConfigCallback ConfigCallback[GlobalConfig] = ConfigCallback[GlobalConfig]{}
-	CfgFlag                                           = flag.String("config", "config.toml", "Configuration file (toml format)")
+	BackoffMaxElapsedTime time.Duration                = 5 * time.Minute
+	DefaultTimeout        time.Duration                = 1000 * time.Millisecond
+	GlobalConfigCallback  ConfigCallback[GlobalConfig] = ConfigCallback[GlobalConfig]{}
+	CfgFlag                                            = flag.String("config", "config.toml", "Configuration file (toml format)")
 )
 
 type GlobalConfig interface {
@@ -58,7 +59,6 @@ type IndexerConfig struct {
 	NumParallelReq      int               `toml:"num_parallel_req"`
 	LogRange            int               `toml:"log_range"`
 	NewBlockCheckMillis int               `toml:"new_block_check_millis"`
-	TimeoutMillis       int               `toml:"timeout_millis"`
 	CollectTransactions []TransactionInfo `toml:"collect_transactions"`
 	CollectLogs         []LogInfo         `toml:"collect_logs"`
 }

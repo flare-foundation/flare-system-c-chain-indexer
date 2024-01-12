@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
@@ -110,16 +111,21 @@ func GetMinBlockWithHistoryDrop(
 }
 
 func GetBlockTimestamp(ctx context.Context, index *big.Int, client *ethclient.Client) (int, int, error) {
+	bOff := backoff.NewExponentialBackOff()
+	bOff.MaxElapsedTime = config.BackoffMaxElapsedTime
+
 	var block *types.Block
-	var err error
-	for j := 0; j < config.ReqRepeats; j++ {
-		ctx, cancelFunc := context.WithTimeout(ctx, time.Duration(1000)*time.Millisecond)
-		block, err = client.BlockByNumber(ctx, index)
-		cancelFunc()
-		if err == nil {
-			break
-		}
-	}
+	err := backoff.Retry(
+		func() (err error) {
+			ctx, cancelFunc := context.WithTimeout(ctx, config.DefaultTimeout)
+			defer cancelFunc()
+
+			block, err = client.BlockByNumber(ctx, index)
+			return err
+		},
+		bOff,
+	)
+
 	if err != nil {
 		return 0, 0, fmt.Errorf("GetBlockTimestamp: %w", err)
 	}

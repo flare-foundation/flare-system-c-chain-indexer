@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 )
@@ -37,21 +37,24 @@ func countReceipts(txs *TransactionsBatch) int {
 func (ci *BlockIndexer) getTransactionsReceipt(
 	ctx context.Context, transactionBatch *TransactionsBatch, start, stop int,
 ) error {
+	bOff := backoff.NewExponentialBackOff()
+	bOff.MaxElapsedTime = config.BackoffMaxElapsedTime
+
 	for i := start; i < stop; i++ {
 		tx := transactionBatch.Transactions[i]
 		var receipt *types.Receipt
 
 		if transactionBatch.toPolicy[i].status || transactionBatch.toPolicy[i].collectEvents {
-			var err error
+			err := backoff.Retry(
+				func() (err error) {
+					ctx, cancelFunc := context.WithTimeout(ctx, config.DefaultTimeout)
+					defer cancelFunc()
 
-			for j := 0; j < config.ReqRepeats; j++ {
-				ctx, cancelFunc := context.WithTimeout(ctx, time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
-				receipt, err = ci.client.TransactionReceipt(ctx, tx.Hash())
-				cancelFunc()
-				if err == nil {
-					break
-				}
-			}
+					receipt, err = ci.client.TransactionReceipt(ctx, tx.Hash())
+					return err
+				},
+				bOff,
+			)
 
 			if err != nil {
 				return errors.Wrap(err, "getTransactionsReceipt")
