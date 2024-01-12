@@ -88,9 +88,9 @@ func (ci *BlockIndexer) SetStartIndex(newIndex int) {
 }
 
 func (ci *BlockIndexer) IndexHistory(ctx context.Context) error {
-	states, err := database.GetDBStates(ci.db)
+	states, err := database.UpdateDBStates(ctx, ci.db)
 	if err != nil {
-		return errors.Wrap(err, "database.GetDBStates")
+		return errors.Wrap(err, "database.UpdateDBStates")
 	}
 
 	ixRange, err := ci.getIndexRange(ctx, states)
@@ -381,9 +381,9 @@ func (ci *BlockIndexer) updateLastIndexHistory(
 }
 
 func (ci *BlockIndexer) IndexContinuous(ctx context.Context) error {
-	states, err := database.GetDBStates(ci.db)
+	states, err := database.UpdateDBStates(ctx, ci.db)
 	if err != nil {
-		return errors.Wrap(err, "database.GetDBStates")
+		return errors.Wrap(err, "database.UpdateDBStates")
 	}
 
 	ixRange, err := ci.getIndexRange(ctx, states)

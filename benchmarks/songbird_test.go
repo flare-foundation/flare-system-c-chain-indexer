@@ -26,7 +26,7 @@ func BenchmarkBlockRequests(b *testing.B) {
 		logger.Info("Running with configuration: chain: %s, database: %s", cfg.Chain.NodeURL, cfg.DB.Database)
 
 		// connect to the database
-		db, err := database.ConnectAndInitialize(&cfg.DB)
+		db, err := database.ConnectAndInitialize(ctx, &cfg.DB)
 		if err != nil {
 			logger.Fatal("Database connect and initialize error: %s", err)
 		}

@@ -1,11 +1,13 @@
 package database
 
 import (
+	"context"
 	"flare-ftso-indexer/logger"
-	"fmt"
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
 )
 
@@ -16,15 +18,16 @@ const (
 )
 
 var (
-	StateNames = []string{
+	stateNames = []string{
 		FirstDatabaseIndexState,
 		LastDatabaseIndexState,
 		LastChainIndexState,
 	}
+
 	// States captures the state of the DB giving guaranties which
 	// blocks were indexed. The global variable is used/modified by
 	// the indexer as well as the history drop functionality.
-	States = NewStates()
+	globalStates = NewStates()
 )
 
 type State struct {
@@ -35,79 +38,116 @@ type State struct {
 	Updated        time.Time
 }
 
-type DBStates struct {
-	States map[string]*State
-	sync.Mutex
-}
-
-func NewStates() *DBStates {
-	states := &DBStates{}
-	states.States = make(map[string]*State)
-
-	return states
-}
-
-func (s *State) UpdateIndex(newIndex, blockTimestamp int) {
+func (s *State) updateIndex(newIndex, blockTimestamp int) {
 	s.Index = uint64(newIndex)
 	s.Updated = time.Now()
 	s.BlockTimestamp = uint64(blockTimestamp)
 }
 
-func GetDBStates(db *gorm.DB) (*DBStates, error) {
-	States.Mutex.Lock()
-	for _, name := range StateNames {
-		var state State
-		err := db.Where(&State{Name: name}).First(&state).Error
-		if err != nil {
-			States.Mutex.Unlock()
-			return nil, fmt.Errorf("GetDBStates: %w", err)
-		}
-		States.States[name] = &state
+type DBStates struct {
+	States map[string]*State
+	mu     sync.RWMutex
+}
+
+func NewStates() *DBStates {
+	return &DBStates{States: make(map[string]*State)}
+}
+
+func (s *DBStates) updateStates(newStates map[string]*State) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	for name, state := range newStates {
+		s.States[name] = state
 	}
-	States.Mutex.Unlock()
-
-	return States, nil
 }
 
-func (states *DBStates) UpdateIndex(name string, newIndex, blockTimestamp int) {
-	states.States[name].UpdateIndex(newIndex, blockTimestamp)
+func (s *DBStates) updateIndex(name string, newIndex, blockTimestamp int) {
+	s.mu.Lock()
+	s.States[name].updateIndex(newIndex, blockTimestamp)
+	s.mu.Unlock()
 }
 
-func (states *DBStates) UpdateDB(db *gorm.DB, name string) error {
-	return db.Save(states.States[name]).Error
+func (s *DBStates) updateDB(db *gorm.DB, name string) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return db.Save(s.States[name]).Error
 }
 
-func (states *DBStates) Update(db *gorm.DB, name string, newIndex, blockTimestamp int) error {
-	states.UpdateIndex(name, newIndex, blockTimestamp)
-	err := states.UpdateDB(db, name)
-	if err != nil {
-		return fmt.Errorf("Update: %w", err)
-	}
-
-	return nil
+func (s *DBStates) Update(db *gorm.DB, name string, newIndex, blockTimestamp int) error {
+	s.updateIndex(name, newIndex, blockTimestamp)
+	return s.updateDB(db, name)
 }
 
-func (states *DBStates) UpdateAtStart(db *gorm.DB, startIndex, startBlockTimestamp,
-	lastChainIndex, lastBlockTimestamp, stopIndex int) (int, int, error) {
+func (s *DBStates) UpdateAtStart(
+	db *gorm.DB, startIndex, startBlockTimestamp, lastChainIndex, lastBlockTimestamp, stopIndex int,
+) (int, int, error) {
 	var err error
-	if startIndex >= int(states.States[FirstDatabaseIndexState].Index) && startIndex <= int(states.States[LastDatabaseIndexState].Index)+1 {
-		logger.Info("Data from blocks %d to %d already in the database", startIndex, int(states.States[LastDatabaseIndexState].Index))
-		startIndex = int(states.States[LastDatabaseIndexState].Index + 1)
+
+	s.mu.RLock()
+	firstIndex := int(s.States[FirstDatabaseIndexState].Index)
+	lastIndex := int(s.States[LastDatabaseIndexState].Index)
+	s.mu.RUnlock()
+
+	if startIndex >= firstIndex && startIndex <= lastIndex {
+		logger.Info("Data from blocks %d to %d already in the database", startIndex, lastIndex)
+		startIndex = lastIndex + 1
 	} else {
 		// if startIndex is set before existing data in the DB or a break among saved blocks
 		// in the DB is created, then we change the guaranties about the starting block
-		err = states.Update(db, FirstDatabaseIndexState, startIndex, startBlockTimestamp)
+		err = s.Update(db, FirstDatabaseIndexState, startIndex, startBlockTimestamp)
 		if err != nil {
-			return 0, 0, fmt.Errorf("UpdateAtStart: %w", err)
+			return 0, 0, errors.Wrap(err, "states.Update")
 		}
 	}
 
-	err = states.Update(db, LastChainIndexState, lastChainIndex, lastBlockTimestamp)
+	err = s.Update(db, LastChainIndexState, lastChainIndex, lastBlockTimestamp)
 	if err != nil {
-		return 0, 0, fmt.Errorf("UpdateAtStart: %w", err)
+		return 0, 0, errors.Wrap(err, "states.Update")
 	}
 
-	lastIndex := min(stopIndex, lastChainIndex)
+	lastIndex = min(stopIndex, lastChainIndex)
 
 	return startIndex, lastIndex, nil
+}
+
+func UpdateDBStates(ctx context.Context, db *gorm.DB) (*DBStates, error) {
+	newStates, err := getDBStates(ctx, db)
+	if err != nil {
+		return nil, err
+	}
+
+	globalStates.updateStates(newStates)
+	return globalStates, nil
+}
+
+func getDBStates(ctx context.Context, db *gorm.DB) (map[string]*State, error) {
+	newStates := make(map[string]*State)
+	var mu sync.Mutex
+	eg, ctx := errgroup.WithContext(ctx)
+
+	for i := range stateNames {
+		name := stateNames[i]
+
+		eg.Go(func() error {
+			state := new(State)
+			err := db.WithContext(ctx).Where(&State{Name: name}).First(state).Error
+			if err != nil {
+				return errors.Wrap(err, "db.Where")
+			}
+
+			mu.Lock()
+			newStates[name] = state
+			mu.Unlock()
+
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+
+	return newStates, nil
 }

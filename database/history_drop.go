@@ -6,7 +6,6 @@ import (
 	"flare-ftso-indexer/logger"
 	"fmt"
 	"math/big"
-	"strings"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -22,8 +21,8 @@ func DropHistory(
 	for {
 		err := dropHistoryIteration(ctx, db, intervalSeconds, checkInterval, client)
 		if err != nil {
-			if errMsg := err.Error(); !strings.Contains(errMsg, "record not found") {
-				logger.Error(errMsg)
+			if !errors.Is(err, gorm.ErrRecordNotFound) {
+				logger.Error(err.Error())
 			}
 		}
 
@@ -34,9 +33,6 @@ func DropHistory(
 func dropHistoryIteration(
 	ctx context.Context, db *gorm.DB, intervalSeconds, checkInterval int, client *ethclient.Client,
 ) error {
-	lastTx := &Transaction{}
-	firstTx := &Transaction{}
-
 	lastBlockTime, _, err := GetBlockTimestamp(ctx, nil, client)
 	if err != nil {
 		return errors.Wrap(err, "Failed to get the latest time")
@@ -44,12 +40,13 @@ func dropHistoryIteration(
 
 	deleteStart := lastBlockTime - intervalSeconds
 
-	err = db.Where("timestamp < ?", deleteStart).Order("block_number desc").First(lastTx).Error
-	if err != nil {
-		return errors.Wrap(err, "Failed to check historic data in the DB")
-	}
-
 	return db.Transaction(func(tx *gorm.DB) error {
+		lastTx := new(Transaction)
+		err = tx.Where("timestamp < ?", deleteStart).Order("block_number desc").First(lastTx).Error
+		if err != nil {
+			return errors.Wrap(err, "Failed to check historic data in the DB")
+		}
+
 		// delete in reverse to not break foreign keys
 		for i := len(entities) - 1; i >= 1; i-- {
 			entity := entities[i]
@@ -59,12 +56,13 @@ func dropHistoryIteration(
 			}
 		}
 
+		firstTx := new(Transaction)
 		err = tx.Where("timestamp >= ?", deleteStart).Order("block_number").First(firstTx).Error
 		if err != nil {
 			return errors.Wrap(err, "Failed to get first transaction in the DB: %s")
 		}
 
-		err = States.Update(tx, FirstDatabaseIndexState, int(firstTx.BlockNumber), int(firstTx.Timestamp))
+		err = globalStates.Update(tx, FirstDatabaseIndexState, int(firstTx.BlockNumber), int(firstTx.Timestamp))
 		if err != nil {
 			return errors.Wrap(err, "Failed to update state in the DB")
 		}
@@ -79,14 +77,12 @@ func GetMinBlockWithHistoryDrop(
 ) (int, error) {
 	firstTime, _, err := GetBlockTimestamp(ctx, big.NewInt(int64(firstIndex)), client)
 	if err != nil {
-		return 0, fmt.Errorf("GetMinBlockWithHistoryDrop: %w", err)
+		return 0, errors.Wrap(err, "GetMinBlockWithHistoryDrop")
 	}
 
-	var lastTime, endIndex int
-	lastTime, endIndex, err = GetBlockTimestamp(ctx, nil, client)
-
+	lastTime, endIndex, err := GetBlockTimestamp(ctx, nil, client)
 	if err != nil {
-		return 0, fmt.Errorf("GetMinBlockWithHistoryDrop: %w", err)
+		return 0, errors.Wrap(err, "GetMinBlockWithHistoryDrop")
 	}
 
 	if lastTime-firstTime < intervalSeconds {
@@ -98,8 +94,9 @@ func GetMinBlockWithHistoryDrop(
 
 		newTime, _, err := GetBlockTimestamp(ctx, big.NewInt(int64(newIndex)), client)
 		if err != nil {
-			return 0, fmt.Errorf("GetMinBlockWithHistoryDrop: %w", err)
+			return 0, errors.Wrap(err, "GetMinBlockWithHistoryDrop")
 		}
+
 		if lastTime-newTime < intervalSeconds {
 			endIndex = newIndex
 		} else {
