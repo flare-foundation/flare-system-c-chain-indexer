@@ -85,7 +85,7 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 			status = transactionBatch.toReceipt[i].Status
 		}
 
-		base := database.BaseEntity{ID: database.TransactionId}
+		base := database.BaseEntity{ID: database.TransactionId.Load()}
 		dbTx := &database.Transaction{
 			BaseEntity:       base,
 			Hash:             tx.Hash().Hex()[2:],
@@ -103,7 +103,7 @@ func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch)
 			Timestamp:        block.Time(),
 		}
 		data.Transactions = append(data.Transactions, dbTx)
-		database.TransactionId += 1 // TODO should this be atomic/locked?
+		database.TransactionId.Add(1)
 
 		// if it was chosen to get the logs of the transaction we process it
 		if transactionBatch.toReceipt[i] != nil && transactionBatch.toPolicy[i].collectEvents {

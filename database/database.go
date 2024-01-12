@@ -3,6 +3,7 @@ package database
 import (
 	"flare-ftso-indexer/config"
 	"fmt"
+	"sync/atomic"
 
 	logger2 "flare-ftso-indexer/logger"
 
@@ -21,8 +22,12 @@ var (
 	}
 	HistoryDropIntervalCheck = 60 * 30 // every 30 min
 	DBTransactionBatchesSize = 1000
-	TransactionId            = uint64(1)
+	TransactionId            atomic.Uint64
 )
+
+func init() {
+	TransactionId.Store(1)
+}
 
 func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
 	db, err := Connect(cfg)
@@ -61,7 +66,7 @@ func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
 			logger2.Error("Failed to obtain ID data from DB: %s", err)
 		}
 	} else {
-		TransactionId = maxIndexTx.ID + 1
+		TransactionId.Store(maxIndexTx.ID + 1)
 	}
 
 	return db, nil
