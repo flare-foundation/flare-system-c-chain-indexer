@@ -14,13 +14,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-type BlockBatch struct {
-	Blocks []*types.Block
+type blockBatch struct {
+	blocks []*types.Block
 	mu     sync.RWMutex
 }
 
-func NewBlockBatch(batchSize int) *BlockBatch {
-	return &BlockBatch{Blocks: make([]*types.Block, batchSize)}
+func newBlockBatch(batchSize int) *blockBatch {
+	return &blockBatch{blocks: make([]*types.Block, batchSize)}
 }
 
 func (ci *BlockIndexer) fetchBlock(ctx context.Context, index int) (block *types.Block, err error) {
@@ -69,7 +69,7 @@ func (ci *BlockIndexer) fetchBlockTimestamp(ctx context.Context, index int) (int
 }
 
 func (ci *BlockIndexer) requestBlocks(
-	ctx context.Context, blockBatch *BlockBatch, start, stop, listIndex, lastIndex int,
+	ctx context.Context, batch *blockBatch, start, stop, listIndex, lastIndex int,
 ) error {
 	for i := start; i < stop; i++ {
 		var block *types.Block
@@ -85,29 +85,29 @@ func (ci *BlockIndexer) requestBlocks(
 			}
 		}
 
-		blockBatch.mu.Lock()
-		blockBatch.Blocks[listIndex+i-start] = block
-		blockBatch.mu.Unlock()
+		batch.mu.Lock()
+		batch.blocks[listIndex+i-start] = block
+		batch.mu.Unlock()
 	}
 
 	return nil
 }
 
 func (ci *BlockIndexer) processBlocks(
-	blockBatch *BlockBatch, batchTransactions *TransactionsBatch, start, stop int,
+	bBatch *blockBatch, txBatch *transactionsBatch, start, stop int,
 ) {
 	for i := start; i < stop; i++ {
-		ci.processBlockBatch(blockBatch, batchTransactions, i)
+		ci.processBlockBatch(bBatch, txBatch, i)
 	}
 }
 
 func (ci *BlockIndexer) processBlockBatch(
-	blockBatch *BlockBatch, batchTransactions *TransactionsBatch, i int,
+	bBatch *blockBatch, txBatch *transactionsBatch, i int,
 ) {
-	blockBatch.mu.RLock()
-	defer blockBatch.mu.RUnlock()
+	bBatch.mu.RLock()
+	defer bBatch.mu.RUnlock()
 
-	block := blockBatch.Blocks[i]
+	block := bBatch.blocks[i]
 
 	for txIndex, tx := range block.Transactions() {
 		if tx.To() == nil {
@@ -137,7 +137,7 @@ func (ci *BlockIndexer) processBlockBatch(
 		}
 
 		if check {
-			batchTransactions.Add(tx, block, uint64(txIndex), nil, policy)
+			txBatch.Add(tx, block, uint64(txIndex), nil, policy)
 		}
 	}
 }

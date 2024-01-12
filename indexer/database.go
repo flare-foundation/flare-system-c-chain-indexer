@@ -7,20 +7,20 @@ import (
 	"gorm.io/gorm"
 )
 
-type DatabaseStructData struct {
+type databaseStructData struct {
 	Transactions      []*database.Transaction
 	Logs              []*database.Log
 	LogHashIndexCheck map[string]bool
 }
 
-func NewDatabaseStructData() *DatabaseStructData {
-	return &DatabaseStructData{
+func newDatabaseStructData() *databaseStructData {
+	return &databaseStructData{
 		LogHashIndexCheck: make(map[string]bool),
 	}
 }
 
 func (ci *BlockIndexer) saveData(
-	data *DatabaseStructData, states *database.DBStates, lastDBIndex, lastDBTimestamp int,
+	data *databaseStructData, states *database.DBStates, lastDBIndex, lastDBTimestamp int,
 ) error {
 	return ci.db.Transaction(func(tx *gorm.DB) error {
 		if len(data.Transactions) != 0 {

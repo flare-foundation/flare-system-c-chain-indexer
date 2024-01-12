@@ -15,8 +15,8 @@ import (
 	"github.com/pkg/errors"
 )
 
-type TransactionsBatch struct {
-	Transactions []*types.Transaction
+type transactionsBatch struct {
+	transactions []*types.Transaction
 	toBlock      []*types.Block
 	toIndex      []uint64
 	toReceipt    []*types.Receipt
@@ -24,7 +24,7 @@ type TransactionsBatch struct {
 	mu           sync.RWMutex
 }
 
-func (tb *TransactionsBatch) Add(
+func (tb *transactionsBatch) Add(
 	tx *types.Transaction,
 	block *types.Block,
 	index uint64,
@@ -34,16 +34,16 @@ func (tb *TransactionsBatch) Add(
 	tb.mu.Lock()
 	defer tb.mu.Unlock()
 
-	tb.Transactions = append(tb.Transactions, tx)
+	tb.transactions = append(tb.transactions, tx)
 	tb.toBlock = append(tb.toBlock, block)
 	tb.toIndex = append(tb.toIndex, index)
 	tb.toReceipt = append(tb.toReceipt, receipt)
 	tb.toPolicy = append(tb.toPolicy, policy)
 }
 
-func countReceipts(txs *TransactionsBatch) int {
+func countReceipts(txBatch *transactionsBatch) int {
 	i := 0
-	for _, e := range txs.toReceipt {
+	for _, e := range txBatch.toReceipt {
 		if e != nil {
 			i++
 		}
@@ -53,16 +53,16 @@ func countReceipts(txs *TransactionsBatch) int {
 }
 
 func (ci *BlockIndexer) getTransactionsReceipt(
-	ctx context.Context, transactionBatch *TransactionsBatch, start, stop int,
+	ctx context.Context, txBatch *transactionsBatch, start, stop int,
 ) error {
 	bOff := backoff.NewExponentialBackOff()
 	bOff.MaxElapsedTime = config.BackoffMaxElapsedTime
 
 	for i := start; i < stop; i++ {
-		transactionBatch.mu.RLock()
-		tx := *transactionBatch.Transactions[i]
-		policy := transactionBatch.toPolicy[i]
-		transactionBatch.mu.RUnlock()
+		txBatch.mu.RLock()
+		tx := *txBatch.transactions[i]
+		policy := txBatch.toPolicy[i]
+		txBatch.mu.RUnlock()
 
 		var receipt *types.Receipt
 
@@ -83,26 +83,26 @@ func (ci *BlockIndexer) getTransactionsReceipt(
 			}
 		}
 
-		transactionBatch.mu.Lock()
-		transactionBatch.toReceipt[i] = receipt
-		transactionBatch.mu.Unlock()
+		txBatch.mu.Lock()
+		txBatch.toReceipt[i] = receipt
+		txBatch.mu.Unlock()
 	}
 
 	return nil
 }
 
-func (ci *BlockIndexer) processTransactions(transactionBatch *TransactionsBatch) (*DatabaseStructData, error) {
-	data := NewDatabaseStructData()
+func (ci *BlockIndexer) processTransactions(txBatch *transactionsBatch) (*databaseStructData, error) {
+	data := newDatabaseStructData()
 
-	transactionBatch.mu.RLock()
-	defer transactionBatch.mu.RUnlock()
+	txBatch.mu.RLock()
+	defer txBatch.mu.RUnlock()
 
-	for i := range transactionBatch.Transactions {
-		tx := transactionBatch.Transactions[i]
-		block := transactionBatch.toBlock[i]
-		receipt := transactionBatch.toReceipt[i]
-		txIndex := transactionBatch.toIndex[i]
-		policy := transactionBatch.toPolicy[i]
+	for i := range txBatch.transactions {
+		tx := txBatch.transactions[i]
+		block := txBatch.toBlock[i]
+		receipt := txBatch.toReceipt[i]
+		txIndex := txBatch.toIndex[i]
+		policy := txBatch.toPolicy[i]
 
 		dbTx, err := buildDBTx(tx, receipt, block, txIndex)
 		if err != nil {

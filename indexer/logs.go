@@ -16,13 +16,13 @@ import (
 	"github.com/pkg/errors"
 )
 
-type LogsBatch struct {
-	Logs []types.Log
+type logsBatch struct {
+	logs []types.Log
 	mu   sync.RWMutex
 }
 
 func (ci *BlockIndexer) requestLogs(
-	ctx context.Context, logsBatch *LogsBatch, logInfo config.LogInfo, start, stop, last_chain_block int,
+	ctx context.Context, lgBatch *logsBatch, logInfo config.LogInfo, start, stop, last_chain_block int,
 ) error {
 	for i := start; i < stop && i <= last_chain_block; i += ci.params.LogRange {
 		toBlock := min(i+ci.params.LogRange-1, last_chain_block)
@@ -51,22 +51,22 @@ func (ci *BlockIndexer) requestLogs(
 			return errors.Wrap(err, "client.FilterLogs")
 		}
 
-		logsBatch.mu.Lock()
-		logsBatch.Logs = append(logsBatch.Logs, logs...)
-		logsBatch.mu.Unlock()
+		lgBatch.mu.Lock()
+		lgBatch.logs = append(lgBatch.logs, logs...)
+		lgBatch.mu.Unlock()
 	}
 
 	return nil
 }
 
 func (ci *BlockIndexer) processLogs(
-	logsBatch *LogsBatch, blockBatch *BlockBatch, firstBlockNum int, data *DatabaseStructData,
+	lgBatch *logsBatch, bBatch *blockBatch, firstBlockNum int, data *databaseStructData,
 ) error {
-	logsBatch.mu.RLock()
-	defer logsBatch.mu.RUnlock()
+	lgBatch.mu.RLock()
+	defer lgBatch.mu.RUnlock()
 
-	for i := range logsBatch.Logs {
-		log := &logsBatch.Logs[i]
+	for i := range lgBatch.logs {
+		log := &lgBatch.logs[i]
 
 		var topics [numTopics]string
 		for j := 0; j < numTopics; j++ {
@@ -77,7 +77,7 @@ func (ci *BlockIndexer) processLogs(
 			}
 		}
 
-		block := blockBatch.Blocks[log.BlockNumber-uint64(firstBlockNum)]
+		block := bBatch.blocks[log.BlockNumber-uint64(firstBlockNum)]
 		if blockNum := block.Number(); blockNum.Cmp(new(big.Int).SetUint64(log.BlockNumber)) != 0 {
 			return errors.Errorf("block number mismatch: %s != %d", blockNum, log.BlockNumber)
 		}
