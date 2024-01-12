@@ -24,7 +24,6 @@ new_block_check_millis = 1000
 batch_size = 2500
 num_parallel_req = 250
 log_range = 10
-timeout_millis = 1000
 
 [[indexer.collect_transactions]]
 contract_address = "1000000000000000000000000000000000000003"

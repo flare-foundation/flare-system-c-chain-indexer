@@ -46,10 +46,6 @@ func updateParams(params config.IndexerConfig) config.IndexerConfig {
 		params.StopIndex = int(^uint(0) >> 1)
 	}
 
-	if params.TimeoutMillis == 0 {
-		params.TimeoutMillis = config.TimeoutMillisDefault
-	}
-
 	params.BatchSize -= params.BatchSize % params.NumParallelReq
 
 	if params.LogRange == 0 {

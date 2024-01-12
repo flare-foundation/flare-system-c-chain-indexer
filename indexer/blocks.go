@@ -8,8 +8,8 @@ import (
 	"math/big"
 	"strings"
 	"sync"
-	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 )
@@ -29,15 +29,20 @@ func (ci *BlockIndexer) fetchBlock(ctx context.Context, index int) (block *types
 		indexBigInt = new(big.Int).SetInt64(int64(index))
 	}
 
-	for j := 0; j < config.ReqRepeats; j++ {
-		ctx, cancelFunc := context.WithTimeout(ctx, time.Duration(ci.params.TimeoutMillis)*time.Millisecond)
+	bOff := backoff.NewExponentialBackOff()
+	bOff.MaxElapsedTime = config.BackoffMaxElapsedTime
 
-		block, err = ci.client.BlockByNumber(ctx, indexBigInt)
-		cancelFunc()
-		if err == nil {
-			break
-		}
-	}
+	err = backoff.Retry(
+		func() error {
+			ctx, cancelFunc := context.WithTimeout(ctx, config.DefaultTimeout)
+			defer cancelFunc()
+
+			block, err = ci.client.BlockByNumber(ctx, indexBigInt)
+			return err
+		},
+		bOff,
+	)
+
 	if err != nil {
 		return nil, errors.Wrap(err, "ci.client.BlockByNumber")
 	}

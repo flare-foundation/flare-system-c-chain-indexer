@@ -87,7 +87,7 @@ func TestIndexer(t *testing.T) {
 
 	cfgIndexer := config.IndexerConfig{
 		StartIndex: 50, StopIndex: 2400, BatchSize: 500, NumParallelReq: 4,
-		NewBlockCheckMillis: 200, TimeoutMillis: 100, CollectTransactions: collectTransactions,
+		NewBlockCheckMillis: 200, CollectTransactions: collectTransactions,
 	}
 	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logger/logs/flare-ftso-indexer_test.log"}
 	cfgDB := config.DBConfig{
