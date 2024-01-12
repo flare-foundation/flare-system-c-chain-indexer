@@ -23,8 +23,6 @@ const (
 func init() {
 	sugar = createSugaredLogger(DefaultLoggerConfig())
 
-	// zap.NewDevelopment(
-
 	config.GlobalConfigCallback.AddCallback(func(config config.GlobalConfig) {
 		sugar = createSugaredLogger(config.LoggerConfig())
 	})
@@ -32,20 +30,25 @@ func init() {
 
 func createSugaredLogger(config config.LoggerConfig) *zap.SugaredLogger {
 	atom := zap.NewAtomicLevel()
-	cores := make([]zapcore.Core, 0)
+
+	var cores []zapcore.Core
 	if config.Console {
 		cores = append(cores, createConsoleLoggerCore(config, atom))
 	}
+
 	if len(config.File) > 0 {
 		cores = append(cores, createFileLoggerCore(config, atom))
 	}
 
 	core := zapcore.NewTee(cores...)
-	logger := zap.New(core,
+
+	logger := zap.New(
+		core,
 		zap.AddStacktrace(zap.ErrorLevel),
 		zap.AddCaller(),
 		zap.AddCallerSkip(1),
 	)
+
 	defer func() {
 		err := logger.Sync()
 		if err != nil && !errors.Is(err, syscall.ENOTTY) && !errors.Is(err, syscall.EBADF) {
@@ -53,14 +56,16 @@ func createSugaredLogger(config config.LoggerConfig) *zap.SugaredLogger {
 		}
 	}()
 
-	sugar = logger.Sugar()
+	sug := logger.Sugar()
 
 	level, err := zapcore.ParseLevel(config.Level)
 	if err != nil {
-		sugar.Errorf("Wrong level %s", config.Level)
+		sug.Errorf("Wrong level %s", config.Level)
 	}
+
 	atom.SetLevel(level)
-	return sugar
+
+	return sug
 }
 
 func createFileLoggerCore(config config.LoggerConfig, atom zap.AtomicLevel) zapcore.Core {
@@ -68,9 +73,11 @@ func createFileLoggerCore(config config.LoggerConfig, atom zap.AtomicLevel) zapc
 		Filename: config.File,
 		MaxSize:  config.MaxFileSize,
 	})
+
 	encoderCfg := zap.NewProductionEncoderConfig()
 	encoderCfg.EncodeLevel = fileLevelEncoder
 	encoderCfg.EncodeTime = zapcore.TimeEncoderOfLayout(timeFormat)
+
 	return zapcore.NewCore(
 		zapcore.NewConsoleEncoder(encoderCfg),
 		w,
@@ -82,6 +89,7 @@ func createConsoleLoggerCore(config config.LoggerConfig, atom zap.AtomicLevel) z
 	encoderCfg := zap.NewProductionEncoderConfig()
 	encoderCfg.EncodeLevel = consoleColorLevelEncoder
 	encoderCfg.EncodeTime = zapcore.TimeEncoderOfLayout(timeFormat)
+
 	return zapcore.NewCore(
 		zapcore.NewConsoleEncoder(encoderCfg),
 		zapcore.AddSync(os.Stdout),
@@ -94,6 +102,7 @@ func consoleColorLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder
 	if !ok {
 		s = unknownLevelColor.Wrap(l.CapitalString())
 	}
+
 	enc.AppendString(s)
 }
 
