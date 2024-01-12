@@ -83,7 +83,7 @@ func BuildConfig() (*Config, error) {
 	cfgFileName := *CfgFlag
 
 	cfg := newConfig()
-	err := ParseConfigFile(cfg, cfgFileName)
+	err := parseConfigFile(cfg, cfgFileName)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func BuildConfig() (*Config, error) {
 	return cfg, nil
 }
 
-func ParseConfigFile(cfg *Config, fileName string) error {
+func parseConfigFile(cfg *Config, fileName string) error {
 	content, err := os.ReadFile(fileName)
 	if err != nil {
 		return fmt.Errorf("error opening config file: %w", err)

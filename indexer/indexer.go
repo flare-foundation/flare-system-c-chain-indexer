@@ -83,10 +83,6 @@ func makeTransactions(txInfo []config.TransactionInfo) map[string]map[string]tra
 	return transactions
 }
 
-func (ci *BlockIndexer) SetStartIndex(newIndex int) {
-	ci.params.StartIndex = newIndex
-}
-
 func (ci *BlockIndexer) IndexHistory(ctx context.Context) error {
 	states, err := database.UpdateDBStates(ctx, ci.db)
 	if err != nil {
@@ -123,14 +119,14 @@ func (ci *BlockIndexer) indexBatch(
 ) error {
 	lastBlockNumInRound := min(batchIx+ci.params.BatchSize-1, ixRange.end)
 
-	blockBatch, err := ci.obtainBlocksBatch(ctx, batchIx, ixRange, lastBlockNumInRound)
+	bBatch, err := ci.obtainBlocksBatch(ctx, batchIx, ixRange, lastBlockNumInRound)
 	if err != nil {
 		return err
 	}
 
-	transactionsBatch := ci.processBlocksBatch(blockBatch)
+	txBatch := ci.processBlocksBatch(bBatch)
 
-	if err := ci.processTransactionsBatch(ctx, transactionsBatch); err != nil {
+	if err := ci.processTransactionsBatch(ctx, txBatch); err != nil {
 		return err
 	}
 
@@ -139,10 +135,10 @@ func (ci *BlockIndexer) indexBatch(
 		return err
 	}
 
-	lastForDBTimestamp := int(blockBatch.Blocks[min(ci.params.BatchSize-1, ixRange.end-batchIx)].Time())
+	lastForDBTimestamp := int(bBatch.blocks[min(ci.params.BatchSize-1, ixRange.end-batchIx)].Time())
 	return ci.processAndSave(
-		blockBatch,
-		transactionsBatch,
+		bBatch,
+		txBatch,
 		logsBatch,
 		states,
 		batchIx,
@@ -153,10 +149,10 @@ func (ci *BlockIndexer) indexBatch(
 
 func (ci *BlockIndexer) obtainBlocksBatch(
 	ctx context.Context, batchIx int, ixRange *indexRange, lastBlockNumInRound int,
-) (*BlockBatch, error) {
+) (*blockBatch, error) {
 	startTime := time.Now()
 	oneRunnerReqNum := ci.params.BatchSize / ci.params.NumParallelReq
-	blockBatch := NewBlockBatch(ci.params.BatchSize)
+	bBatch := newBlockBatch(ci.params.BatchSize)
 
 	eg, ctx := errgroup.WithContext(ctx)
 
@@ -168,7 +164,7 @@ func (ci *BlockIndexer) obtainBlocksBatch(
 		eg.Go(func() error {
 			return ci.requestBlocks(
 				ctx,
-				blockBatch,
+				bBatch,
 				start,
 				stop,
 				listIndex,
@@ -186,36 +182,36 @@ func (ci *BlockIndexer) obtainBlocksBatch(
 		batchIx, lastBlockNumInRound, time.Since(startTime).Milliseconds(),
 	)
 
-	return blockBatch, nil
+	return bBatch, nil
 }
 
-func (ci *BlockIndexer) processBlocksBatch(blockBatch *BlockBatch) *TransactionsBatch {
+func (ci *BlockIndexer) processBlocksBatch(bBatch *blockBatch) *transactionsBatch {
 	startTime := time.Now()
-	transactionsBatch := new(TransactionsBatch)
+	txBatch := new(transactionsBatch)
 
-	ci.processBlocks(blockBatch, transactionsBatch, 0, ci.params.BatchSize)
+	ci.processBlocks(bBatch, txBatch, 0, ci.params.BatchSize)
 	logger.Info(
 		"Successfully extracted %d transactions in %d milliseconds",
-		len(transactionsBatch.Transactions), time.Since(startTime).Milliseconds(),
+		len(txBatch.transactions), time.Since(startTime).Milliseconds(),
 	)
 
-	return transactionsBatch
+	return txBatch
 }
 
 func (ci *BlockIndexer) processTransactionsBatch(
-	ctx context.Context, transactionsBatch *TransactionsBatch,
+	ctx context.Context, txBatch *transactionsBatch,
 ) error {
 	startTime := time.Now()
-	oneRunnerReqNum := (len(transactionsBatch.Transactions) / ci.params.NumParallelReq) + 1
+	oneRunnerReqNum := (len(txBatch.transactions) / ci.params.NumParallelReq) + 1
 
 	eg, ctx := errgroup.WithContext(ctx)
 
 	for i := 0; i < ci.params.NumParallelReq; i++ {
 		start := oneRunnerReqNum * i
-		stop := min(oneRunnerReqNum*(i+1), len(transactionsBatch.Transactions))
+		stop := min(oneRunnerReqNum*(i+1), len(txBatch.transactions))
 
 		eg.Go(func() error {
-			return ci.getTransactionsReceipt(ctx, transactionsBatch, start, stop)
+			return ci.getTransactionsReceipt(ctx, txBatch, start, stop)
 		})
 	}
 
@@ -225,7 +221,7 @@ func (ci *BlockIndexer) processTransactionsBatch(
 
 	logger.Info(
 		"Checked receipts of %d transactions in %d milliseconds",
-		countReceipts(transactionsBatch), time.Since(startTime).Milliseconds(),
+		countReceipts(txBatch), time.Since(startTime).Milliseconds(),
 	)
 
 	return nil
@@ -233,8 +229,8 @@ func (ci *BlockIndexer) processTransactionsBatch(
 
 func (ci *BlockIndexer) obtainLogsBatch(
 	ctx context.Context, batchIx, lastBlockNumInRound int,
-) (*LogsBatch, error) {
-	logsBatch := new(LogsBatch)
+) (*logsBatch, error) {
+	lgBatch := new(logsBatch)
 	startTime := time.Now()
 	numRequests := (ci.params.BatchSize / ci.params.LogRange)
 	perRunner := (numRequests / ci.params.NumParallelReq)
@@ -249,7 +245,7 @@ func (ci *BlockIndexer) obtainLogsBatch(
 			eg.Go(func() error {
 				return ci.requestLogs(
 					ctx,
-					logsBatch,
+					lgBatch,
 					logInfo,
 					start,
 					stop,
@@ -265,10 +261,10 @@ func (ci *BlockIndexer) obtainLogsBatch(
 
 	logger.Info(
 		"Obtained %d logs by request in %d milliseconds",
-		len(logsBatch.Logs), time.Since(startTime).Milliseconds(),
+		len(lgBatch.logs), time.Since(startTime).Milliseconds(),
 	)
 
-	return logsBatch, nil
+	return lgBatch, nil
 }
 
 type indexRange struct {
@@ -313,28 +309,28 @@ func (ci *BlockIndexer) updateLastIndexContinuous(
 }
 
 func (ci *BlockIndexer) processAndSave(
-	blockBatch *BlockBatch,
-	transactionsBatch *TransactionsBatch,
-	logsBatch *LogsBatch,
+	bBatch *blockBatch,
+	txBatch *transactionsBatch,
+	lgBatch *logsBatch,
 	states *database.DBStates,
 	firstBlockNum, lastDBIndex, lastDBTimestamp int,
 ) error {
 	startTime := time.Now()
-	data, err := ci.processTransactions(transactionsBatch)
+	data, err := ci.processTransactions(txBatch)
 	if err != nil {
 		return errors.Wrap(err, "ci.processTransactions")
 	}
 
 	numLogsFromReceipts := len(data.Logs)
-	err = ci.processLogs(logsBatch, blockBatch, firstBlockNum, data)
+	err = ci.processLogs(lgBatch, bBatch, firstBlockNum, data)
 	if err != nil {
 		return errors.Wrap(err, "ci.processLogs")
 	}
 
 	logger.Info(
-		"Processed %d transactions and extracted %d logs from receipts "+
-			"and %d new logs from requests in %d milliseconds",
-		len(transactionsBatch.Transactions), numLogsFromReceipts,
+		"Processed %d transactions and extracted %d logs from receipts and %d new logs from requests in %d milliseconds",
+		len(txBatch.transactions),
+		numLogsFromReceipts,
 		len(data.Logs)-numLogsFromReceipts,
 		time.Since(startTime).Milliseconds(),
 	)
@@ -394,7 +390,7 @@ func (ci *BlockIndexer) IndexContinuous(ctx context.Context) error {
 	logger.Info("Continuously indexing blocks from %d", ixRange.start)
 
 	// Request blocks one by one
-	blockBatch := NewBlockBatch(1)
+	bBatch := newBlockBatch(1)
 	for i := ixRange.start; i <= ci.params.StopIndex; i++ {
 		if i > ixRange.end {
 			logger.Debug("Up to date, last block %d", states.States[database.LastChainIndexState].Index)
@@ -408,7 +404,7 @@ func (ci *BlockIndexer) IndexContinuous(ctx context.Context) error {
 			continue
 		}
 
-		err = ci.indexContinuousIteration(ctx, states, ixRange, i, blockBatch)
+		err = ci.indexContinuousIteration(ctx, states, ixRange, i, bBatch)
 		if err != nil {
 			return err
 		}
@@ -420,22 +416,22 @@ func (ci *BlockIndexer) IndexContinuous(ctx context.Context) error {
 }
 
 func (ci *BlockIndexer) indexContinuousIteration(
-	ctx context.Context, states *database.DBStates, ixRange *indexRange, index int, blockBatch *BlockBatch,
+	ctx context.Context, states *database.DBStates, ixRange *indexRange, index int, bBatch *blockBatch,
 ) error {
-	err := ci.requestBlocks(ctx, blockBatch, index, index+1, 0, ixRange.end)
+	err := ci.requestBlocks(ctx, bBatch, index, index+1, 0, ixRange.end)
 	if err != nil {
 		return errors.Wrap(err, "ci.requestBlocks")
 	}
 
-	transactionsBatch := new(TransactionsBatch)
-	ci.processBlocks(blockBatch, transactionsBatch, 0, 1)
+	txBatch := new(transactionsBatch)
+	ci.processBlocks(bBatch, txBatch, 0, 1)
 
-	err = ci.getTransactionsReceipt(ctx, transactionsBatch, 0, len(transactionsBatch.Transactions))
+	err = ci.getTransactionsReceipt(ctx, txBatch, 0, len(txBatch.transactions))
 	if err != nil {
 		return errors.Wrap(err, "ci.getTransactionsReceipt")
 	}
 
-	logsBatch := new(LogsBatch)
+	logsBatch := new(logsBatch)
 	for _, logInfo := range ci.params.CollectLogs {
 		err = ci.requestLogs(ctx, logsBatch, logInfo, index, index+1, index)
 		if err != nil {
@@ -443,17 +439,17 @@ func (ci *BlockIndexer) indexContinuousIteration(
 		}
 	}
 
-	data, err := ci.processTransactions(transactionsBatch)
+	data, err := ci.processTransactions(txBatch)
 	if err != nil {
 		return fmt.Errorf("IndexContinuous: %w", err)
 	}
 
-	err = ci.processLogs(logsBatch, blockBatch, index, data)
+	err = ci.processLogs(logsBatch, bBatch, index, data)
 	if err != nil {
 		return fmt.Errorf("IndexContinuous: %w", err)
 	}
 
-	indexTimestamp := int(blockBatch.Blocks[0].Time())
+	indexTimestamp := int(bBatch.blocks[0].Time())
 	err = ci.saveData(data, states, index, indexTimestamp)
 	if err != nil {
 		return fmt.Errorf("IndexContinuous: %w", err)

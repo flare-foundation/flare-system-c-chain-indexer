@@ -28,7 +28,7 @@ var (
 )
 
 func ConnectAndInitialize(ctx context.Context, cfg *config.DBConfig) (*gorm.DB, error) {
-	db, err := Connect(ctx, cfg)
+	db, err := connect(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("ConnectAndInitialize: Connect: %w", err)
 	}
@@ -82,7 +82,7 @@ func storeTransactionID(db *gorm.DB) (err error) {
 	return errors.Wrap(err, "Failed to obtain ID data from DB")
 }
 
-func Connect(ctx context.Context, cfg *config.DBConfig) (*gorm.DB, error) {
+func connect(ctx context.Context, cfg *config.DBConfig) (*gorm.DB, error) {
 	// Connect to the database
 	dbConfig := mysql.Config{
 		User:                 cfg.Username,
