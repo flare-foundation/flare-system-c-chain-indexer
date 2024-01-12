@@ -16,7 +16,7 @@ import (
 
 type BlockBatch struct {
 	Blocks []*types.Block
-	sync.Mutex
+	mu     sync.RWMutex
 }
 
 func NewBlockBatch(batchSize int) *BlockBatch {
@@ -85,9 +85,9 @@ func (ci *BlockIndexer) requestBlocks(
 			}
 		}
 
-		blockBatch.Lock()
+		blockBatch.mu.Lock()
 		blockBatch.Blocks[listIndex+i-start] = block
-		blockBatch.Unlock()
+		blockBatch.mu.Unlock()
 	}
 
 	return nil
@@ -97,43 +97,47 @@ func (ci *BlockIndexer) processBlocks(
 	blockBatch *BlockBatch, batchTransactions *TransactionsBatch, start, stop int,
 ) {
 	for i := start; i < stop; i++ {
-		block := blockBatch.Blocks[i]
-		for txIndex, tx := range block.Transactions() {
-			if tx.To() == nil {
-				continue
-			}
+		ci.processBlockBatch(blockBatch, batchTransactions, i)
+	}
+}
 
-			txData := hex.EncodeToString(tx.Data())
-			if len(txData) < 8 {
-				continue
-			}
+func (ci *BlockIndexer) processBlockBatch(
+	blockBatch *BlockBatch, batchTransactions *TransactionsBatch, i int,
+) {
+	blockBatch.mu.RLock()
+	defer blockBatch.mu.RUnlock()
 
-			funcSig := txData[:8]
-			contractAddress := strings.ToLower(tx.To().Hex()[2:])
-			check := false
-			policy := transactionsPolicy{status: false, collectEvents: false}
+	block := blockBatch.Blocks[i]
 
-			for _, address := range []string{contractAddress, undefined} {
-				if val, ok := ci.transactions[address]; ok {
-					for _, sig := range []string{funcSig, undefined} {
-						if pol, ok := val[sig]; ok {
-							check = true
-							policy.status = policy.status || pol.status
-							policy.collectEvents = policy.collectEvents || pol.collectEvents
-						}
+	for txIndex, tx := range block.Transactions() {
+		if tx.To() == nil {
+			continue
+		}
+
+		txData := hex.EncodeToString(tx.Data())
+		if len(txData) < 8 {
+			continue
+		}
+
+		funcSig := txData[:8]
+		contractAddress := strings.ToLower(tx.To().Hex()[2:])
+		check := false
+		policy := transactionsPolicy{status: false, collectEvents: false}
+
+		for _, address := range []string{contractAddress, undefined} {
+			if val, ok := ci.transactions[address]; ok {
+				for _, sig := range []string{funcSig, undefined} {
+					if pol, ok := val[sig]; ok {
+						check = true
+						policy.status = policy.status || pol.status
+						policy.collectEvents = policy.collectEvents || pol.collectEvents
 					}
 				}
 			}
+		}
 
-			if check {
-				batchTransactions.Lock()
-				batchTransactions.Transactions = append(batchTransactions.Transactions, tx)
-				batchTransactions.toBlock = append(batchTransactions.toBlock, block)
-				batchTransactions.toReceipt = append(batchTransactions.toReceipt, nil)
-				batchTransactions.toIndex = append(batchTransactions.toIndex, uint64(txIndex))
-				batchTransactions.toPolicy = append(batchTransactions.toPolicy, policy)
-				batchTransactions.Unlock()
-			}
+		if check {
+			batchTransactions.Add(tx, block, uint64(txIndex), nil, policy)
 		}
 	}
 }

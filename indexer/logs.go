@@ -18,7 +18,7 @@ import (
 
 type LogsBatch struct {
 	Logs []types.Log
-	sync.Mutex
+	mu   sync.RWMutex
 }
 
 func (ci *BlockIndexer) requestLogs(
@@ -51,9 +51,9 @@ func (ci *BlockIndexer) requestLogs(
 			return errors.Wrap(err, "client.FilterLogs")
 		}
 
-		logsBatch.Mutex.Lock()
+		logsBatch.mu.Lock()
 		logsBatch.Logs = append(logsBatch.Logs, logs...)
-		logsBatch.Mutex.Unlock()
+		logsBatch.mu.Unlock()
 	}
 
 	return nil
@@ -62,6 +62,9 @@ func (ci *BlockIndexer) requestLogs(
 func (ci *BlockIndexer) processLogs(
 	logsBatch *LogsBatch, blockBatch *BlockBatch, firstBlockNum int, data *DatabaseStructData,
 ) error {
+	logsBatch.mu.RLock()
+	defer logsBatch.mu.RUnlock()
+
 	for i := range logsBatch.Logs {
 		log := &logsBatch.Logs[i]
 
