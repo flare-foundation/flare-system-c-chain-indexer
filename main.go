@@ -37,7 +37,7 @@ func run(ctx context.Context) error {
 		return errors.Wrap(err, "Could not connect to the RPC nodes")
 	}
 
-	db, err := database.ConnectAndInitialize(&cfg.DB)
+	db, err := database.ConnectAndInitialize(ctx, &cfg.DB)
 	if err != nil {
 		return errors.Wrap(err, "Database connect and initialize errors")
 	}

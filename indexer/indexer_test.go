@@ -98,7 +98,7 @@ func TestIndexer(t *testing.T) {
 	config.GlobalConfigCallback.Call(cfg)
 
 	// connect to the database
-	db, err := database.ConnectAndInitialize(&cfgDB)
+	db, err := database.ConnectAndInitialize(ctx, &cfgDB)
 	if err != nil {
 		logger.Fatal("Database connect and initialize error: %s", err)
 	}
@@ -142,7 +142,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	// correctness check
-	states, err := database.GetDBStates(db)
+	states, err := database.UpdateDBStates(ctx, db)
 	assert.NoError(t, err)
 	assert.Equal(t, 1213, int(states.States[database.FirstDatabaseIndexState].Index))
 	assert.Equal(t, 2400, int(states.States[database.LastDatabaseIndexState].Index))

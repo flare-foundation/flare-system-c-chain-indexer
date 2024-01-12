@@ -1,17 +1,19 @@
 package database
 
 import (
+	"context"
 	"flare-ftso-indexer/config"
 	"fmt"
 	"sync/atomic"
 
-	logger2 "flare-ftso-indexer/logger"
-
 	"github.com/go-sql-driver/mysql"
+	"github.com/pkg/errors"
 	gormMysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
-	"gorm.io/gorm/logger"
+	gormlogger "gorm.io/gorm/logger"
 )
+
+const tcp = "tcp"
 
 var (
 	// List entities to auto-migrate
@@ -25,11 +27,7 @@ var (
 	TransactionId            atomic.Uint64
 )
 
-func init() {
-	TransactionId.Store(1)
-}
-
-func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
+func ConnectAndInitialize(ctx context.Context, cfg *config.DBConfig) (*gorm.DB, error) {
 	db, err := Connect(cfg)
 	if err != nil {
 		return nil, fmt.Errorf("ConnectAndInitialize: Connect: %w", err)
@@ -45,31 +43,43 @@ func ConnectAndInitialize(cfg *config.DBConfig) (*gorm.DB, error) {
 	// Initialize - auto migrate
 	err = db.AutoMigrate(entities...)
 	if err != nil {
-		return nil, fmt.Errorf("ConnectAndInitialize: AutoMigrate %w", err)
+		return nil, errors.Wrap(err, "ConnectAndInitialize: AutoMigrate")
 	}
+
 	// If the state info is not in the DB, create it
-	_, err = GetDBStates(db)
+	_, err = UpdateDBStates(ctx, db)
 	if err != nil {
-		for _, name := range StateNames {
+		for _, name := range stateNames {
 			s := &State{Name: name}
-			s.UpdateIndex(0, 0)
+			s.updateIndex(0, 0)
 			err = db.Create(s).Error
 			if err != nil {
-				return nil, fmt.Errorf("ConnectAndInitialize: Create: %w", err)
+				return nil, errors.Wrap(err, "ConnectAndInitialize: Create")
 			}
 		}
 	}
-	maxIndexTx := &Transaction{}
-	err = db.Last(maxIndexTx).Error
-	if err != nil {
-		if err.Error() != "record not found" {
-			logger2.Error("Failed to obtain ID data from DB: %s", err)
-		}
-	} else {
-		TransactionId.Store(maxIndexTx.ID + 1)
+
+	if err := storeTransactionID(db); err != nil {
+		return nil, err
 	}
 
 	return db, nil
+}
+
+func storeTransactionID(db *gorm.DB) (err error) {
+	maxIndexTx := new(Transaction)
+	err = db.Last(maxIndexTx).Error
+	if err == nil {
+		TransactionId.Store(maxIndexTx.ID + 1)
+		return nil
+	}
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		TransactionId.Store(1)
+		return nil
+	}
+
+	return errors.Wrap(err, "Failed to obtain ID data from DB")
 }
 
 func Connect(cfg *config.DBConfig) (*gorm.DB, error) {
@@ -77,22 +87,25 @@ func Connect(cfg *config.DBConfig) (*gorm.DB, error) {
 	dbConfig := mysql.Config{
 		User:                 cfg.Username,
 		Passwd:               cfg.Password,
-		Net:                  "tcp",
+		Net:                  tcp,
 		Addr:                 fmt.Sprintf("%s:%d", cfg.Host, cfg.Port),
 		DBName:               cfg.Database,
 		AllowNativePasswords: true,
 		ParseTime:            true,
 	}
 
-	var gormLogLevel logger.LogLevel
-	if cfg.LogQueries {
-		gormLogLevel = logger.Info
-	} else {
-		gormLogLevel = logger.Silent
-	}
+	gormLogLevel := getGormLogLevel(cfg)
 	gormConfig := gorm.Config{
-		Logger:          logger.Default.LogMode(gormLogLevel),
+		Logger:          gormlogger.Default.LogMode(gormLogLevel),
 		CreateBatchSize: DBTransactionBatchesSize,
 	}
 	return gorm.Open(gormMysql.Open(dbConfig.FormatDSN()), &gormConfig)
+}
+
+func getGormLogLevel(cfg *config.DBConfig) gormlogger.LogLevel {
+	if cfg.LogQueries {
+		return gormlogger.Info
+	}
+
+	return gormlogger.Silent
 }
