@@ -75,18 +75,16 @@ type LogInfo struct {
 	Topic           string `toml:"topic"`
 }
 
-func newConfig() *Config {
-	return &Config{}
-}
-
 func BuildConfig() (*Config, error) {
 	cfgFileName := *CfgFlag
 
-	cfg := newConfig()
+	cfg := new(Config)
 	err := parseConfigFile(cfg, cfgFileName)
 	if err != nil {
 		return nil, err
 	}
+
+	applyEnvOverrides(cfg)
 
 	return cfg, nil
 }
@@ -121,4 +119,18 @@ func (cc ChainConfig) FullNodeURL() (*url.URL, error) {
 	}
 
 	return u, nil
+}
+
+var envOverrides = map[string]func(*Config, string){
+	"DB_USERNAME":  func(c *Config, v string) { c.DB.Username = v },
+	"DB_PASSWORD":  func(c *Config, v string) { c.DB.Password = v },
+	"NODE_API_KEY": func(c *Config, v string) { c.Chain.APIKey = v },
+}
+
+func applyEnvOverrides(cfg *Config) {
+	for env, override := range envOverrides {
+		if val, ok := os.LookupEnv(env); ok {
+			override(cfg, val)
+		}
+	}
 }
