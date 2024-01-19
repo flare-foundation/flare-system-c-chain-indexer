@@ -30,8 +30,6 @@ func run(ctx context.Context) error {
 
 	config.GlobalConfigCallback.Call(cfg)
 
-	logger.Info("Running with configuration: chain: %s, database: %s", cfg.Chain, cfg.DB.Database)
-
 	ethClient, err := dialRPCNode(cfg)
 	if err != nil {
 		return errors.Wrap(err, "Could not connect to the RPC nodes")

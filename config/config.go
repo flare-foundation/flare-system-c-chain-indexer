@@ -122,7 +122,3 @@ func (cc ChainConfig) FullNodeURL() (*url.URL, error) {
 
 	return u, nil
 }
-
-func (cc ChainConfig) String() string {
-	return fmt.Sprintf("NodeURL: %s, APIKey: %s", cc.NodeURL, cc.APIKey)
-}
