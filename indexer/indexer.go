@@ -2,12 +2,15 @@ package indexer
 
 import (
 	"context"
+	"encoding/hex"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/logger"
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -20,10 +23,15 @@ const (
 	undefined = "undefined"
 )
 
+var (
+	undefinedAddress = common.Address{}
+	undefinedFuncSig = functionSignature{}
+)
+
 type BlockIndexer struct {
 	db           *gorm.DB
 	params       config.IndexerConfig
-	transactions map[string]map[string]transactionsPolicy
+	transactions map[common.Address]map[functionSignature]transactionsPolicy
 	client       *ethclient.Client
 }
 
@@ -32,13 +40,20 @@ type transactionsPolicy struct {
 	collectEvents bool
 }
 
-func CreateBlockIndexer(cfg *config.Config, db *gorm.DB, ethClient *ethclient.Client) *BlockIndexer {
+type functionSignature [4]byte
+
+func CreateBlockIndexer(cfg *config.Config, db *gorm.DB, ethClient *ethclient.Client) (*BlockIndexer, error) {
+	txs, err := makeTransactions(cfg.Indexer.CollectTransactions)
+	if err != nil {
+		return nil, err
+	}
+
 	return &BlockIndexer{
 		db:           db,
 		params:       updateParams(cfg.Indexer),
-		transactions: makeTransactions(cfg.Indexer.CollectTransactions),
+		transactions: txs,
 		client:       ethClient,
-	}
+	}, nil
 }
 
 func updateParams(params config.IndexerConfig) config.IndexerConfig {
@@ -63,24 +78,63 @@ func updateParams(params config.IndexerConfig) config.IndexerConfig {
 	return params
 }
 
-func makeTransactions(txInfo []config.TransactionInfo) map[string]map[string]transactionsPolicy {
-	transactions := make(map[string]map[string]transactionsPolicy)
+func makeTransactions(txInfo []config.TransactionInfo) (map[common.Address]map[functionSignature]transactionsPolicy, error) {
+	transactions := make(map[common.Address]map[functionSignature]transactionsPolicy)
 
 	for i := range txInfo {
 		transaction := &txInfo[i]
-		contractAddress := transaction.ContractAddress
+		contractAddress := parseTransactionAddress(transaction.ContractAddress)
 
 		if _, ok := transactions[contractAddress]; !ok {
-			transactions[contractAddress] = make(map[string]transactionsPolicy)
+			transactions[contractAddress] = make(map[functionSignature]transactionsPolicy)
 		}
 
-		transactions[contractAddress][transaction.FuncSig] = transactionsPolicy{
+		funcSig, err := parseFuncSig(transaction.FuncSig)
+		if err != nil {
+			return nil, err
+		}
+
+		transactions[contractAddress][funcSig] = transactionsPolicy{
 			status:        transaction.Status,
 			collectEvents: transaction.CollectEvents,
 		}
 	}
 
-	return transactions
+	return transactions, nil
+}
+
+func parseFuncSig(funcSig string) (functionSignature, error) {
+	if funcSig == undefined {
+		return undefinedFuncSig, nil
+	}
+
+	funcSig = strings.TrimPrefix(funcSig, "0x")
+
+	bs, err := hex.DecodeString(funcSig)
+	if err != nil {
+		return functionSignature{}, err
+	}
+
+	if len(bs) != 4 {
+		return functionSignature{}, errors.New("invalid length function signature")
+	}
+
+	var funcSigBytes functionSignature
+	copy(funcSigBytes[:], bs)
+
+	return funcSigBytes, nil
+}
+
+func parseTransactionAddress(address string) common.Address {
+	if address == undefined {
+		return undefinedAddress
+	}
+
+	if !strings.HasPrefix(address, "0x") {
+		address = fmt.Sprintf("0x%s", address)
+	}
+
+	return common.HexToAddress(address)
 }
 
 func (ci *BlockIndexer) IndexHistory(ctx context.Context) error {

@@ -65,10 +65,14 @@ func dialRPCNode(cfg *config.Config) (*ethclient.Client, error) {
 }
 
 func runIndexer(ctx context.Context, cfg *config.Config, db *gorm.DB, ethClient *ethclient.Client) error {
-	cIndexer := indexer.CreateBlockIndexer(cfg, db, ethClient)
+	cIndexer, err := indexer.CreateBlockIndexer(cfg, db, ethClient)
+	if err != nil {
+		return err
+	}
+
 	bOff := backoff.NewExponentialBackOff()
 
-	err := backoff.RetryNotify(
+	err = backoff.RetryNotify(
 		func() error {
 			return cIndexer.IndexHistory(ctx)
 		},
