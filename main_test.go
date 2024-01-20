@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/bradleyjkemp/cupaloy"
+	"github.com/bradleyjkemp/cupaloy/v2"
 	"github.com/caarlos0/env/v10"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
