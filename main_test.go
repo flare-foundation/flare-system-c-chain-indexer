@@ -140,7 +140,10 @@ func checkDB(ctx context.Context, t *testing.T, db *gorm.DB) {
 
 	t.Run("check logs", func(t *testing.T) {
 		var logs []database.Log
-		result := db.WithContext(ctx).Order("transaction_hash ASC, log_index ASC").Find(&logs)
+		result := db.WithContext(ctx).
+			Preload("Transaction").
+			Order("transaction_hash ASC, log_index ASC").
+			Find(&logs)
 		require.NoError(t, result.Error, "Could not find logs")
 
 		log.Printf("Found %d logs", len(logs))
