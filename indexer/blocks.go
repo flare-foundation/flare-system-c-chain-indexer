@@ -2,14 +2,13 @@ package indexer
 
 import (
 	"context"
-	"encoding/hex"
 	"flare-ftso-indexer/config"
 	"fmt"
 	"math/big"
-	"strings"
 	"sync"
 
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 )
@@ -114,19 +113,21 @@ func (ci *BlockIndexer) processBlockBatch(
 			continue
 		}
 
-		txData := hex.EncodeToString(tx.Data())
-		if len(txData) < 8 {
+		txData := tx.Data()
+		if len(txData) < 4 {
 			continue
 		}
 
-		funcSig := txData[:8]
-		contractAddress := strings.ToLower(tx.To().Hex()[2:])
+		var funcSig functionSignature
+		copy(funcSig[:], txData[:4])
+
+		contractAddress := tx.To()
 		check := false
 		policy := transactionsPolicy{status: false, collectEvents: false}
 
-		for _, address := range []string{contractAddress, undefined} {
+		for _, address := range []common.Address{*contractAddress, undefinedAddress} {
 			if val, ok := ci.transactions[address]; ok {
-				for _, sig := range []string{funcSig, undefined} {
+				for _, sig := range []functionSignature{funcSig, undefinedFuncSig} {
 					if pol, ok := val[sig]; ok {
 						check = true
 						policy.status = policy.status || pol.status

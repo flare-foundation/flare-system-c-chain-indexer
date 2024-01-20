@@ -36,7 +36,10 @@ func BenchmarkBlockRequests(b *testing.B) {
 			logger.Fatal("Eth client error: %s", err)
 		}
 
-		cIndexer := indexer.CreateBlockIndexer(cfg, db, ethClient)
+		cIndexer, err := indexer.CreateBlockIndexer(cfg, db, ethClient)
+		if err != nil {
+			logger.Fatal("Indexer create error: %s", err)
+		}
 
 		err = cIndexer.IndexHistory(ctx)
 		if err != nil {

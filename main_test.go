@@ -11,6 +11,7 @@ import (
 
 	"github.com/bradleyjkemp/cupaloy/v2"
 	"github.com/caarlos0/env/v10"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
@@ -18,7 +19,7 @@ import (
 )
 
 const (
-	contractAddress = "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4"
+	contractAddress = "0x694905ca5f9F6c49f4748E8193B3e8053FA9E7E4"
 	startBlock      = 6446256
 	endBlock        = 6447813
 )
@@ -110,7 +111,10 @@ func runIndexer(ctx context.Context, cfg *config.Config, db *gorm.DB) error {
 		return errors.Wrap(err, "Could not connect to the RPC nodes")
 	}
 
-	cIndexer := indexer.CreateBlockIndexer(cfg, db, ethClient)
+	cIndexer, err := indexer.CreateBlockIndexer(cfg, db, ethClient)
+	if err != nil {
+		return err
+	}
 
 	return cIndexer.IndexHistory(ctx)
 }
@@ -170,7 +174,7 @@ func checkTransaction(t *testing.T, tx *database.Transaction) {
 	require.LessOrEqual(t, tx.BlockNumber, uint64(endBlock))
 	require.NotEmpty(t, tx.BlockHash, "Block hash should not be empty")
 	require.NotEmpty(t, tx.FromAddress, "From address should not be empty")
-	require.True(t, strings.EqualFold(tx.ToAddress, contractAddress), "To address should be the contract address")
+	require.True(t, compareAddrStrs(tx.ToAddress, contractAddress), "To address should be the contract address")
 	require.NotEmpty(t, tx.Value, "Value should not be empty")
 	require.NotEmpty(t, tx.GasPrice, "Gas price should not be empty")
 	require.NotZero(t, tx.Gas, "Gas used should not be zero")
@@ -189,7 +193,7 @@ func checkLog(t *testing.T, log *database.Log) {
 		checkTransaction(t, log.Transaction)
 	}
 
-	require.True(t, strings.EqualFold(log.Address, contractAddress), "Log address should be the contract address")
+	require.True(t, compareAddrStrs(log.Address, contractAddress), "Log address should be the contract address")
 	require.NotEmpty(t, log.Data)
 	require.NotEmpty(t, log.Topic0)
 	require.NotEmpty(t, log.TransactionHash)
@@ -209,4 +213,16 @@ func zeroLogIDs(logs []database.Log) {
 	for i := range logs {
 		logs[i].ID = 0
 	}
+}
+
+func compareAddrStrs(expected, actual string) bool {
+	return parseAddrStr(expected) == parseAddrStr(actual)
+}
+
+func parseAddrStr(addrStr string) common.Address {
+	if !strings.HasPrefix(addrStr, "0x") {
+		addrStr = "0x" + addrStr
+	}
+
+	return common.HexToAddress(addrStr)
 }
