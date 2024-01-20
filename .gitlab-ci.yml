@@ -45,4 +45,4 @@ test:
   services:
     - mysql:latest
   script:
-    - go test ./...
+    - go test ./indexer

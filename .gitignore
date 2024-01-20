@@ -1,2 +1,4 @@
 logger/logs
 tmp/
+*.log
+config.local.toml
