@@ -6,6 +6,7 @@ import (
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer"
 	"log"
+	"strings"
 	"testing"
 
 	"github.com/bradleyjkemp/cupaloy"
@@ -14,6 +15,12 @@ import (
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
+)
+
+const (
+	contractAddress = "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4"
+	startBlock      = 6446256
+	endBlock        = 6447813
 )
 
 type testConfig struct {
@@ -48,22 +55,22 @@ func TestIntegration(t *testing.T) {
 
 func initConfig(tCfg testConfig) config.Config {
 	txInfo := config.TransactionInfo{
-		ContractAddress: "0x694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
+		ContractAddress: contractAddress,
 		FuncSig:         "undefined",
 		Status:          true,
 		CollectEvents:   true,
 	}
 
 	logInfo := config.LogInfo{
-		ContractAddress: "0x694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
+		ContractAddress: contractAddress,
 		Topic:           "undefined",
 	}
 
 	cfg := config.Config{
 		Indexer: config.IndexerConfig{
 			BatchSize:           500,
-			StartIndex:          6446256,
-			StopIndex:           6447813,
+			StartIndex:          startBlock,
+			StopIndex:           endBlock,
 			NumParallelReq:      16,
 			LogRange:            10,
 			NewBlockCheckMillis: 1000,
@@ -125,6 +132,8 @@ func checkDB(ctx context.Context, t *testing.T, db *gorm.DB) {
 
 		log.Printf("Found %d transactions", len(transactions))
 
+		checkTransactions(t, transactions)
+
 		zeroTransactionIDs(transactions)
 		cupaloy.SnapshotT(t, transactions)
 	})
@@ -136,9 +145,52 @@ func checkDB(ctx context.Context, t *testing.T, db *gorm.DB) {
 
 		log.Printf("Found %d logs", len(logs))
 
+		checkLogs(t, logs)
+
 		zeroLogIDs(logs)
 		cupaloy.SnapshotT(t, logs)
 	})
+}
+
+func checkTransactions(t *testing.T, transactions []database.Transaction) {
+	for i := range transactions {
+		tx := &transactions[i]
+		checkTransaction(t, tx)
+	}
+}
+
+func checkTransaction(t *testing.T, tx *database.Transaction) {
+	require.NotEmpty(t, tx.Hash, "Transaction hash should not be empty")
+	require.NotEmpty(t, tx.FunctionSig, "Function signature should not be empty")
+	require.NotEmpty(t, tx.Input, "Input should not be empty")
+	require.GreaterOrEqual(t, tx.BlockNumber, uint64(startBlock))
+	require.LessOrEqual(t, tx.BlockNumber, uint64(endBlock))
+	require.NotEmpty(t, tx.BlockHash, "Block hash should not be empty")
+	require.NotEmpty(t, tx.FromAddress, "From address should not be empty")
+	require.True(t, strings.EqualFold(tx.ToAddress, contractAddress), "To address should be the contract address")
+	require.NotEmpty(t, tx.Value, "Value should not be empty")
+	require.NotEmpty(t, tx.GasPrice, "Gas price should not be empty")
+	require.NotZero(t, tx.Gas, "Gas used should not be zero")
+	require.NotZero(t, tx.Timestamp, "Timestamp should not be zero")
+}
+
+func checkLogs(t *testing.T, logs []database.Log) {
+	for i := range logs {
+		log := &logs[i]
+		checkLog(t, log)
+	}
+}
+
+func checkLog(t *testing.T, log *database.Log) {
+	if tx := log.Transaction; tx != nil {
+		checkTransaction(t, log.Transaction)
+	}
+
+	require.True(t, strings.EqualFold(log.Address, contractAddress), "Log address should be the contract address")
+	require.NotEmpty(t, log.Data)
+	require.NotEmpty(t, log.Topic0)
+	require.NotEmpty(t, log.TransactionHash)
+	require.NotZero(t, log.Timestamp)
 }
 
 // For both Transactions and Logs, the ID is not deterministic and

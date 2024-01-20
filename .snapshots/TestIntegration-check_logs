@@ -1,28 +1,28 @@
-([]database.Log) (len=48) {
+([]database.Log) (len=50) {
   (database.Log) {
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
+    TransactionID: (uint64) 48,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
+    Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea2f0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+    Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
+    Topic1: (string) (len=4) "NULL",
+    Topic2: (string) (len=4) "NULL",
+    Topic3: (string) (len=4) "NULL",
+    TransactionHash: (string) (len=64) "03704532c1aa6d821bde51d4b5f71aac50fcd559e798ecd65f72c5b33cf3f05a",
+    LogIndex: (uint64) 80,
+    Timestamp: (uint64) 1696939114,
+    BlockNumber: (uint64) 6447736
+  },
+  (database.Log) {
+    BaseEntity: (database.BaseEntity) {
+      ID: (uint64) 0
     },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 20,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea130000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -37,26 +37,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 2,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea010000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -71,26 +54,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 3,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea020000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -105,26 +71,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 41,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea280000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -139,26 +88,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 26,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea190000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -173,26 +105,26 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
+    TransactionID: (uint64) 16,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
+    Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea0f0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+    Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
+    Topic1: (string) (len=4) "NULL",
+    Topic2: (string) (len=4) "NULL",
+    Topic3: (string) (len=4) "NULL",
+    TransactionHash: (string) (len=64) "161f5962e83346bc08fc9b3b159674441fedb966a47707cd831ecf82cbaca4c3",
+    LogIndex: (uint64) 41,
+    Timestamp: (uint64) 1696933354,
+    BlockNumber: (uint64) 6446746
+  },
+  (database.Log) {
+    BaseEntity: (database.BaseEntity) {
+      ID: (uint64) 0
     },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 15,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea0e0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -207,26 +139,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 13,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea0c0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -241,26 +156,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 35,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea220000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -275,26 +173,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 42,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea290000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -309,26 +190,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 28,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea1b0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -343,26 +207,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 36,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea230000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -377,26 +224,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 23,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea160000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -411,26 +241,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 6,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea050000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -445,26 +258,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 30,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea1d0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -479,26 +275,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 10,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea090000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -513,26 +292,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 8,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea070000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -547,26 +309,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 17,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea100000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -581,26 +326,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 39,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea260000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -615,26 +343,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 1,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea000000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -649,26 +360,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 45,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea2c0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -683,26 +377,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 34,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea210000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -717,26 +394,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 47,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea2e0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -751,26 +411,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 38,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea250000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -785,26 +428,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 9,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea080000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -819,26 +445,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 12,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea0b0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -853,26 +462,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 33,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea200000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -887,26 +479,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 31,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea1e0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -921,26 +496,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 5,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea040000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -955,26 +513,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 25,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea180000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -989,26 +530,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 40,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea270000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1023,26 +547,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 24,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea170000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1057,26 +564,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 29,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea1c0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1091,26 +581,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 18,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea110000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1125,26 +598,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 27,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea1a0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1159,26 +615,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 22,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea150000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1193,26 +632,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 46,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea2d0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1227,26 +649,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 50,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea310000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1261,26 +666,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 49,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea300000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1295,26 +683,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 19,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea120000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1329,26 +700,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 37,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea240000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1363,26 +717,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 21,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea140000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1397,26 +734,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 14,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea0d0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1431,26 +751,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 32,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea1f0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21dee7c15daf043a4173e829481736fcd574fd399b4f494e1c6a40945605032b179",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1465,26 +768,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 44,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea2b0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1499,26 +785,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 7,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea060000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1533,26 +802,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 11,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea0a0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1567,26 +819,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 4,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea030000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
@@ -1601,26 +836,9 @@
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
-    TransactionID: (uint64) 0,
-    Transaction: (database.Transaction) {
-      BaseEntity: (database.BaseEntity) {
-        ID: (uint64) 0
-      },
-      Hash: (string) "",
-      FunctionSig: (string) "",
-      Input: (string) "",
-      BlockNumber: (uint64) 0,
-      BlockHash: (string) "",
-      TransactionIndex: (uint64) 0,
-      FromAddress: (string) "",
-      ToAddress: (string) "",
-      Status: (uint64) 0,
-      Value: (string) "",
-      GasPrice: (string) "",
-      Gas: (uint64) 0,
-      Timestamp: (uint64) 0
-    },
-    Address: (string) (len=40) "694905ca5f9f6c49f4748e8193b3e8053fa9e7e4",
+    TransactionID: (uint64) 43,
+    Transaction: (*database.Transaction)(<nil>),
+    Address: (string) (len=40) "694905ca5f9F6c49f4748E8193B3e8053FA9E7E4",
     Data: (string) (len=192) "000000000000000000000000000000000000000000000000000000000002ea2a0000000000000000000000007ebaeebc1a6ff7e4a571900b3e474c60254ee21d290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
     Topic0: (string) (len=64) "c20a6d1ff27e89f30517726862e720046602b33a06fbbe3a93aa75687b8419f4",
     Topic1: (string) (len=4) "NULL",
