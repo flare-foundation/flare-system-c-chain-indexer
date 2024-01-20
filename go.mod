@@ -4,6 +4,7 @@ go 1.21
 
 require (
 	github.com/BurntSushi/toml v1.2.1
+	github.com/bradleyjkemp/cupaloy v2.3.0+incompatible
 	github.com/caarlos0/env/v10 v10.0.0
 	github.com/cenkalti/backoff/v4 v4.2.1
 	github.com/ethereum/go-ethereum v1.13.2

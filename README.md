@@ -84,11 +84,20 @@ go build
 
 ### Tests
 
-See `indexer/indexer_test.go` for a test run of the indexer on a mocked chain provided in the `testing` folder.
+There is an integration test which checks the historical indexing against known transactions and
+logs on Coston2. To run this test you will need a MySQL server and a Coston2 node - ideally one that
+is not rate-limited. The test is configured via environment variables, see `.env.example`
+for an example configuration. With the appropriate environment vars set the test can be run with:
 
 ```
-cd indexer
-go test -v
+$ go test ./main_test.go
+```
+
+A unit test using a mocked chain node is also provided at `indexer/indexer_test.go`. This test is
+also configured via environment variables, with an example at `indexer/.env.example`, and may be run with:
+
+```
+go test ./indexer
 ```
 
 ### Benchmarks
