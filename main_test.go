@@ -19,9 +19,10 @@ import (
 )
 
 const (
-	contractAddress = "0x694905ca5f9F6c49f4748E8193B3e8053FA9E7E4"
-	startBlock      = 6446256
-	endBlock        = 6447813
+	contractAddress    = "0x694905ca5f9F6c49f4748E8193B3e8053FA9E7E4"
+	startBlock         = 6446256
+	endBlockHistory    = 6447813
+	endBlockContinuous = 6446306
 )
 
 type testConfig struct {
@@ -43,18 +44,49 @@ func TestIntegration(t *testing.T) {
 	err := env.Parse(&tCfg)
 	require.NoError(t, err, "Could not parse test config")
 
-	cfg := initConfig(tCfg)
+	t.Run("IndexHistory", func(t *testing.T) {
+		t.Log("Indexing history")
 
-	db, err := database.ConnectAndInitialize(ctx, &cfg.DB)
-	require.NoError(t, err, "Could not connect to the database")
+		cfg := initConfig(tCfg, true)
 
-	err = runIndexer(ctx, &cfg, db)
-	require.NoError(t, err, "Could not run the indexer")
+		db, err := database.ConnectAndInitialize(ctx, &cfg.DB)
+		require.NoError(t, err, "Could not connect to the database")
 
-	checkDB(ctx, t, db)
+		indexer, err := createIndexer(&cfg, db)
+		require.NoError(t, err, "Could not create the indexer")
+
+		err = indexer.IndexHistory(ctx)
+		require.NoError(t, err, "Could not run the indexer")
+
+		checkDB(ctx, t, db, &cfg)
+	})
+
+	t.Run("IndexContinuous", func(t *testing.T) {
+		t.Log("Indexing continuous")
+
+		cfg := initConfig(tCfg, false)
+
+		db, err := database.ConnectAndInitialize(ctx, &cfg.DB)
+		require.NoError(t, err, "Could not connect to the database")
+
+		indexer, err := createIndexer(&cfg, db)
+		require.NoError(t, err, "Could not create the indexer")
+
+		err = indexer.IndexContinuous(ctx)
+		require.NoError(t, err, "Could not run the indexer")
+
+		checkDB(ctx, t, db, &cfg)
+	})
 }
 
-func initConfig(tCfg testConfig) config.Config {
+func initConfig(tCfg testConfig, history bool) config.Config {
+	var endBlock int
+	if history {
+		endBlock = endBlockHistory
+	} else {
+		endBlock = endBlockContinuous
+	}
+
 	txInfo := config.TransactionInfo{
 		ContractAddress: contractAddress,
 		FuncSig:         "undefined",
@@ -105,18 +137,13 @@ func initConfig(tCfg testConfig) config.Config {
 	return cfg
 }
 
-func runIndexer(ctx context.Context, cfg *config.Config, db *gorm.DB) error {
+func createIndexer(cfg *config.Config, db *gorm.DB) (*indexer.BlockIndexer, error) {
 	ethClient, err := dialRPCNode(cfg)
 	if err != nil {
-		return errors.Wrap(err, "Could not connect to the RPC nodes")
+		return nil, errors.Wrap(err, "Could not connect to the RPC nodes")
 	}
 
-	cIndexer, err := indexer.CreateBlockIndexer(cfg, db, ethClient)
-	if err != nil {
-		return err
-	}
-
-	return cIndexer.IndexHistory(ctx)
+	return indexer.CreateBlockIndexer(cfg, db, ethClient)
 }
 
 func dialRPCNode(cfg *config.Config) (*ethclient.Client, error) {
@@ -128,7 +155,7 @@ func dialRPCNode(cfg *config.Config) (*ethclient.Client, error) {
 	return ethclient.Dial(nodeURL.String())
 }
 
-func checkDB(ctx context.Context, t *testing.T, db *gorm.DB) {
+func checkDB(ctx context.Context, t *testing.T, db *gorm.DB, cfg *config.Config) {
 	t.Run("check transactions", func(t *testing.T) {
 		var transactions []database.Transaction
 		result := db.WithContext(ctx).Order("hash ASC").Find(&transactions)
@@ -136,7 +163,7 @@ func checkDB(ctx context.Context, t *testing.T, db *gorm.DB) {
 
 		log.Printf("Found %d transactions", len(transactions))
 
-		checkTransactions(t, transactions)
+		checkTransactions(t, transactions, cfg)
 
 		zeroTransactionIDs(transactions)
 		cupaloy.SnapshotT(t, transactions)
@@ -152,26 +179,26 @@ func checkDB(ctx context.Context, t *testing.T, db *gorm.DB) {
 
 		log.Printf("Found %d logs", len(logs))
 
-		checkLogs(t, logs)
+		checkLogs(t, logs, cfg)
 
 		zeroLogIDs(logs)
 		cupaloy.SnapshotT(t, logs)
 	})
 }
 
-func checkTransactions(t *testing.T, transactions []database.Transaction) {
+func checkTransactions(t *testing.T, transactions []database.Transaction, cfg *config.Config) {
 	for i := range transactions {
 		tx := &transactions[i]
-		checkTransaction(t, tx)
+		checkTransaction(t, tx, cfg)
 	}
 }
 
-func checkTransaction(t *testing.T, tx *database.Transaction) {
+func checkTransaction(t *testing.T, tx *database.Transaction, cfg *config.Config) {
 	require.NotEmpty(t, tx.Hash, "Transaction hash should not be empty")
 	require.NotEmpty(t, tx.FunctionSig, "Function signature should not be empty")
 	require.NotEmpty(t, tx.Input, "Input should not be empty")
-	require.GreaterOrEqual(t, tx.BlockNumber, uint64(startBlock))
-	require.LessOrEqual(t, tx.BlockNumber, uint64(endBlock))
+	require.GreaterOrEqual(t, tx.BlockNumber, uint64(cfg.Indexer.StartIndex))
+	require.LessOrEqual(t, tx.BlockNumber, uint64(cfg.Indexer.StopIndex))
 	require.NotEmpty(t, tx.BlockHash, "Block hash should not be empty")
 	require.NotEmpty(t, tx.FromAddress, "From address should not be empty")
 	require.True(t, compareAddrStrs(tx.ToAddress, contractAddress), "To address should be the contract address")
@@ -181,16 +208,16 @@ func checkTransaction(t *testing.T, tx *database.Transaction) {
 	require.NotZero(t, tx.Timestamp, "Timestamp should not be zero")
 }
 
-func checkLogs(t *testing.T, logs []database.Log) {
+func checkLogs(t *testing.T, logs []database.Log, cfg *config.Config) {
 	for i := range logs {
 		log := &logs[i]
-		checkLog(t, log)
+		checkLog(t, log, cfg)
 	}
 }
 
-func checkLog(t *testing.T, log *database.Log) {
+func checkLog(t *testing.T, log *database.Log, cfg *config.Config) {
 	if tx := log.Transaction; tx != nil {
-		checkTransaction(t, log.Transaction)
+		checkTransaction(t, log.Transaction, cfg)
 	}
 
 	require.True(t, compareAddrStrs(log.Address, contractAddress), "Log address should be the contract address")
