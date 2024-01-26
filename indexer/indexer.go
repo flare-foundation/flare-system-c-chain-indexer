@@ -445,8 +445,9 @@ func (ci *BlockIndexer) IndexContinuous(ctx context.Context) error {
 
 	// Request blocks one by one
 	bBatch := newBlockBatch(1)
-	for i := ixRange.start; i <= ci.params.StopIndex; i++ {
-		if i > ixRange.end {
+	blockNum := ixRange.start
+	for blockNum <= ci.params.StopIndex {
+		if blockNum > ixRange.end {
 			logger.Debug("Up to date, last block %d", states.States[database.LastChainIndexState].Index)
 			time.Sleep(time.Millisecond * time.Duration(ci.params.NewBlockCheckMillis))
 
@@ -458,10 +459,12 @@ func (ci *BlockIndexer) IndexContinuous(ctx context.Context) error {
 			continue
 		}
 
-		err = ci.indexContinuousIteration(ctx, states, ixRange, i, bBatch)
+		err = ci.indexContinuousIteration(ctx, states, ixRange, blockNum, bBatch)
 		if err != nil {
 			return err
 		}
+
+		blockNum++
 	}
 
 	logger.Debug("Stopping the indexer at block %d", states.States[database.LastDatabaseIndexState].Index)
