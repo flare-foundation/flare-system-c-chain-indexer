@@ -3,9 +3,11 @@ package indexer
 import (
 	"context"
 	"flare-ftso-indexer/config"
+	"flare-ftso-indexer/logger"
 	"fmt"
 	"math/big"
 	"sync"
+	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/common"
@@ -31,7 +33,7 @@ func (ci *BlockIndexer) fetchBlock(ctx context.Context, index int) (block *types
 	bOff := backoff.NewExponentialBackOff()
 	bOff.MaxElapsedTime = config.BackoffMaxElapsedTime
 
-	err = backoff.Retry(
+	err = backoff.RetryNotify(
 		func() error {
 			ctx, cancelFunc := context.WithTimeout(ctx, config.DefaultTimeout)
 			defer cancelFunc()
@@ -40,6 +42,9 @@ func (ci *BlockIndexer) fetchBlock(ctx context.Context, index int) (block *types
 			return err
 		},
 		bOff,
+		func(err error, d time.Duration) {
+			logger.Debug("BlockByNumber error: %s after %d", err, d)
+		},
 	)
 
 	if err != nil {

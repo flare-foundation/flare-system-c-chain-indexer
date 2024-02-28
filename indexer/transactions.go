@@ -5,10 +5,12 @@ import (
 	"encoding/hex"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
+	"flare-ftso-indexer/logger"
 	"fmt"
 	"math/big"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -67,7 +69,7 @@ func (ci *BlockIndexer) getTransactionsReceipt(
 		var receipt *types.Receipt
 
 		if policy.status || policy.collectEvents {
-			err := backoff.Retry(
+			err := backoff.RetryNotify(
 				func() (err error) {
 					ctx, cancelFunc := context.WithTimeout(ctx, config.DefaultTimeout)
 					defer cancelFunc()
@@ -76,6 +78,9 @@ func (ci *BlockIndexer) getTransactionsReceipt(
 					return err
 				},
 				bOff,
+				func(err error, d time.Duration) {
+					logger.Error("TransactionReceipt error: %s", err)
+				},
 			)
 
 			if err != nil {

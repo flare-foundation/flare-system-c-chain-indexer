@@ -64,6 +64,7 @@ func createSugaredLogger(config config.LoggerConfig) *zap.SugaredLogger {
 	}
 
 	atom.SetLevel(level)
+	sug.Infof("Set log level to %s", level)
 
 	return sug
 }
