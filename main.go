@@ -41,7 +41,9 @@ func run(ctx context.Context) error {
 	}
 
 	if cfg.DB.HistoryDrop > 0 {
-		startIndex, err := database.GetMinBlockWithHistoryDrop(ctx, cfg.Indexer.StartIndex, cfg.DB.HistoryDrop, ethClient)
+		startIndex, err := database.GetMinBlockWithHistoryDrop(
+			ctx, cfg.Indexer.StartIndex, cfg.DB.HistoryDrop, ethClient,
+		)
 		if err != nil {
 			return errors.Wrap(err, "Could not set the starting indexs")
 		}
@@ -86,7 +88,9 @@ func runIndexer(ctx context.Context, cfg *config.Config, db *gorm.DB, ethClient 
 	}
 
 	if cfg.DB.HistoryDrop > 0 {
-		go database.DropHistory(ctx, db, cfg.DB.HistoryDrop, database.HistoryDropIntervalCheck, ethClient)
+		go database.DropHistory(
+			ctx, db, cfg.DB.HistoryDrop, database.HistoryDropIntervalCheck, ethClient,
+		)
 	}
 
 	err = backoff.RetryNotify(

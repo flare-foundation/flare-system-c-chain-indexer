@@ -58,10 +58,10 @@ func CreateBlockIndexer(cfg *config.Config, db *gorm.DB, ethClient *ethclient.Cl
 
 func updateParams(params config.IndexerConfig) config.IndexerConfig {
 	if params.StopIndex == 0 {
-		params.StopIndex = int(^uint(0) >> 1)
+		params.StopIndex = ^uint64(0)
 	}
 
-	params.BatchSize -= params.BatchSize % params.NumParallelReq
+	params.BatchSize -= params.BatchSize % uint64(params.NumParallelReq)
 
 	if params.LogRange == 0 {
 		params.LogRange = 1
@@ -169,7 +169,7 @@ func (ci *BlockIndexer) IndexHistory(ctx context.Context) error {
 }
 
 func (ci *BlockIndexer) indexBatch(
-	ctx context.Context, states *database.DBStates, batchIx int, ixRange *indexRange,
+	ctx context.Context, states *database.DBStates, batchIx uint64, ixRange *indexRange,
 ) error {
 	lastBlockNumInRound := min(batchIx+ci.params.BatchSize-1, ixRange.end)
 
@@ -189,7 +189,7 @@ func (ci *BlockIndexer) indexBatch(
 		return err
 	}
 
-	lastForDBTimestamp := int(bBatch.blocks[min(ci.params.BatchSize-1, ixRange.end-batchIx)].Time())
+	lastForDBTimestamp := bBatch.blocks[min(ci.params.BatchSize-1, ixRange.end-batchIx)].Time()
 	return ci.processAndSave(
 		bBatch,
 		txBatch,
@@ -202,18 +202,18 @@ func (ci *BlockIndexer) indexBatch(
 }
 
 func (ci *BlockIndexer) obtainBlocksBatch(
-	ctx context.Context, batchIx int, ixRange *indexRange, lastBlockNumInRound int,
+	ctx context.Context, batchIx uint64, ixRange *indexRange, lastBlockNumInRound uint64,
 ) (*blockBatch, error) {
 	startTime := time.Now()
-	oneRunnerReqNum := ci.params.BatchSize / ci.params.NumParallelReq
+	oneRunnerReqNum := ci.params.BatchSize / uint64(ci.params.NumParallelReq)
 	bBatch := newBlockBatch(ci.params.BatchSize)
 
 	eg, ctx := errgroup.WithContext(ctx)
 
 	for i := 0; i < ci.params.NumParallelReq; i++ {
-		start := batchIx + oneRunnerReqNum*i
-		stop := batchIx + oneRunnerReqNum*(i+1)
-		listIndex := oneRunnerReqNum * i
+		start := batchIx + oneRunnerReqNum*uint64(i)
+		stop := batchIx + oneRunnerReqNum*uint64(i+1)
+		listIndex := oneRunnerReqNum * uint64(i)
 
 		eg.Go(func() error {
 			return ci.requestBlocks(
@@ -282,19 +282,19 @@ func (ci *BlockIndexer) processTransactionsBatch(
 }
 
 func (ci *BlockIndexer) obtainLogsBatch(
-	ctx context.Context, batchIx, lastBlockNumInRound int,
+	ctx context.Context, batchIx, lastBlockNumInRound uint64,
 ) (*logsBatch, error) {
 	lgBatch := new(logsBatch)
 	startTime := time.Now()
-	numRequests := (ci.params.BatchSize / ci.params.LogRange)
-	perRunner := (numRequests / ci.params.NumParallelReq)
+	numRequests := ci.params.BatchSize / ci.params.LogRange
+	perRunner := numRequests / uint64(ci.params.NumParallelReq)
 
 	for _, logInfo := range ci.params.CollectLogs {
 		eg, ctx := errgroup.WithContext(ctx)
 
 		for i := 0; i < ci.params.NumParallelReq; i++ {
-			start := batchIx + perRunner*ci.params.LogRange*i
-			stop := batchIx + perRunner*ci.params.LogRange*(i+1)
+			start := batchIx + perRunner*ci.params.LogRange*uint64(i)
+			stop := batchIx + perRunner*ci.params.LogRange*uint64(i+1)
 
 			eg.Go(func() error {
 				return ci.requestLogs(
@@ -322,11 +322,13 @@ func (ci *BlockIndexer) obtainLogsBatch(
 }
 
 type indexRange struct {
-	start int
-	end   int
+	start uint64
+	end   uint64
 }
 
-func (ci *BlockIndexer) getIndexRange(ctx context.Context, states *database.DBStates) (*indexRange, error) {
+func (ci *BlockIndexer) getIndexRange(
+	ctx context.Context, states *database.DBStates,
+) (*indexRange, error) {
 	lastChainIndex, lastChainTimestamp, err := ci.fetchLastBlockIndex(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "ci.fetchLastBlockIndex")
@@ -367,7 +369,7 @@ func (ci *BlockIndexer) processAndSave(
 	txBatch *transactionsBatch,
 	lgBatch *logsBatch,
 	states *database.DBStates,
-	firstBlockNum, lastDBIndex, lastDBTimestamp int,
+	firstBlockNum, lastDBIndex, lastDBTimestamp uint64,
 ) error {
 	startTime := time.Now()
 	data, err := ci.processTransactions(txBatch)
@@ -405,7 +407,7 @@ func (ci *BlockIndexer) processAndSave(
 	return nil
 }
 
-func (ci *BlockIndexer) shouldUpdateLastIndex(ixRange *indexRange, batchIx int) bool {
+func (ci *BlockIndexer) shouldUpdateLastIndex(ixRange *indexRange, batchIx uint64) bool {
 	return batchIx+ci.params.BatchSize <= ixRange.end && batchIx+2*ci.params.BatchSize > ixRange.end
 }
 
@@ -473,7 +475,10 @@ func (ci *BlockIndexer) IndexContinuous(ctx context.Context) error {
 }
 
 func (ci *BlockIndexer) indexContinuousIteration(
-	ctx context.Context, states *database.DBStates, ixRange *indexRange, index int, bBatch *blockBatch,
+	ctx context.Context,
+	states *database.DBStates,
+	ixRange *indexRange,
+	index uint64, bBatch *blockBatch,
 ) error {
 	err := ci.requestBlocks(ctx, bBatch, index, index+1, 0, ixRange.end)
 	if err != nil {
@@ -506,7 +511,7 @@ func (ci *BlockIndexer) indexContinuousIteration(
 		return fmt.Errorf("IndexContinuous: %w", err)
 	}
 
-	indexTimestamp := int(bBatch.blocks[0].Time())
+	indexTimestamp := bBatch.blocks[0].Time()
 	err = ci.saveData(data, states, index, indexTimestamp)
 	if err != nil {
 		return fmt.Errorf("IndexContinuous: %w", err)

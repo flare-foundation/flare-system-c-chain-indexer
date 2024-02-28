@@ -38,10 +38,10 @@ type State struct {
 	Updated        time.Time
 }
 
-func (s *State) updateIndex(newIndex, blockTimestamp int) {
-	s.Index = uint64(newIndex)
+func (s *State) updateIndex(newIndex, blockTimestamp uint64) {
+	s.Index = newIndex
 	s.Updated = time.Now()
-	s.BlockTimestamp = uint64(blockTimestamp)
+	s.BlockTimestamp = blockTimestamp
 }
 
 type DBStates struct {
@@ -62,7 +62,7 @@ func (s *DBStates) updateStates(newStates map[string]*State) {
 	}
 }
 
-func (s *DBStates) updateIndex(name string, newIndex, blockTimestamp int) {
+func (s *DBStates) updateIndex(name string, newIndex, blockTimestamp uint64) {
 	s.mu.Lock()
 	s.States[name].updateIndex(newIndex, blockTimestamp)
 	s.mu.Unlock()
@@ -75,19 +75,19 @@ func (s *DBStates) updateDB(db *gorm.DB, name string) error {
 	return db.Save(s.States[name]).Error
 }
 
-func (s *DBStates) Update(db *gorm.DB, name string, newIndex, blockTimestamp int) error {
+func (s *DBStates) Update(db *gorm.DB, name string, newIndex, blockTimestamp uint64) error {
 	s.updateIndex(name, newIndex, blockTimestamp)
 	return s.updateDB(db, name)
 }
 
 func (s *DBStates) UpdateAtStart(
-	db *gorm.DB, startIndex, startBlockTimestamp, lastChainIndex, lastBlockTimestamp, stopIndex int,
-) (int, int, error) {
+	db *gorm.DB, startIndex, startBlockTimestamp, lastChainIndex, lastBlockTimestamp, stopIndex uint64,
+) (uint64, uint64, error) {
 	var err error
 
 	s.mu.RLock()
-	firstIndex := int(s.States[FirstDatabaseIndexState].Index)
-	lastIndex := int(s.States[LastDatabaseIndexState].Index)
+	firstIndex := s.States[FirstDatabaseIndexState].Index
+	lastIndex := s.States[LastDatabaseIndexState].Index
 	s.mu.RUnlock()
 
 	if startIndex >= firstIndex && startIndex <= lastIndex {

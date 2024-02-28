@@ -20,14 +20,14 @@ type blockBatch struct {
 	mu     sync.RWMutex
 }
 
-func newBlockBatch(batchSize int) *blockBatch {
+func newBlockBatch(batchSize uint64) *blockBatch {
 	return &blockBatch{blocks: make([]*types.Block, batchSize)}
 }
 
-func (ci *BlockIndexer) fetchBlock(ctx context.Context, index int) (block *types.Block, err error) {
+func (ci *BlockIndexer) fetchBlock(ctx context.Context, index *uint64) (block *types.Block, err error) {
 	var indexBigInt *big.Int
-	if index >= 0 {
-		indexBigInt = new(big.Int).SetInt64(int64(index))
+	if index != nil {
+		indexBigInt = new(big.Int).SetUint64(*index)
 	}
 
 	bOff := backoff.NewExponentialBackOff()
@@ -54,26 +54,26 @@ func (ci *BlockIndexer) fetchBlock(ctx context.Context, index int) (block *types
 	return block, nil
 }
 
-func (ci *BlockIndexer) fetchLastBlockIndex(ctx context.Context) (int, int, error) {
-	lastBlock, err := ci.fetchBlock(ctx, -1)
+func (ci *BlockIndexer) fetchLastBlockIndex(ctx context.Context) (uint64, uint64, error) {
+	lastBlock, err := ci.fetchBlock(ctx, nil)
 	if err != nil {
 		return 0, 0, fmt.Errorf("fetchLastBlockIndex: %w", err)
 	}
 
-	return int(lastBlock.NumberU64()), int(lastBlock.Time()), nil
+	return lastBlock.NumberU64(), lastBlock.Time(), nil
 }
 
-func (ci *BlockIndexer) fetchBlockTimestamp(ctx context.Context, index int) (int, error) {
-	lastBlock, err := ci.fetchBlock(ctx, index)
+func (ci *BlockIndexer) fetchBlockTimestamp(ctx context.Context, index uint64) (uint64, error) {
+	lastBlock, err := ci.fetchBlock(ctx, &index)
 	if err != nil {
 		return 0, fmt.Errorf("fetchBlockTimestamp: %w", err)
 	}
 
-	return int(lastBlock.Time()), nil
+	return lastBlock.Time(), nil
 }
 
 func (ci *BlockIndexer) requestBlocks(
-	ctx context.Context, batch *blockBatch, start, stop, listIndex, lastIndex int,
+	ctx context.Context, batch *blockBatch, start, stop, listIndex, lastIndex uint64,
 ) error {
 	for i := start; i < stop; i++ {
 		var block *types.Block
@@ -83,7 +83,7 @@ func (ci *BlockIndexer) requestBlocks(
 		} else {
 			var err error
 
-			block, err = ci.fetchBlock(ctx, i)
+			block, err = ci.fetchBlock(ctx, &i)
 			if err != nil {
 				return errors.Wrap(err, "ci.fetchBlock")
 			}
@@ -98,7 +98,7 @@ func (ci *BlockIndexer) requestBlocks(
 }
 
 func (ci *BlockIndexer) processBlocks(
-	bBatch *blockBatch, txBatch *transactionsBatch, start, stop int,
+	bBatch *blockBatch, txBatch *transactionsBatch, start, stop uint64,
 ) {
 	for i := start; i < stop; i++ {
 		ci.processBlockBatch(bBatch, txBatch, i)
@@ -106,7 +106,7 @@ func (ci *BlockIndexer) processBlocks(
 }
 
 func (ci *BlockIndexer) processBlockBatch(
-	bBatch *blockBatch, txBatch *transactionsBatch, i int,
+	bBatch *blockBatch, txBatch *transactionsBatch, i uint64,
 ) {
 	bBatch.mu.RLock()
 	defer bBatch.mu.RUnlock()

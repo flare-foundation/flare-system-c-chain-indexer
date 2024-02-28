@@ -104,7 +104,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	// set a new starting index based on the history drop interval
-	historyDropIntervalSeconds := 10000
+	historyDropIntervalSeconds := uint64(10000)
 
 	ethClient, err := ethclient.Dial(cfg.Chain.NodeURL)
 	if err != nil {
