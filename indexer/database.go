@@ -20,7 +20,7 @@ func newDatabaseStructData() *databaseStructData {
 }
 
 func (ci *BlockIndexer) saveData(
-	data *databaseStructData, states *database.DBStates, lastDBIndex, lastDBTimestamp int,
+	data *databaseStructData, states *database.DBStates, lastDBIndex, lastDBTimestamp uint64,
 ) error {
 	return ci.db.Transaction(func(tx *gorm.DB) error {
 		if len(data.Transactions) != 0 {

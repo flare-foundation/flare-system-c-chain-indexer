@@ -80,7 +80,7 @@ func TestIntegration(t *testing.T) {
 }
 
 func initConfig(tCfg testConfig, history bool) config.Config {
-	var endBlock int
+	var endBlock uint64
 	if history {
 		endBlock = endBlockHistory
 	} else {

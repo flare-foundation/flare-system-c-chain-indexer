@@ -43,7 +43,7 @@ type DBConfig struct {
 	Username         string `toml:"username"`
 	Password         string `toml:"password"`
 	LogQueries       bool   `toml:"log_queries"`
-	HistoryDrop      int    `toml:"history_drop"`
+	HistoryDrop      uint64 `toml:"history_drop"`
 	DropTableAtStart bool   `toml:"drop_table_at_start"`
 }
 
@@ -53,11 +53,11 @@ type ChainConfig struct {
 }
 
 type IndexerConfig struct {
-	BatchSize           int               `toml:"batch_size"`
-	StartIndex          int               `toml:"start_index"`
-	StopIndex           int               `toml:"stop_index"`
+	BatchSize           uint64            `toml:"batch_size"`
+	StartIndex          uint64            `toml:"start_index"`
+	StopIndex           uint64            `toml:"stop_index"`
 	NumParallelReq      int               `toml:"num_parallel_req"`
-	LogRange            int               `toml:"log_range"`
+	LogRange            uint64            `toml:"log_range"`
 	NewBlockCheckMillis int               `toml:"new_block_check_millis"`
 	CollectTransactions []TransactionInfo `toml:"collect_transactions"`
 	CollectLogs         []LogInfo         `toml:"collect_logs"`

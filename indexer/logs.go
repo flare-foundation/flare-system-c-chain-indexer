@@ -28,7 +28,7 @@ func (ci *BlockIndexer) requestLogs(
 	ctx context.Context,
 	lgBatch *logsBatch,
 	logInfo config.LogInfo,
-	start, stop, last_chain_block int,
+	start, stop, last_chain_block uint64,
 ) error {
 	for i := start; i < stop && i <= last_chain_block; i += ci.params.LogRange {
 		toBlock := min(i+ci.params.LogRange-1, last_chain_block)
@@ -47,7 +47,7 @@ func (ci *BlockIndexer) requestLogs(
 }
 
 func (ci *BlockIndexer) fetchLogsChunk(
-	ctx context.Context, logInfo config.LogInfo, fromBlock, toBlock int,
+	ctx context.Context, logInfo config.LogInfo, fromBlock, toBlock uint64,
 ) ([]types.Log, error) {
 	var addresses []common.Address
 	if logInfo.ContractAddress != undefined {
@@ -62,8 +62,8 @@ func (ci *BlockIndexer) fetchLogsChunk(
 	}
 
 	query := ethereum.FilterQuery{
-		FromBlock: big.NewInt(int64(fromBlock)),
-		ToBlock:   big.NewInt(int64(toBlock)),
+		FromBlock: new(big.Int).SetUint64(fromBlock),
+		ToBlock:   new(big.Int).SetUint64(toBlock),
 		Addresses: addresses,
 		Topics:    topic,
 	}
@@ -95,7 +95,7 @@ func (ci *BlockIndexer) fetchLogsChunk(
 }
 
 func (ci *BlockIndexer) processLogs(
-	lgBatch *logsBatch, bBatch *blockBatch, firstBlockNum int, data *databaseStructData,
+	lgBatch *logsBatch, bBatch *blockBatch, firstBlockNum uint64, data *databaseStructData,
 ) error {
 	lgBatch.mu.RLock()
 	defer lgBatch.mu.RUnlock()
@@ -112,7 +112,7 @@ func (ci *BlockIndexer) processLogs(
 			}
 		}
 
-		block := bBatch.blocks[log.BlockNumber-uint64(firstBlockNum)]
+		block := bBatch.blocks[log.BlockNumber-firstBlockNum]
 		if blockNum := block.Number(); blockNum.Cmp(new(big.Int).SetUint64(log.BlockNumber)) != 0 {
 			return errors.Errorf("block number mismatch: %s != %d", blockNum, log.BlockNumber)
 		}

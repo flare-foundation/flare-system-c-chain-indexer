@@ -13,7 +13,11 @@ import (
 	gormlogger "gorm.io/gorm/logger"
 )
 
-const tcp = "tcp"
+const (
+	tcp                      = "tcp"
+	HistoryDropIntervalCheck = 60 * 30 // every 30 min
+	DBTransactionBatchesSize = 1000
+)
 
 var (
 	// List entities to auto-migrate
@@ -22,9 +26,7 @@ var (
 		Transaction{},
 		Log{},
 	}
-	HistoryDropIntervalCheck = 60 * 30 // every 30 min
-	DBTransactionBatchesSize = 1000
-	TransactionId            atomic.Uint64
+	TransactionId atomic.Uint64
 )
 
 func ConnectAndInitialize(ctx context.Context, cfg *config.DBConfig) (*gorm.DB, error) {
