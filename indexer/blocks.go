@@ -43,7 +43,7 @@ func (ci *BlockIndexer) fetchBlock(ctx context.Context, index int) (block *types
 		},
 		bOff,
 		func(err error, d time.Duration) {
-			logger.Debug("BlockByNumber error: %s after %d", err, d)
+			logger.Debug("BlockByNumber error: %s after %s", err, d)
 		},
 	)
 
