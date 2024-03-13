@@ -80,7 +80,7 @@ func runIndexer(ctx context.Context, cfg *config.Config, db *gorm.DB, ethClient 
 		},
 		bOff,
 		func(err error, d time.Duration) {
-			logger.Error("Index history error: %s after %s", err, d)
+			logger.Error("Index history error: %s. Will retry after %s", err, d)
 		},
 	)
 	if err != nil {
@@ -99,7 +99,7 @@ func runIndexer(ctx context.Context, cfg *config.Config, db *gorm.DB, ethClient 
 		},
 		bOff,
 		func(err error, d time.Duration) {
-			logger.Error("Index continuous error: %s after %s", err, d)
+			logger.Error("Index continuous error: %s. Will retry after %s", err, d)
 		},
 	)
 	if err != nil {

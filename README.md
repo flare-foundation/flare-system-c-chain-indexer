@@ -57,6 +57,10 @@ console = true
 
 [chain]
 node_url = "http://127.0.0.1:8545/"
+
+[timeout]
+backoff_max_elapsed_time_seconds = 300 # optional, defaults to 300s = 5 minutes. Affects how long the indexer will keep retrying in case of a complete outage of the node provider. Set to 0 to retry indefinitely.
+timeout_milis = 1000  # optional, defaults to 1000ms = 1s. Try increasing if you see timeout errors often.
 ```
 
 ### Database

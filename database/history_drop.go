@@ -114,7 +114,7 @@ func getBlockTimestamp(ctx context.Context, index *big.Int, client *ethclient.Cl
 	var block *types.Block
 	err := backoff.Retry(
 		func() (err error) {
-			ctx, cancelFunc := context.WithTimeout(ctx, config.DefaultTimeout)
+			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
 			defer cancelFunc()
 
 			block, err = client.BlockByNumber(ctx, index)

@@ -75,7 +75,7 @@ func (ci *BlockIndexer) fetchLogsChunk(
 
 	err := backoff.RetryNotify(
 		func() error {
-			ctx, cancelFunc := context.WithTimeout(ctx, config.DefaultTimeout)
+			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
 			defer cancelFunc()
 
 			var err error
@@ -84,7 +84,7 @@ func (ci *BlockIndexer) fetchLogsChunk(
 		},
 		bOff,
 		func(err error, d time.Duration) {
-			logger.Debug("FilterLogs error: %s after %s", err, d)
+			logger.Debug("FilterLogs error: %s. Will retry after %s", err, d)
 		},
 	)
 	if err != nil {
