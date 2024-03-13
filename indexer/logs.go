@@ -75,7 +75,7 @@ func (ci *BlockIndexer) fetchLogsChunk(
 
 	err := backoff.RetryNotify(
 		func() error {
-			ctx, cancelFunc := context.WithTimeout(ctx, config.DefaultTimeout)
+			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
 			defer cancelFunc()
 
 			var err error

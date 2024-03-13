@@ -13,13 +13,28 @@ import (
 
 var (
 	BackoffMaxElapsedTime time.Duration                = 5 * time.Minute
-	DefaultTimeout        time.Duration                = 1000 * time.Millisecond
+	Timeout               time.Duration                = 1000 * time.Millisecond
 	GlobalConfigCallback  ConfigCallback[GlobalConfig] = ConfigCallback[GlobalConfig]{}
 	CfgFlag                                            = flag.String("config", "config.toml", "Configuration file (toml format)")
 )
 
+func init() {
+	GlobalConfigCallback.AddCallback(func(config GlobalConfig) {
+		tCfg := config.TimeoutConfig()
+
+		if tCfg.BackoffMaxElapsedTimeSeconds != nil {
+			BackoffMaxElapsedTime = time.Duration(*tCfg.BackoffMaxElapsedTimeSeconds) * time.Second
+		}
+
+		if tCfg.TimeoutMillis > 0 {
+			Timeout = time.Duration(tCfg.TimeoutMillis) * time.Millisecond
+		}
+	})
+}
+
 type GlobalConfig interface {
 	LoggerConfig() LoggerConfig
+	TimeoutConfig() TimeoutConfig
 }
 
 type Config struct {
@@ -27,6 +42,7 @@ type Config struct {
 	Logger  LoggerConfig  `toml:"logger"`
 	Chain   ChainConfig   `toml:"chain"`
 	Indexer IndexerConfig `toml:"indexer"`
+	Timeout TimeoutConfig `toml:"timeout"`
 }
 
 type LoggerConfig struct {
@@ -61,6 +77,11 @@ type IndexerConfig struct {
 	NewBlockCheckMillis int               `toml:"new_block_check_millis"`
 	CollectTransactions []TransactionInfo `toml:"collect_transactions"`
 	CollectLogs         []LogInfo         `toml:"collect_logs"`
+}
+
+type TimeoutConfig struct {
+	BackoffMaxElapsedTimeSeconds *int `toml:"backoff_max_elapsed_time_seconds"`
+	TimeoutMillis                int  `toml:"timeout_millis"`
 }
 
 type TransactionInfo struct {
@@ -104,6 +125,10 @@ func parseConfigFile(cfg *Config, fileName string) error {
 
 func (c Config) LoggerConfig() LoggerConfig {
 	return c.Logger
+}
+
+func (c Config) TimeoutConfig() TimeoutConfig {
+	return c.Timeout
 }
 
 func (cc ChainConfig) FullNodeURL() (*url.URL, error) {

@@ -35,7 +35,7 @@ func (ci *BlockIndexer) fetchBlock(ctx context.Context, index *uint64) (block *t
 
 	err = backoff.RetryNotify(
 		func() error {
-			ctx, cancelFunc := context.WithTimeout(ctx, config.DefaultTimeout)
+			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
 			defer cancelFunc()
 
 			block, err = ci.client.BlockByNumber(ctx, indexBigInt)

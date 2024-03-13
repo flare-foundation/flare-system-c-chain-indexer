@@ -71,7 +71,7 @@ func (ci *BlockIndexer) getTransactionsReceipt(
 		if policy.status || policy.collectEvents {
 			err := backoff.RetryNotify(
 				func() (err error) {
-					ctx, cancelFunc := context.WithTimeout(ctx, config.DefaultTimeout)
+					ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
 					defer cancelFunc()
 
 					receipt, err = ci.client.TransactionReceipt(ctx, tx.Hash())
