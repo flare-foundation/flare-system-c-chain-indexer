@@ -79,7 +79,7 @@ func (ci *BlockIndexer) getTransactionsReceipt(
 				},
 				bOff,
 				func(err error, d time.Duration) {
-					logger.Error("TransactionReceipt error: %s after %s", err, d)
+					logger.Error("TransactionReceipt error: %s. Will retry after %s", err, d)
 				},
 			)
 
