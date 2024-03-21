@@ -5,17 +5,20 @@ variables:
   GOLANG_VERSION: "1.21"
   GOLINT_VERSION: "v1.55.2"
 
-cache:
+.gocache:
   key: ${CI_COMMIT_REF_SLUG}
+  policy: pull-push
   paths:
     - ${GOPATH}/pkg/mod
     - ${GOPATH}/bin
+  
 
 
 build:
   stage: build
   image: golang:${GOLANG_VERSION}
   needs: []
+  cache: !reference [.gocache]
   script:
     - go build ./...
 
@@ -23,6 +26,7 @@ lint:
   stage: test
   needs: []
   image: golangci/golangci-lint:${GOLINT_VERSION}
+  cache: !reference [.gocache]
   script:
     - '! gofmt -l . | grep -q .'
     - golangci-lint run --timeout 5m0s
@@ -30,6 +34,7 @@ lint:
 test:
   stage: test
   image: golang:${GOLANG_VERSION}
+  cache: !reference [.gocache]
   needs: []
   variables:
     DB_HOST: mysql
