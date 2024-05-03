@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type databaseStructData struct {
@@ -24,16 +25,20 @@ func (ci *BlockIndexer) saveData(
 ) error {
 	return ci.db.Transaction(func(tx *gorm.DB) error {
 		if len(data.Transactions) != 0 {
-			// insert transactions in the database, if an entry already exists, give error
-			err := tx.CreateInBatches(data.Transactions, database.DBTransactionBatchesSize).Error
+			// insert transactions in the database, if an entry already exists, do nothing
+			err := tx.Clauses(clause.OnConflict{DoNothing: true}).
+				CreateInBatches(data.Transactions, database.DBTransactionBatchesSize).
+				Error
 			if err != nil {
 				return errors.Wrap(err, "saveData: CreateInBatches1")
 			}
 		}
 
 		if len(data.Logs) != 0 {
-			// insert logs in the database, if an entry already exists, give error
-			err := tx.CreateInBatches(data.Logs, database.DBTransactionBatchesSize).Error
+			// insert logs in the database, if an entry already exists, do nothing
+			err := tx.Clauses(clause.OnConflict{DoNothing: true}).
+				CreateInBatches(data.Logs, database.DBTransactionBatchesSize).
+				Error
 			if err != nil {
 				return errors.Wrap(err, "saveData: CreateInBatches2")
 			}
