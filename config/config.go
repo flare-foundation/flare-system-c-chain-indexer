@@ -149,6 +149,7 @@ func (cc ChainConfig) FullNodeURL() (*url.URL, error) {
 var envOverrides = map[string]func(*Config, string){
 	"DB_USERNAME":  func(c *Config, v string) { c.DB.Username = v },
 	"DB_PASSWORD":  func(c *Config, v string) { c.DB.Password = v },
+	"NODE_URL":     func(c *Config, v string) { c.Chain.NodeURL = v },
 	"NODE_API_KEY": func(c *Config, v string) { c.Chain.APIKey = v },
 }
 
