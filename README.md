@@ -56,7 +56,8 @@ file = "./logger/logs/flare-ftso-indexer.log"
 console = true
 
 [chain]
-node_url = "http://127.0.0.1:8545/"
+node_url = "http://127.0.0.1:8545/"  # or NODE_URL environment variable
+# api_key = ...  or NODE_API_KEY environment variable
 
 [timeout]
 backoff_max_elapsed_time_seconds = 300 # optional, defaults to 300s = 5 minutes. Affects how long the indexer will keep retrying in case of a complete outage of the node provider. Set to 0 to retry indefinitely.
