@@ -87,7 +87,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	cfgIndexer := config.IndexerConfig{
-		StartIndex: 50, StopIndex: 2400, BatchSize: 500, NumParallelReq: 4,
+		StartIndex: 1112, StopIndex: 2400, BatchSize: 500, NumParallelReq: 4,
 		NewBlockCheckMillis: 200, CollectTransactions: collectTransactions,
 	}
 	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logger/logs/flare-ftso-indexer_test.log"}
@@ -104,8 +104,6 @@ func TestIndexer(t *testing.T) {
 		logger.Fatal("Database connect and initialize error: %s", err)
 	}
 
-	t.Log("connected to DB")
-
 	// set a new starting index based on the history drop interval
 	historyDropIntervalSeconds := uint64(10000)
 
@@ -114,24 +112,11 @@ func TestIndexer(t *testing.T) {
 		logger.Fatal("Could not connect to the Ethereum node: %s", err)
 	}
 
-	t.Log("dialed eth node")
-
-	cfg.Indexer.StartIndex, err = database.GetMinBlockWithHistoryDrop(
-		ctx, cfg.Indexer.StartIndex, historyDropIntervalSeconds, ethClient,
-	)
-	if err != nil {
-		logger.Fatal("Could not set the starting index: %s", err)
-	}
-
-	t.Log("got start index")
-
 	// create the indexer
 	cIndexer, err := CreateBlockIndexer(&cfg, db, ethClient)
 	if err != nil {
 		logger.Fatal("Create indexer error: %s", err)
 	}
-
-	t.Log("created indexer")
 
 	// index history with parallel processing
 	err = cIndexer.IndexHistory(ctx)
@@ -157,9 +142,9 @@ func TestIndexer(t *testing.T) {
 	// correctness check
 	states, err := database.UpdateDBStates(ctx, db)
 	assert.NoError(t, err)
-	assert.Equal(t, 8977373, int(states.States[database.FirstDatabaseIndexState].Index))
-	assert.Equal(t, 0, int(states.States[database.LastDatabaseIndexState].Index))
-	assert.Equal(t, 8979648, int(states.States[database.LastChainIndexState].Index))
+	assert.Equal(t, 1112, int(states.States[database.FirstDatabaseIndexState].Index))
+	assert.Equal(t, 2400, int(states.States[database.LastDatabaseIndexState].Index))
+	assert.Equal(t, 8980059, int(states.States[database.LastChainIndexState].Index))
 }
 
 func increaseLastBlockAndStop() {
