@@ -12,10 +12,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ava-labs/coreth/core/types"
+	"github.com/ava-labs/coreth/interfaces"
 	"github.com/cenkalti/backoff/v4"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 )
 
@@ -61,7 +61,7 @@ func (ci *BlockIndexer) fetchLogsChunk(
 		topic = [][]common.Hash{{common.HexToHash(strings.ToLower(logInfo.Topic))}}
 	}
 
-	query := ethereum.FilterQuery{
+	query := interfaces.FilterQuery{
 		FromBlock: new(big.Int).SetUint64(fromBlock),
 		ToBlock:   new(big.Int).SetUint64(toBlock),
 		Addresses: addresses,

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ava-labs/coreth/ethclient"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -57,7 +57,7 @@ func run(ctx context.Context) error {
 	return runIndexer(ctx, cfg, db, ethClient)
 }
 
-func dialRPCNode(cfg *config.Config) (*ethclient.Client, error) {
+func dialRPCNode(cfg *config.Config) (ethclient.Client, error) {
 	nodeURL, err := cfg.Chain.FullNodeURL()
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func dialRPCNode(cfg *config.Config) (*ethclient.Client, error) {
 	return ethclient.Dial(nodeURL.String())
 }
 
-func runIndexer(ctx context.Context, cfg *config.Config, db *gorm.DB, ethClient *ethclient.Client) error {
+func runIndexer(ctx context.Context, cfg *config.Config, db *gorm.DB, ethClient ethclient.Client) error {
 	cIndexer, err := indexer.CreateBlockIndexer(cfg, db, ethClient)
 	if err != nil {
 		return err

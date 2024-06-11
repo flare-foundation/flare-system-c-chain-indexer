@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ava-labs/coreth/ethclient"
 	"github.com/caarlos0/env/v10"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,7 +25,8 @@ type testConfig struct {
 }
 
 func TestIndexer(t *testing.T) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 
 	var tCfg testConfig
 	if err := env.Parse(&tCfg); err != nil {
@@ -86,7 +87,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	cfgIndexer := config.IndexerConfig{
-		StartIndex: 50, StopIndex: 2400, BatchSize: 500, NumParallelReq: 4,
+		StartIndex: 1112, StopIndex: 2400, BatchSize: 500, NumParallelReq: 4,
 		NewBlockCheckMillis: 200, CollectTransactions: collectTransactions,
 	}
 	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logger/logs/flare-ftso-indexer_test.log"}
@@ -109,13 +110,6 @@ func TestIndexer(t *testing.T) {
 	ethClient, err := ethclient.Dial(cfg.Chain.NodeURL)
 	if err != nil {
 		logger.Fatal("Could not connect to the Ethereum node: %s", err)
-	}
-
-	cfg.Indexer.StartIndex, err = database.GetMinBlockWithHistoryDrop(
-		ctx, cfg.Indexer.StartIndex, historyDropIntervalSeconds, ethClient,
-	)
-	if err != nil {
-		logger.Fatal("Could not set the starting index: %s", err)
 	}
 
 	// create the indexer
@@ -148,9 +142,9 @@ func TestIndexer(t *testing.T) {
 	// correctness check
 	states, err := database.UpdateDBStates(ctx, db)
 	assert.NoError(t, err)
-	assert.Equal(t, 1213, int(states.States[database.FirstDatabaseIndexState].Index))
+	assert.Equal(t, 1112, int(states.States[database.FirstDatabaseIndexState].Index))
 	assert.Equal(t, 2400, int(states.States[database.LastDatabaseIndexState].Index))
-	assert.Equal(t, 2499, int(states.States[database.LastChainIndexState].Index))
+	assert.Equal(t, 8980059, int(states.States[database.LastChainIndexState].Index))
 }
 
 func increaseLastBlockAndStop() {

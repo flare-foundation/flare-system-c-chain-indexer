@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ava-labs/coreth/ethclient"
 	"github.com/stretchr/testify/assert"
 )
 

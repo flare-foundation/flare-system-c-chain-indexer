@@ -2,8 +2,8 @@ variables:
   GOPATH: /go
   MYSQL_ROOT_PASSWORD: root
   MYSQL_DATABASE: flare_ftso_indexer_test
-  GOLANG_VERSION: "1.21"
-  GOLINT_VERSION: "v1.55.2"
+  GOLANG_VERSION: "1.21.11"
+  GOLINT_VERSION: "v1.59.1"
 
 .gocache:
   key: ${CI_COMMIT_REF_SLUG}
@@ -11,7 +11,7 @@ variables:
   paths:
     - ${GOPATH}/pkg/mod
     - ${GOPATH}/bin
-  
+
 
 
 build:

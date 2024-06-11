@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/ava-labs/coreth/ethclient"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
@@ -32,7 +32,7 @@ type BlockIndexer struct {
 	db           *gorm.DB
 	params       config.IndexerConfig
 	transactions map[common.Address]map[functionSignature]transactionsPolicy
-	client       *ethclient.Client
+	client       ethclient.Client
 }
 
 type transactionsPolicy struct {
@@ -42,7 +42,7 @@ type transactionsPolicy struct {
 
 type functionSignature [4]byte
 
-func CreateBlockIndexer(cfg *config.Config, db *gorm.DB, ethClient *ethclient.Client) (*BlockIndexer, error) {
+func CreateBlockIndexer(cfg *config.Config, db *gorm.DB, ethClient ethclient.Client) (*BlockIndexer, error) {
 	txs, err := makeTransactions(cfg.Indexer.CollectTransactions)
 	if err != nil {
 		return nil, err

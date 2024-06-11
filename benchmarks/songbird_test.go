@@ -8,7 +8,7 @@ import (
 	"flare-ftso-indexer/logger"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ava-labs/coreth/ethclient"
 )
 
 func BenchmarkBlockRequests(b *testing.B) {
