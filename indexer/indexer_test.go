@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ava-labs/coreth/ethclient"
 	"github.com/caarlos0/env/v10"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -25,7 +25,8 @@ type testConfig struct {
 }
 
 func TestIndexer(t *testing.T) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
 
 	var tCfg testConfig
 	if err := env.Parse(&tCfg); err != nil {
@@ -103,6 +104,8 @@ func TestIndexer(t *testing.T) {
 		logger.Fatal("Database connect and initialize error: %s", err)
 	}
 
+	t.Log("connected to DB")
+
 	// set a new starting index based on the history drop interval
 	historyDropIntervalSeconds := uint64(10000)
 
@@ -111,6 +114,8 @@ func TestIndexer(t *testing.T) {
 		logger.Fatal("Could not connect to the Ethereum node: %s", err)
 	}
 
+	t.Log("dialed eth node")
+
 	cfg.Indexer.StartIndex, err = database.GetMinBlockWithHistoryDrop(
 		ctx, cfg.Indexer.StartIndex, historyDropIntervalSeconds, ethClient,
 	)
@@ -118,11 +123,15 @@ func TestIndexer(t *testing.T) {
 		logger.Fatal("Could not set the starting index: %s", err)
 	}
 
+	t.Log("got start index")
+
 	// create the indexer
 	cIndexer, err := CreateBlockIndexer(&cfg, db, ethClient)
 	if err != nil {
 		logger.Fatal("Create indexer error: %s", err)
 	}
+
+	t.Log("created indexer")
 
 	// index history with parallel processing
 	err = cIndexer.IndexHistory(ctx)
@@ -148,9 +157,9 @@ func TestIndexer(t *testing.T) {
 	// correctness check
 	states, err := database.UpdateDBStates(ctx, db)
 	assert.NoError(t, err)
-	assert.Equal(t, 1213, int(states.States[database.FirstDatabaseIndexState].Index))
-	assert.Equal(t, 2400, int(states.States[database.LastDatabaseIndexState].Index))
-	assert.Equal(t, 2499, int(states.States[database.LastChainIndexState].Index))
+	assert.Equal(t, 8977373, int(states.States[database.FirstDatabaseIndexState].Index))
+	assert.Equal(t, 0, int(states.States[database.LastDatabaseIndexState].Index))
+	assert.Equal(t, 8979648, int(states.States[database.LastChainIndexState].Index))
 }
 
 func increaseLastBlockAndStop() {

@@ -8,15 +8,15 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/ava-labs/coreth/core/types"
+	"github.com/ava-labs/coreth/ethclient"
 	"github.com/cenkalti/backoff/v4"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
 func DropHistory(
-	ctx context.Context, db *gorm.DB, intervalSeconds, checkInterval uint64, client *ethclient.Client,
+	ctx context.Context, db *gorm.DB, intervalSeconds, checkInterval uint64, client ethclient.Client,
 ) {
 	for {
 		err := dropHistoryIteration(ctx, db, intervalSeconds, checkInterval, client)
@@ -31,7 +31,7 @@ func DropHistory(
 }
 
 func dropHistoryIteration(
-	ctx context.Context, db *gorm.DB, intervalSeconds, checkInterval uint64, client *ethclient.Client,
+	ctx context.Context, db *gorm.DB, intervalSeconds, checkInterval uint64, client ethclient.Client,
 ) error {
 	lastBlockTime, _, err := getBlockTimestamp(ctx, nil, client)
 	if err != nil {
@@ -73,7 +73,7 @@ func dropHistoryIteration(
 }
 
 func GetMinBlockWithHistoryDrop(
-	ctx context.Context, firstIndex, intervalSeconds uint64, client *ethclient.Client,
+	ctx context.Context, firstIndex, intervalSeconds uint64, client ethclient.Client,
 ) (uint64, error) {
 	firstTime, _, err := getBlockTimestamp(ctx, new(big.Int).SetUint64(firstIndex), client)
 	if err != nil {
@@ -107,12 +107,12 @@ func GetMinBlockWithHistoryDrop(
 	return firstIndex, nil
 }
 
-func getBlockTimestamp(ctx context.Context, index *big.Int, client *ethclient.Client) (uint64, uint64, error) {
+func getBlockTimestamp(ctx context.Context, index *big.Int, client ethclient.Client) (uint64, uint64, error) {
 	bOff := backoff.NewExponentialBackOff()
 	bOff.MaxElapsedTime = config.BackoffMaxElapsedTime
 
 	var block *types.Block
-	err := backoff.Retry(
+	err := backoff.RetryNotify(
 		func() (err error) {
 			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
 			defer cancelFunc()
@@ -121,6 +121,9 @@ func getBlockTimestamp(ctx context.Context, index *big.Int, client *ethclient.Cl
 			return err
 		},
 		bOff,
+		func(err error, _ time.Duration) {
+			logger.Error("getBlockTimestamp error: %s", err)
+		},
 	)
 
 	if err != nil {

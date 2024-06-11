@@ -12,7 +12,7 @@ import (
 	"github.com/bradleyjkemp/cupaloy/v2"
 	"github.com/caarlos0/env/v10"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ava-labs/coreth/ethclient"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -146,7 +146,7 @@ func createIndexer(cfg *config.Config, db *gorm.DB) (*indexer.BlockIndexer, erro
 	return indexer.CreateBlockIndexer(cfg, db, ethClient)
 }
 
-func dialRPCNode(cfg *config.Config) (*ethclient.Client, error) {
+func dialRPCNode(cfg *config.Config) (ethclient.Client, error) {
 	nodeURL, err := cfg.Chain.FullNodeURL()
 	if err != nil {
 		return nil, err

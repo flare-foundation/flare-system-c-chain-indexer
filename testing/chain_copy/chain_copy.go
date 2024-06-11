@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ava-labs/coreth/ethclient"
 )
 
 type PostToChain struct {
