@@ -10,7 +10,7 @@ type Transaction struct {
 	Hash             string `gorm:"type:varchar(64);index;unique"`
 	FunctionSig      string `gorm:"type:varchar(50);index"`
 	Input            string `gorm:"type:string"`
-	BlockNumber      uint64
+	BlockNumber      uint64 `gorm:"index"`
 	BlockHash        string `gorm:"type:varchar(64)"`
 	TransactionIndex uint64
 	FromAddress      string `gorm:"type:varchar(40);index"`
