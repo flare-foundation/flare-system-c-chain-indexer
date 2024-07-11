@@ -9,10 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/ava-labs/coreth/ethclient"
 	"github.com/bradleyjkemp/cupaloy/v2"
 	"github.com/caarlos0/env/v10"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ava-labs/coreth/ethclient"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"

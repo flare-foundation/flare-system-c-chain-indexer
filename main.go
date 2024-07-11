@@ -9,8 +9,8 @@ import (
 	"flare-ftso-indexer/logger"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/ava-labs/coreth/ethclient"
+	"github.com/cenkalti/backoff/v4"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
