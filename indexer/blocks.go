@@ -9,9 +9,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/ava-labs/coreth/core/types"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ava-labs/coreth/core/types"
 	"github.com/pkg/errors"
 )
 
