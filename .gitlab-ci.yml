@@ -28,7 +28,7 @@ lint:
   image: golangci/golangci-lint:${GOLINT_VERSION}
   cache: !reference [.gocache]
   script:
-    - '! gofmt -l . | grep -q .'
+    - '! gofmt -l . | grep .'
     - golangci-lint run --timeout 5m0s
 
 test:
