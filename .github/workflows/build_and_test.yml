@@ -39,5 +39,5 @@ jobs:
 
       - name: Test
         run: |
-          mysql -u root -p root < database/docker/db_init/flare_ftso_indexer.sql
+          mysql -u root -p root -h localhost < database/docker/db_init/flare_ftso_indexer.sql
           go test -v ./indexer
