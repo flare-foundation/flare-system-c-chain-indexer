@@ -9,6 +9,15 @@ on:
 jobs:
   BuildAndTestLibrary:
     runs-on: ubuntu-20.04
+    services:
+      mysql:
+        image: mysql
+        ports:
+          - 3306:3306
+        env:
+          MYSQL_ROOT_PASSWORD: "root"
+        volumes:
+          - ./database/docker/db_init/:/docker-entrypoint-initdb.d/
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -31,8 +40,4 @@ jobs:
         run: go build
 
       - name: Test
-        run: |
-          cd database/docker
-          docker-compose up --detach
-          cd ../../indexer
-          go test .
+        run: go test -v ./indexer
