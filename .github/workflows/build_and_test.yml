@@ -16,8 +16,6 @@ jobs:
           - 3306:3306
         env:
           MYSQL_ROOT_PASSWORD: "root"
-        volumes:
-          - ./database/docker/db_init/:/docker-entrypoint-initdb.d/
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -40,4 +38,6 @@ jobs:
         run: go build
 
       - name: Test
-        run: go test -v ./indexer
+        run: |
+          mysql -u root -p root < database/docker/db_init/flare_ftso_indexer.sql
+          go test -v ./indexer
