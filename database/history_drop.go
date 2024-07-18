@@ -19,23 +19,23 @@ func DropHistory(
 	ctx context.Context, db *gorm.DB, intervalSeconds, checkInterval uint64, client ethclient.Client,
 ) {
 	for {
+		logger.Info("starting DropHistory iteration")
+
 		startTime := time.Now()
-		err := dropHistoryIteration(ctx, db, intervalSeconds, checkInterval, client)
-		if err == nil {
+		err := DropHistoryIteration(ctx, db, intervalSeconds, client)
+		if err == nil || errors.Is(err, gorm.ErrRecordNotFound) {
 			duration := time.Since(startTime)
-			logger.Info("finished dropHistory iteration in %v", duration)
+			logger.Info("finished DropHistory iteration in %v", duration)
 		} else {
-			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				logger.Error(err.Error())
-			}
+			logger.Error("DropHistory error: %s", err)
 		}
 
 		time.Sleep(time.Duration(checkInterval) * time.Second)
 	}
 }
 
-func dropHistoryIteration(
-	ctx context.Context, db *gorm.DB, intervalSeconds, checkInterval uint64, client ethclient.Client,
+func DropHistoryIteration(
+	ctx context.Context, db *gorm.DB, intervalSeconds uint64, client ethclient.Client,
 ) error {
 	lastBlockTime, _, err := getBlockTimestamp(ctx, nil, client)
 	if err != nil {
@@ -45,12 +45,6 @@ func dropHistoryIteration(
 	deleteStart := lastBlockTime - intervalSeconds
 
 	return db.Transaction(func(tx *gorm.DB) error {
-		lastTx := new(Transaction)
-		err = tx.Where("timestamp < ?", deleteStart).Order("block_number desc").First(lastTx).Error
-		if err != nil {
-			return errors.Wrap(err, "Failed to check historic data in the DB")
-		}
-
 		// delete in reverse to not break foreign keys
 		for i := len(entities) - 1; i >= 1; i-- {
 			entity := entities[i]
@@ -61,7 +55,7 @@ func dropHistoryIteration(
 		}
 
 		firstTx := new(Transaction)
-		err = tx.Where("timestamp >= ?", deleteStart).Order("block_number").First(firstTx).Error
+		err = tx.Order("timestamp").First(firstTx).Error
 		if err != nil {
 			return errors.Wrap(err, "Failed to get first transaction in the DB: %s")
 		}
@@ -71,7 +65,7 @@ func dropHistoryIteration(
 			return errors.Wrap(err, "Failed to update state in the DB")
 		}
 
-		logger.Info("Deleted blocks up to index %d", lastTx.BlockNumber)
+		logger.Info("Deleted blocks up to index %d", firstTx.BlockNumber)
 		return nil
 	})
 }
