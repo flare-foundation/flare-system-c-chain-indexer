@@ -207,31 +207,29 @@ func (ci *BlockIndexer) obtainBlocksBatch(
 ) (*blockBatch, error) {
 	startTime := time.Now()
 
-	batchSize := lastBlockNumInRound + 1 - firstBlockNumber
-	numParallelReq := max(uint64(ci.params.NumParallelReq), batchSize)
+	// Use a semaphore to limit concurrent requests.
+	sem := make(chan struct{}, ci.params.NumParallelReq)
 
-	oneRunnerReqNum := (batchSize + numParallelReq - 1) / numParallelReq
+	batchSize := lastBlockNumInRound + 1 - firstBlockNumber
 	bBatch := newBlockBatch(batchSize)
 
 	eg, ctx := errgroup.WithContext(ctx)
 
-	for i := uint64(0); i < numParallelReq; i++ {
-		batchIxStart := oneRunnerReqNum * i
-		batchIxStop := batchIxStart + oneRunnerReqNum
-
-		blockNumberStart := firstBlockNumber + batchIxStart
-		blockNumberStop := firstBlockNumber + batchIxStop
-		if blockNumberStop > lastBlockNumInRound {
-			blockNumberStop = lastBlockNumInRound + 1
-		}
-
+	for i := uint64(0); i < batchSize; i++ {
+		num := firstBlockNumber + i
 		eg.Go(func() error {
-			err := ci.requestBlocks(
-				ctx, blockNumberStart, blockNumberStop, bBatch.blocks[batchIxStart:batchIxStop],
-			)
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			block, err := ci.fetchBlock(ctx, &num)
 			if err != nil {
 				return err
 			}
+
+			// Locking is unnecessary since each goroutine writes to a different
+			// location in the blocks array - there is no possibility of a
+			// collision.
+			bBatch.blocks[num-firstBlockNumber] = block
 
 			return nil
 		})
