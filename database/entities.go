@@ -37,3 +37,10 @@ type Log struct {
 	Timestamp       uint64       `gorm:"index"`
 	BlockNumber     uint64       `gorm:"index"`
 }
+
+type Block struct {
+	BaseEntity
+	Hash      string `gorm:"type:varchar(64);index;unique"`
+	Number    uint64 `gorm:"index"`
+	Timestamp uint64 `gorm:"index"`
+}
