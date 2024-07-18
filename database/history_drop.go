@@ -45,12 +45,6 @@ func DropHistoryIteration(
 	deleteStart := lastBlockTime - intervalSeconds
 
 	return db.Transaction(func(tx *gorm.DB) error {
-		lastTx := new(Transaction)
-		err = tx.Where("timestamp < ?", deleteStart).Order("block_number desc").First(lastTx).Error
-		if err != nil {
-			return errors.Wrap(err, "Failed to check historic data in the DB")
-		}
-
 		// delete in reverse to not break foreign keys
 		for i := len(entities) - 1; i >= 1; i-- {
 			entity := entities[i]
@@ -61,7 +55,7 @@ func DropHistoryIteration(
 		}
 
 		firstTx := new(Transaction)
-		err = tx.Where("timestamp >= ?", deleteStart).Order("block_number").First(firstTx).Error
+		err = tx.Order("timestamp").First(firstTx).Error
 		if err != nil {
 			return errors.Wrap(err, "Failed to get first transaction in the DB: %s")
 		}
@@ -71,7 +65,7 @@ func DropHistoryIteration(
 			return errors.Wrap(err, "Failed to update state in the DB")
 		}
 
-		logger.Info("Deleted blocks up to index %d", lastTx.BlockNumber)
+		logger.Info("Deleted blocks up to index %d", firstTx.BlockNumber)
 		return nil
 	})
 }
