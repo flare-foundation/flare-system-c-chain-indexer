@@ -52,6 +52,32 @@ func run(ctx context.Context) error {
 			logger.Info("Setting new startIndex due to history drop: %d", startIndex)
 			cfg.Indexer.StartIndex = startIndex
 		}
+
+		// Run an initial iteration of the history drop. This could take some
+		// time if it has not been run in a while after an outage - running
+		// separately avoids database clashes with the indexer.
+		logger.Info("running initial DropHistory iteration")
+		startTime := time.Now()
+
+		err = backoff.RetryNotify(
+			func() error {
+				err := database.DropHistoryIteration(ctx, db, cfg.DB.HistoryDrop, ethClient)
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					return nil
+				}
+
+				return err
+			},
+			backoff.NewExponentialBackOff(),
+			func(err error, d time.Duration) {
+				logger.Error("DropHistory error: %s. Will retry after %s", err, d)
+			},
+		)
+		if err != nil {
+			return errors.Wrap(err, "startup DropHistory error")
+		}
+
+		logger.Info("initial DropHistory iteration finished in %s", time.Since(startTime))
 	}
 
 	return runIndexer(ctx, cfg, db, ethClient)

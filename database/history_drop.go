@@ -19,23 +19,23 @@ func DropHistory(
 	ctx context.Context, db *gorm.DB, intervalSeconds, checkInterval uint64, client ethclient.Client,
 ) {
 	for {
+		logger.Info("starting DropHistory iteration")
+
 		startTime := time.Now()
-		err := dropHistoryIteration(ctx, db, intervalSeconds, checkInterval, client)
-		if err == nil {
+		err := DropHistoryIteration(ctx, db, intervalSeconds, client)
+		if err == nil || errors.Is(err, gorm.ErrRecordNotFound) {
 			duration := time.Since(startTime)
-			logger.Info("finished dropHistory iteration in %v", duration)
+			logger.Info("finished DropHistory iteration in %v", duration)
 		} else {
-			if !errors.Is(err, gorm.ErrRecordNotFound) {
-				logger.Error(err.Error())
-			}
+			logger.Error("DropHistory error: %s", err)
 		}
 
 		time.Sleep(time.Duration(checkInterval) * time.Second)
 	}
 }
 
-func dropHistoryIteration(
-	ctx context.Context, db *gorm.DB, intervalSeconds, checkInterval uint64, client ethclient.Client,
+func DropHistoryIteration(
+	ctx context.Context, db *gorm.DB, intervalSeconds uint64, client ethclient.Client,
 ) error {
 	lastBlockTime, _, err := getBlockTimestamp(ctx, nil, client)
 	if err != nil {
