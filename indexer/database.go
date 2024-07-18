@@ -9,6 +9,7 @@ import (
 )
 
 type databaseStructData struct {
+	Blocks            []*database.Block
 	Transactions      []*database.Transaction
 	Logs              []*database.Log
 	LogHashIndexCheck map[string]bool
@@ -24,6 +25,15 @@ func (ci *BlockIndexer) saveData(
 	data *databaseStructData, states *database.DBStates, lastDBIndex, lastDBTimestamp uint64,
 ) error {
 	return ci.db.Transaction(func(tx *gorm.DB) error {
+		if len(data.Blocks) != 0 {
+			err := tx.Clauses(clause.OnConflict{DoNothing: true}).
+				CreateInBatches(data.Blocks, database.DBTransactionBatchesSize).
+				Error
+			if err != nil {
+				return errors.Wrap(err, "saveData: CreateInBatches0")
+			}
+		}
+
 		if len(data.Transactions) != 0 {
 			// insert transactions in the database, if an entry already exists, do nothing
 			err := tx.Clauses(clause.OnConflict{DoNothing: true}).

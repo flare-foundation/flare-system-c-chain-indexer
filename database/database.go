@@ -23,6 +23,7 @@ var (
 	// List entities to auto-migrate
 	entities = []interface{}{
 		State{},
+		Block{},
 		Transaction{},
 		Log{},
 	}

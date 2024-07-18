@@ -96,9 +96,7 @@ func (ci *BlockIndexer) getTransactionsReceipt(
 	return nil
 }
 
-func (ci *BlockIndexer) processTransactions(txBatch *transactionsBatch) (*databaseStructData, error) {
-	data := newDatabaseStructData()
-
+func (ci *BlockIndexer) processTransactions(txBatch *transactionsBatch, data *databaseStructData) error {
 	txBatch.mu.RLock()
 	defer txBatch.mu.RUnlock()
 
@@ -111,7 +109,7 @@ func (ci *BlockIndexer) processTransactions(txBatch *transactionsBatch) (*databa
 
 		dbTx, err := buildDBTx(tx, receipt, block, txIndex)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		data.Transactions = append(data.Transactions, dbTx)
@@ -122,7 +120,7 @@ func (ci *BlockIndexer) processTransactions(txBatch *transactionsBatch) (*databa
 			for _, log := range receipt.Logs {
 				dbLog, err := buildDBLog(dbTx, log, block)
 				if err != nil {
-					return nil, err
+					return err
 				}
 
 				data.Logs = append(data.Logs, dbLog)
@@ -133,7 +131,7 @@ func (ci *BlockIndexer) processTransactions(txBatch *transactionsBatch) (*databa
 		}
 	}
 
-	return data, nil
+	return nil
 }
 
 func buildDBTx(

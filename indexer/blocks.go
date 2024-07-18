@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"flare-ftso-indexer/config"
+	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/logger"
 	"fmt"
 	"math/big"
@@ -73,35 +74,25 @@ func (ci *BlockIndexer) fetchBlockTimestamp(ctx context.Context, index uint64) (
 }
 
 func (ci *BlockIndexer) requestBlocks(
-	ctx context.Context, batch *blockBatch, start, stop, listIndex, lastIndex uint64,
+	ctx context.Context, start, stop uint64, output []*types.Block,
 ) error {
 	for i := start; i < stop; i++ {
-		var block *types.Block
-
-		if i > lastIndex {
-			block = &types.Block{}
-		} else {
-			var err error
-
-			block, err = ci.fetchBlock(ctx, &i)
-			if err != nil {
-				return errors.Wrap(err, "ci.fetchBlock")
-			}
+		block, err := ci.fetchBlock(ctx, &i)
+		if err != nil {
+			return errors.Wrap(err, "ci.fetchBlock")
 		}
 
-		batch.mu.Lock()
-		batch.blocks[listIndex+i-start] = block
-		batch.mu.Unlock()
+		output[i-start] = block
 	}
 
 	return nil
 }
 
 func (ci *BlockIndexer) processBlocks(
-	bBatch *blockBatch, txBatch *transactionsBatch, start, stop uint64,
+	bBatch *blockBatch, txBatch *transactionsBatch,
 ) {
-	for i := start; i < stop; i++ {
-		ci.processBlockBatch(bBatch, txBatch, i)
+	for i := range bBatch.blocks {
+		ci.processBlockBatch(bBatch, txBatch, uint64(i))
 	}
 }
 
@@ -146,4 +137,19 @@ func (ci *BlockIndexer) processBlockBatch(
 			txBatch.Add(tx, block, uint64(txIndex), nil, policy)
 		}
 	}
+}
+
+func (ci *BlockIndexer) convertBlocksToDB(bBatch *blockBatch) []*database.Block {
+	blocks := make([]*database.Block, len(bBatch.blocks))
+
+	for i := range blocks {
+		b := bBatch.blocks[i]
+		blocks[i] = &database.Block{
+			Hash:      b.Hash().Hex()[2:],
+			Number:    b.Number().Uint64(),
+			Timestamp: b.Time(),
+		}
+	}
+
+	return blocks
 }
