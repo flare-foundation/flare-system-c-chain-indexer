@@ -142,8 +142,6 @@ func (ci *BlockIndexer) processBlockBatch(
 }
 
 func (ci *BlockIndexer) convertBlocksToDB(bBatch *blockBatch) []*database.Block {
-	logger.Info("converting %d blocks", len(bBatch.blocks))
-
 	blocks := make([]*database.Block, len(bBatch.blocks))
 
 	for i := range blocks {

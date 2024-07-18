@@ -156,6 +156,19 @@ func dialRPCNode(cfg *config.Config) (ethclient.Client, error) {
 }
 
 func checkDB(ctx context.Context, t *testing.T, db *gorm.DB, cfg *config.Config) {
+	t.Run("check blocks", func(t *testing.T) {
+		var blocks []database.Block
+		result := db.WithContext(ctx).Order("hash ASC").Find(&blocks)
+		require.NoError(t, result.Error, "Could not find blocks")
+
+		log.Printf("Found %d blocks", len(blocks))
+
+		checkBlocks(t, blocks, cfg)
+
+		zeroBlockIDs(blocks)
+		cupaloy.SnapshotT(t, blocks)
+	})
+
 	t.Run("check transactions", func(t *testing.T) {
 		var transactions []database.Transaction
 		result := db.WithContext(ctx).Order("hash ASC").Find(&transactions)
@@ -184,6 +197,20 @@ func checkDB(ctx context.Context, t *testing.T, db *gorm.DB, cfg *config.Config)
 		zeroLogIDs(logs)
 		cupaloy.SnapshotT(t, logs)
 	})
+}
+
+func checkBlocks(t *testing.T, blocks []database.Block, cfg *config.Config) {
+	for i := range blocks {
+		block := &blocks[i]
+		checkBlock(t, block, cfg)
+	}
+}
+
+func checkBlock(t *testing.T, block *database.Block, cfg *config.Config) {
+	require.NotEmpty(t, block.Hash, "Block hash should not be empty")
+	require.GreaterOrEqual(t, block.Number, uint64(cfg.Indexer.StartIndex))
+	require.LessOrEqual(t, block.Number, uint64(cfg.Indexer.StopIndex))
+	require.NotZero(t, block.Timestamp, "Timestamp should not be zero")
 }
 
 func checkTransactions(t *testing.T, transactions []database.Transaction, cfg *config.Config) {
@@ -227,9 +254,15 @@ func checkLog(t *testing.T, log *database.Log, cfg *config.Config) {
 	require.NotZero(t, log.Timestamp)
 }
 
-// For both Transactions and Logs, the ID is not deterministic and
+// For Blocks, Transactions and Logs, the ID is not deterministic and
 // irrelevant for the test. These functions zero out the IDs so that
 // the snapshots are deterministic.
+func zeroBlockIDs(blocks []database.Block) {
+	for i := range blocks {
+		blocks[i].ID = 0
+	}
+}
+
 func zeroTransactionIDs(transactions []database.Transaction) {
 	for i := range transactions {
 		transactions[i].ID = 0
