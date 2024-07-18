@@ -19,8 +19,12 @@ func DropHistory(
 	ctx context.Context, db *gorm.DB, intervalSeconds, checkInterval uint64, client ethclient.Client,
 ) {
 	for {
+		startTime := time.Now()
 		err := dropHistoryIteration(ctx, db, intervalSeconds, checkInterval, client)
-		if err != nil {
+		if err == nil {
+			duration := time.Since(startTime)
+			logger.Info("finished dropHistory iteration in %v", duration)
+		} else {
 			if !errors.Is(err, gorm.ErrRecordNotFound) {
 				logger.Error(err.Error())
 			}

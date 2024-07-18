@@ -73,21 +73,6 @@ func (ci *BlockIndexer) fetchBlockTimestamp(ctx context.Context, index uint64) (
 	return lastBlock.Time(), nil
 }
 
-func (ci *BlockIndexer) requestBlocks(
-	ctx context.Context, start, stop uint64, output []*types.Block,
-) error {
-	for i := start; i < stop; i++ {
-		block, err := ci.fetchBlock(ctx, &i)
-		if err != nil {
-			return errors.Wrap(err, "ci.fetchBlock")
-		}
-
-		output[i-start] = block
-	}
-
-	return nil
-}
-
 func (ci *BlockIndexer) processBlocks(
 	bBatch *blockBatch, txBatch *transactionsBatch,
 ) {
