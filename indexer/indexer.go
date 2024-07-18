@@ -226,18 +226,12 @@ func (ci *BlockIndexer) obtainBlocksBatch(
 		}
 
 		eg.Go(func() error {
-			blocks, err := ci.requestBlocks(
-				ctx, blockNumberStart, blockNumberStop,
+			err := ci.requestBlocks(
+				ctx, blockNumberStart, blockNumberStop, bBatch.blocks[batchIxStart:batchIxStop],
 			)
 			if err != nil {
 				return err
 			}
-
-			if len(blocks) != int(batchIxStop-batchIxStart) {
-				return errors.New("unexpected number of blocks returned")
-			}
-
-			copy(bBatch.blocks[batchIxStart:batchIxStop], blocks)
 
 			return nil
 		})
