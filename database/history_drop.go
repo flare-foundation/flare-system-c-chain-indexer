@@ -62,20 +62,22 @@ func DropHistoryIteration(
 		}
 	}
 
-	var firstBlock Block
-	err = db.Order("number").First(&firstBlock).Error
-	if err != nil {
-		return errors.Wrap(err, "Failed to get first block in the DB: %s")
-	}
+	return db.Transaction(func(tx *gorm.DB) error {
+		var firstBlock Block
+		err = tx.Order("number").First(&firstBlock).Error
+		if err != nil {
+			return errors.Wrap(err, "Failed to get first block in the DB")
+		}
 
-	err = globalStates.Update(db, FirstDatabaseIndexState, firstBlock.Number, firstBlock.Timestamp)
-	if err != nil {
-		return errors.Wrap(err, "Failed to update state in the DB")
-	}
+		err = globalStates.Update(tx, FirstDatabaseIndexState, firstBlock.Number, firstBlock.Timestamp)
+		if err != nil {
+			return errors.Wrap(err, "Failed to update state in the DB")
+		}
 
-	logger.Info("Deleted blocks up to index %d", firstBlock.Number)
+		logger.Info("Deleted blocks up to index %d", firstBlock.Number)
 
-	return nil
+		return nil
+	})
 }
 
 func deleteInBatches(db *gorm.DB, deleteStart uint64, entity interface{}) error {
