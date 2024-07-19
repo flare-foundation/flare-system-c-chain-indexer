@@ -33,6 +33,16 @@ func DropHistory(
 	}
 }
 
+var deleteOrder []interface{} = []interface{}{
+	Log{},
+	Transaction{},
+	Block{},
+}
+
+// Only delete up to 1000 items in a single DB transaction to avoid lock
+// timeouts.
+const deleteBatchSize = 1000
+
 func DropHistoryIteration(
 	ctx context.Context, db *gorm.DB, intervalSeconds uint64, client ethclient.Client,
 ) error {
@@ -43,12 +53,12 @@ func DropHistoryIteration(
 
 	deleteStart := lastBlockTime - intervalSeconds
 
-	// delete in reverse to not break foreign keys
-	for i := len(entities) - 1; i >= 1; i-- {
-		entity := entities[i]
-		err = db.Where("timestamp < ?", deleteStart).Delete(&entity).Error
-		if err != nil {
-			return errors.Wrap(err, "Failed to delete historic data in the DB")
+	db = db.WithContext(ctx)
+
+	// Delete in specified order to not break foreign keys.
+	for _, entity := range deleteOrder {
+		if err := deleteInBatches(db, deleteStart, entity); err != nil {
+			return err
 		}
 	}
 
@@ -66,6 +76,20 @@ func DropHistoryIteration(
 	logger.Info("Deleted blocks up to index %d", firstBlock.Number)
 
 	return nil
+}
+
+func deleteInBatches(db *gorm.DB, deleteStart uint64, entity interface{}) error {
+	for {
+		result := db.Limit(deleteBatchSize).Where("timestamp < ?", deleteStart).Delete(&entity)
+
+		if result.Error != nil {
+			return errors.Wrap(result.Error, "Failed to delete historic data in the DB")
+		}
+
+		if result.RowsAffected == 0 {
+			return nil
+		}
+	}
 }
 
 func GetMinBlockWithHistoryDrop(
