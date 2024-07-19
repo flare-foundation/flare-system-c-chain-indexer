@@ -4,7 +4,6 @@ import (
 	"context"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/logger"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -44,30 +43,29 @@ func DropHistoryIteration(
 
 	deleteStart := lastBlockTime - intervalSeconds
 
-	return db.Transaction(func(tx *gorm.DB) error {
-		// delete in reverse to not break foreign keys
-		for i := len(entities) - 1; i >= 1; i-- {
-			entity := entities[i]
-			err = tx.Where("timestamp < ?", deleteStart).Delete(&entity).Error
-			if err != nil {
-				return errors.Wrap(err, "Failed to delete historic data in the DB")
-			}
-		}
-
-		firstTx := new(Transaction)
-		err = tx.Order("timestamp").First(firstTx).Error
+	// delete in reverse to not break foreign keys
+	for i := len(entities) - 1; i >= 1; i-- {
+		entity := entities[i]
+		err = db.Where("timestamp < ?", deleteStart).Delete(&entity).Error
 		if err != nil {
-			return errors.Wrap(err, "Failed to get first transaction in the DB: %s")
+			return errors.Wrap(err, "Failed to delete historic data in the DB")
 		}
+	}
 
-		err = globalStates.Update(tx, FirstDatabaseIndexState, firstTx.BlockNumber, firstTx.Timestamp)
-		if err != nil {
-			return errors.Wrap(err, "Failed to update state in the DB")
-		}
+	var firstBlock Block
+	err = db.Order("number").First(&firstBlock).Error
+	if err != nil {
+		return errors.Wrap(err, "Failed to get first block in the DB: %s")
+	}
 
-		logger.Info("Deleted blocks up to index %d", firstTx.BlockNumber)
-		return nil
-	})
+	err = globalStates.Update(db, FirstDatabaseIndexState, firstBlock.Number, firstBlock.Timestamp)
+	if err != nil {
+		return errors.Wrap(err, "Failed to update state in the DB")
+	}
+
+	logger.Info("Deleted blocks up to index %d", firstBlock.Number)
+
+	return nil
 }
 
 func GetMinBlockWithHistoryDrop(
@@ -119,13 +117,13 @@ func getBlockTimestamp(ctx context.Context, index *big.Int, client ethclient.Cli
 			return err
 		},
 		bOff,
-		func(err error, _ time.Duration) {
-			logger.Error("getBlockTimestamp error: %s", err)
+		func(err error, d time.Duration) {
+			logger.Error("getBlockTimestamp error: %s - retrying after %v", err, d)
 		},
 	)
 
 	if err != nil {
-		return 0, 0, fmt.Errorf("getBlockTimestamp: %w", err)
+		return 0, 0, errors.Wrap(err, "getBlockByTimestamp")
 	}
 
 	return block.Time(), block.Number().Uint64(), nil
