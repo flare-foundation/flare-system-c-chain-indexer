@@ -84,7 +84,7 @@ func (ci *BlockIndexer) fetchLogsChunk(
 		},
 		bOff,
 		func(err error, d time.Duration) {
-			logger.Debug("FilterLogs error: %s. Will retry after %s", err, d)
+			logger.Warn("FilterLogs error: %s. Will retry after %s", err, d)
 		},
 	)
 	if err != nil {

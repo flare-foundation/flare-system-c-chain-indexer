@@ -44,7 +44,7 @@ func (ci *BlockIndexer) fetchBlock(ctx context.Context, index *uint64) (block *t
 		},
 		bOff,
 		func(err error, d time.Duration) {
-			logger.Debug("BlockByNumber error: %s. Will retry after %s", err, d)
+			logger.Warn("BlockByNumber error: %s. Will retry after %s", err, d)
 		},
 	)
 
