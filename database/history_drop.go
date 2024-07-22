@@ -114,7 +114,7 @@ func getBlockTimestamp(ctx context.Context, index *big.Int, client ethclient.Cli
 		},
 		bOff,
 		func(err error, d time.Duration) {
-			logger.Warn("getBlockTimestamp error: %s - retrying after %v", err, d)
+			logger.Debug("getBlockTimestamp error: %s - retrying after %v", err, d)
 		},
 	)
 
