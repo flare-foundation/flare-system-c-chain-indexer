@@ -41,27 +41,17 @@ func run(ctx context.Context) error {
 	}
 
 	if cfg.DB.HistoryDrop > 0 {
-		startIndex, err := database.GetMinBlockWithHistoryDrop(
-			ctx, cfg.Indexer.StartIndex, cfg.DB.HistoryDrop, ethClient,
-		)
-		if err != nil {
-			return errors.Wrap(err, "Could not set the starting indexs")
-		}
-
-		if startIndex != cfg.Indexer.StartIndex {
-			logger.Info("Setting new startIndex due to history drop: %d", startIndex)
-			cfg.Indexer.StartIndex = startIndex
-		}
-
 		// Run an initial iteration of the history drop. This could take some
 		// time if it has not been run in a while after an outage - running
 		// separately avoids database clashes with the indexer.
 		logger.Info("running initial DropHistory iteration")
 		startTime := time.Now()
 
+		var firstBlockNumber uint64
+
 		err = backoff.RetryNotify(
-			func() error {
-				err := database.DropHistoryIteration(ctx, db, cfg.DB.HistoryDrop, ethClient)
+			func() (err error) {
+				firstBlockNumber, err = database.DropHistoryIteration(ctx, db, cfg.DB.HistoryDrop, ethClient)
 				if errors.Is(err, gorm.ErrRecordNotFound) {
 					return nil
 				}
@@ -78,6 +68,11 @@ func run(ctx context.Context) error {
 		}
 
 		logger.Info("initial DropHistory iteration finished in %s", time.Since(startTime))
+
+		if firstBlockNumber > cfg.Indexer.StartIndex {
+			logger.Info("Setting new startIndex due to history drop: %d", firstBlockNumber)
+			cfg.Indexer.StartIndex = firstBlockNumber
+		}
 	}
 
 	return runIndexer(ctx, cfg, db, ethClient)
