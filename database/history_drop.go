@@ -21,7 +21,7 @@ func DropHistory(
 		logger.Info("starting DropHistory iteration")
 
 		startTime := time.Now()
-		err := DropHistoryIteration(ctx, db, intervalSeconds, client)
+		_, err := DropHistoryIteration(ctx, db, intervalSeconds, client)
 		if err == nil || errors.Is(err, gorm.ErrRecordNotFound) {
 			duration := time.Since(startTime)
 			logger.Info("finished DropHistory iteration in %v", duration)
@@ -45,10 +45,10 @@ const deleteBatchSize = 1000
 
 func DropHistoryIteration(
 	ctx context.Context, db *gorm.DB, intervalSeconds uint64, client ethclient.Client,
-) error {
+) (uint64, error) {
 	lastBlockTime, _, err := getBlockTimestamp(ctx, nil, client)
 	if err != nil {
-		return errors.Wrap(err, "Failed to get the latest time")
+		return 0, errors.Wrap(err, "Failed to get the latest time")
 	}
 
 	deleteStart := lastBlockTime - intervalSeconds
@@ -58,18 +58,21 @@ func DropHistoryIteration(
 	// Delete in specified order to not break foreign keys.
 	for _, entity := range deleteOrder {
 		if err := deleteInBatches(db, deleteStart, entity); err != nil {
-			return err
+			return 0, err
 		}
 	}
 
-	return db.Transaction(func(tx *gorm.DB) error {
+	var firstBlockNumber uint64
+	err = db.Transaction(func(tx *gorm.DB) error {
 		var firstBlock Block
 		err = tx.Order("number").First(&firstBlock).Error
 		if err != nil {
 			return errors.Wrap(err, "Failed to get first block in the DB")
 		}
 
-		err = globalStates.Update(tx, FirstDatabaseIndexState, firstBlock.Number, firstBlock.Timestamp)
+		firstBlockNumber = firstBlock.Number
+
+		err = globalStates.Update(tx, FirstDatabaseIndexState, firstBlockNumber, firstBlock.Timestamp)
 		if err != nil {
 			return errors.Wrap(err, "Failed to update state in the DB")
 		}
@@ -78,6 +81,8 @@ func DropHistoryIteration(
 
 		return nil
 	})
+
+	return firstBlockNumber, err
 }
 
 func deleteInBatches(db *gorm.DB, deleteStart uint64, entity interface{}) error {
@@ -92,41 +97,6 @@ func deleteInBatches(db *gorm.DB, deleteStart uint64, entity interface{}) error 
 			return nil
 		}
 	}
-}
-
-func GetMinBlockWithHistoryDrop(
-	ctx context.Context, firstIndex, intervalSeconds uint64, client ethclient.Client,
-) (uint64, error) {
-	firstTime, _, err := getBlockTimestamp(ctx, new(big.Int).SetUint64(firstIndex), client)
-	if err != nil {
-		return 0, errors.Wrap(err, "GetMinBlockWithHistoryDrop")
-	}
-
-	lastTime, endIndex, err := getBlockTimestamp(ctx, nil, client)
-	if err != nil {
-		return 0, errors.Wrap(err, "GetMinBlockWithHistoryDrop")
-	}
-
-	if lastTime-firstTime < intervalSeconds {
-		return firstIndex, nil
-	}
-
-	for endIndex-firstIndex > 1 {
-		newIndex := (firstIndex + endIndex) / 2
-
-		newTime, _, err := getBlockTimestamp(ctx, new(big.Int).SetUint64(newIndex), client)
-		if err != nil {
-			return 0, errors.Wrap(err, "GetMinBlockWithHistoryDrop")
-		}
-
-		if lastTime-newTime < intervalSeconds {
-			endIndex = newIndex
-		} else {
-			firstIndex = newIndex
-		}
-	}
-
-	return firstIndex, nil
 }
 
 func getBlockTimestamp(ctx context.Context, index *big.Int, client ethclient.Client) (uint64, uint64, error) {
