@@ -5,7 +5,6 @@ import (
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/logger"
-	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -26,10 +25,7 @@ func newBlockBatch(batchSize uint64) *blockBatch {
 }
 
 func (ci *BlockIndexer) fetchBlock(ctx context.Context, index *uint64) (block *types.Block, err error) {
-	var indexBigInt *big.Int
-	if index != nil {
-		indexBigInt = new(big.Int).SetUint64(*index)
-	}
+	indexBigInt := indexToBigInt(index)
 
 	bOff := backoff.NewExponentialBackOff()
 	bOff.MaxElapsedTime = config.BackoffMaxElapsedTime
@@ -55,22 +51,63 @@ func (ci *BlockIndexer) fetchBlock(ctx context.Context, index *uint64) (block *t
 	return block, nil
 }
 
-func (ci *BlockIndexer) fetchLastBlockIndex(ctx context.Context) (uint64, uint64, error) {
-	lastBlock, err := ci.fetchBlock(ctx, nil)
+func (ci *BlockIndexer) fetchBlockHeader(ctx context.Context, index *uint64) (header *types.Header, err error) {
+	indexBigInt := indexToBigInt(index)
+
+	bOff := backoff.NewExponentialBackOff()
+	bOff.MaxElapsedTime = config.BackoffMaxElapsedTime
+
+	err = backoff.RetryNotify(
+		func() error {
+			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
+			defer cancelFunc()
+
+			header, err = ci.client.HeaderByNumber(ctx, indexBigInt)
+			return err
+		},
+		bOff,
+		func(err error, d time.Duration) {
+			logger.Debug("HeaderByNumber error: %s. Will retry after %s", err, d)
+		},
+	)
+
 	if err != nil {
-		return 0, 0, fmt.Errorf("fetchLastBlockIndex: %w", err)
+		return nil, errors.Wrap(err, "ci.client.HeaderByNumber")
 	}
 
-	return lastBlock.NumberU64(), lastBlock.Time(), nil
+	return header, nil
+}
+
+func indexToBigInt(index *uint64) *big.Int {
+	if index == nil {
+		return nil
+	}
+
+	return new(big.Int).SetUint64(*index)
+}
+
+func (ci *BlockIndexer) fetchLastBlockIndex(ctx context.Context) (uint64, uint64, error) {
+	lastBlock, err := ci.fetchBlockHeader(ctx, nil)
+	if err != nil {
+		return 0, 0, errors.Wrap(err, "fetchBlockHeader last")
+	}
+
+	latestConfirmedNumber := lastBlock.Number.Uint64() - ci.params.Confirmations
+	latestConfirmedHeader, err := ci.fetchBlockHeader(ctx, &latestConfirmedNumber)
+	if err != nil {
+		return 0, 0, errors.Wrap(err, "fetchBlockHeader latestConfirmed")
+	}
+
+	return latestConfirmedNumber, latestConfirmedHeader.Time, nil
 }
 
 func (ci *BlockIndexer) fetchBlockTimestamp(ctx context.Context, index uint64) (uint64, error) {
-	lastBlock, err := ci.fetchBlock(ctx, &index)
+	lastBlock, err := ci.fetchBlockHeader(ctx, &index)
 	if err != nil {
-		return 0, fmt.Errorf("fetchBlockTimestamp: %w", err)
+		return 0, errors.Wrap(err, "fetchBlockHeader")
 	}
 
-	return lastBlock.Time(), nil
+	return lastBlock.Time, nil
 }
 
 func (ci *BlockIndexer) processBlocks(
