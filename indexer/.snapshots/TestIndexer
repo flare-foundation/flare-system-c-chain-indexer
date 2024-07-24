@@ -1,0 +1,49 @@
+(*database.DBStates)({
+  States: (map[string]*database.State) (len=3) {
+    (string) (len=20) "first_database_block": (*database.State)({
+      BaseEntity: (database.BaseEntity) {
+        ID: (uint64) 1
+      },
+      Name: (string) (len=20) "first_database_block",
+      Index: (uint64) 1112,
+      BlockTimestamp: (uint64) 1662557489,
+      Updated: (time.Time) 0001-01-01 00:00:00 +0000 UTC
+    }),
+    (string) (len=16) "last_chain_block": (*database.State)({
+      BaseEntity: (database.BaseEntity) {
+        ID: (uint64) 3
+      },
+      Name: (string) (len=16) "last_chain_block",
+      Index: (uint64) 10223878,
+      BlockTimestamp: (uint64) 1721830576,
+      Updated: (time.Time) 0001-01-01 00:00:00 +0000 UTC
+    }),
+    (string) (len=19) "last_database_block": (*database.State)({
+      BaseEntity: (database.BaseEntity) {
+        ID: (uint64) 2
+      },
+      Name: (string) (len=19) "last_database_block",
+      Index: (uint64) 2400,
+      BlockTimestamp: (uint64) 1662560050,
+      Updated: (time.Time) 0001-01-01 00:00:00 +0000 UTC
+    })
+  },
+  mu: (sync.RWMutex) {
+    w: (sync.Mutex) {
+      state: (int32) 0,
+      sema: (uint32) 0
+    },
+    writerSem: (uint32) 0,
+    readerSem: (uint32) 0,
+    readerCount: (atomic.Int32) {
+      _: (atomic.noCopy) {
+      },
+      v: (int32) 0
+    },
+    readerWait: (atomic.Int32) {
+      _: (atomic.noCopy) {
+      },
+      v: (int32) 0
+    }
+  }
+})
