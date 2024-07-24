@@ -18,6 +18,8 @@ var (
 	CfgFlag                                            = flag.String("config", "config.toml", "Configuration file (toml format)")
 )
 
+const defaultConfirmations = 1
+
 func init() {
 	GlobalConfigCallback.AddCallback(func(config GlobalConfig) {
 		tCfg := config.TimeoutConfig()
@@ -77,6 +79,7 @@ type IndexerConfig struct {
 	NewBlockCheckMillis int               `toml:"new_block_check_millis"`
 	CollectTransactions []TransactionInfo `toml:"collect_transactions"`
 	CollectLogs         []LogInfo         `toml:"collect_logs"`
+	Confirmations       uint64            `toml:"confirmations"`
 }
 
 type TimeoutConfig struct {
@@ -99,7 +102,7 @@ type LogInfo struct {
 func BuildConfig() (*Config, error) {
 	cfgFileName := *CfgFlag
 
-	cfg := new(Config)
+	cfg := &Config{Indexer: IndexerConfig{Confirmations: defaultConfirmations}}
 	err := parseConfigFile(cfg, cfgFileName)
 	if err != nil {
 		return nil, err

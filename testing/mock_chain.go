@@ -1,117 +1,254 @@
 package testing
 
 import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
-	"fmt"
+	"errors"
+	"flare-ftso-indexer/logger"
 	"io"
-	"math/big"
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
 )
 
-var ChainLastBlock = 0
+type MockChain struct {
+	client          *http.Client
+	mu              *sync.Mutex
+	recorderNodeURL string
+	responses       map[[sha256.Size]byte][]byte
+	responsesFile   string
+	server          *http.Server
+}
 
-func MockChain(port int, blockFile, txFile string) error {
-	file, err := os.ReadFile(blockFile)
-	if err != nil {
-		return err
-	}
-	var blockDict map[int][]byte
-	err = json.Unmarshal(file, &blockDict)
-	if err != nil {
-		return err
-	}
-	for key := range blockDict {
-		ChainLastBlock = max(ChainLastBlock, key)
-	}
-
-	file, err = os.ReadFile(txFile)
-	if err != nil {
-		return err
-	}
-	var txDict map[string][]byte
-	err = json.Unmarshal(file, &txDict)
-	if err != nil {
-		return err
+func NewMockChain(port int, responsesFile string, recorderNodeURL string) (*MockChain, error) {
+	mock := &MockChain{
+		mu: new(sync.Mutex),
+		server: &http.Server{
+			Addr:         ":" + strconv.Itoa(port),
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 10 * time.Second,
+		},
+		recorderNodeURL: recorderNodeURL,
+		responsesFile:   responsesFile,
 	}
 
 	r := mux.NewRouter()
 
-	r.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
-		ChainMockResponses(writer, request, blockDict, txDict)
-	})
+	if recorderNodeURL == "" {
+		logger.Info("running in test mode")
+		if err := mock.loadResponses(); err != nil {
+			return nil, err
+		}
 
-	server := &http.Server{
-		Addr:         ":" + strconv.Itoa(port),
-		ReadTimeout:  5 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		Handler:      r,
+		r.HandleFunc("/", mock.ChainMockResponses)
+	} else {
+		logger.Info("running in recorder mode with node %s", recorderNodeURL)
+		mock.client = new(http.Client)
+		mock.responses = make(map[[sha256.Size]byte][]byte)
+
+		r.HandleFunc("/", mock.RecordResponses)
 	}
 
-	fmt.Println("Mock server starting")
-	err = server.ListenAndServe()
+	mock.server.Handler = r
+
+	return mock, nil
+}
+
+func (m *MockChain) Run(ctx context.Context) error {
+	logger.Info("Mock server starting")
+	err := m.server.ListenAndServe()
+	if errors.Is(err, http.ErrServerClosed) {
+		return nil
+	}
 
 	return err
 }
 
-func ChainMockResponses(writer http.ResponseWriter, request *http.Request, blockDict map[int][]byte, txDict map[string][]byte) {
-	body, err := io.ReadAll(request.Body)
-	if err != nil {
-		http.Error(writer, "Invalid request body", http.StatusBadRequest)
-		return
+var shutdownTimeout = 10 * time.Second
+
+func (m *MockChain) Stop() error {
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	defer cancel()
+
+	if err := m.server.Shutdown(ctx); err != nil {
+		return err
 	}
 
-	var form map[string]json.RawMessage
-	err = json.Unmarshal(body, &form)
-	if err != nil {
-		fmt.Printf("Error unmarshaling json: %v\n", err)
-		http.Error(writer, "Invalid json", http.StatusBadRequest)
-		return
-	}
+	logger.Info("mock chain server shutdown")
 
-	var params []interface{}
-	err = json.Unmarshal(form["params"], &params)
-	if err != nil {
-		fmt.Printf("Error unmarshaling params: %v\n", err)
-		http.Error(writer, "Invalid json", http.StatusBadRequest)
-		return
-	}
-
-	methodBytes, err := form["method"].MarshalJSON()
-	if err != nil {
-		fmt.Printf("Error marshaling method: %v\n", err)
-		http.Error(writer, "Invalid method", http.StatusBadRequest)
-		return
-	}
-
-	var method string
-	err = json.Unmarshal(methodBytes, &method)
-	if err != nil {
-		fmt.Printf("Error unmarshaling method: %v\n", err)
-		http.Error(writer, "Invalid method", http.StatusInternalServerError)
-		return
-	}
-
-	if method == "eth_getBlockByNumber" {
-		iBig := new(big.Int)
-		if params[0].(string) == "latest" {
-			iBig.SetInt64(int64(ChainLastBlock))
-		} else {
-			iBig.SetString(params[0].(string)[2:], 16)
+	if m.recorderNodeURL != "" {
+		if err := m.writeResponses(); err != nil {
+			return err
 		}
-		_, err = writer.Write(blockDict[int(iBig.Int64())])
+	}
+
+	logger.Info("written updated responses")
+
+	return nil
+}
+
+type rpcRequest struct {
+	Method string        `json:"method"`
+	Params []interface{} `json:"params"`
+}
+
+func (m *MockChain) ChainMockResponses(
+	writer http.ResponseWriter,
+	request *http.Request,
+) {
+	reqBody, err := io.ReadAll(request.Body)
+	request.Body.Close()
+	if err != nil {
+		http.Error(writer, "error reading request body", http.StatusInternalServerError)
+		return
+	}
+
+	hash, err := getRequestHash(reqBody)
+	if err != nil {
+		http.Error(writer, "error getting request hash", http.StatusInternalServerError)
+		return
+	}
+
+	if len(m.responses) == 0 {
+		logger.Fatal("no responses loaded")
+	}
+
+	m.mu.Lock()
+	rspData, ok := m.responses[hash]
+	m.mu.Unlock()
+	if !ok {
+		http.Error(writer, "response not found", http.StatusNotFound)
+		return
+	}
+
+	writer.Header().Add("Content-Type", "application/json")
+	_, err = writer.Write(rspData)
+	if err != nil {
+		logger.Error("error writing response:", err)
+	}
+
+	//logger.Debug("written response for req %s: %s", reqBody, rspData)
+}
+
+func (m *MockChain) RecordResponses(
+	writer http.ResponseWriter,
+	request *http.Request,
+) {
+	reqBody, err := io.ReadAll(request.Body)
+	request.Body.Close()
+	if err != nil {
+		http.Error(writer, "error reading request body", http.StatusInternalServerError)
+		return
+	}
+
+	hash, err := getRequestHash(reqBody)
+	if err != nil {
+		http.Error(writer, "error getting request hash", http.StatusInternalServerError)
+		return
+	}
+
+	req, err := http.NewRequest(request.Method, m.recorderNodeURL, bytes.NewReader(reqBody))
+	if err != nil {
+		http.Error(writer, "error creating request", http.StatusInternalServerError)
+		return
+	}
+
+	req.Header.Add("Content-Type", "application/json")
+
+	rsp, err := new(http.Client).Do(req)
+	if err != nil {
+		http.Error(writer, "error making request", http.StatusInternalServerError)
+		return
+	}
+
+	if rsp.StatusCode != http.StatusOK {
+		http.Error(writer, rsp.Status, rsp.StatusCode)
+		return
+	}
+
+	rspBody, err := io.ReadAll(rsp.Body)
+	rsp.Body.Close()
+	if err != nil {
+		http.Error(writer, "error reading rsp body", http.StatusInternalServerError)
+		return
+	}
+
+	m.mu.Lock()
+	m.responses[hash] = rspBody
+	m.mu.Unlock()
+
+	writer.Header().Add("Content-Type", "application/json")
+	_, err = writer.Write(rspBody)
+	if err != nil {
+		logger.Error("error writing rsp body:", err)
+	}
+}
+
+func getRequestHash(reqBody []byte) ([sha256.Size]byte, error) {
+	var zero [sha256.Size]byte
+
+	var rpcReq rpcRequest
+	if err := json.Unmarshal(reqBody, &rpcReq); err != nil {
+		return zero, err
+	}
+
+	reqData, err := json.Marshal(rpcReq)
+	if err != nil {
+		return zero, err
+	}
+
+	return sha256.Sum256(reqData), nil
+}
+
+func (m *MockChain) loadResponses() error {
+	logger.Info("opening %s", m.responsesFile)
+
+	file, err := os.ReadFile(m.responsesFile)
+	if err != nil {
+		return err
+	}
+
+	var hexResponses map[string]json.RawMessage
+	if err := json.Unmarshal(file, &hexResponses); err != nil {
+		return err
+	}
+
+	responses := make(map[[sha256.Size]byte][]byte, len(hexResponses))
+	for hexKey, val := range hexResponses {
+		var key [sha256.Size]byte
+
+		n, err := hex.Decode(key[:], []byte(hexKey))
 		if err != nil {
-			fmt.Printf("Error returning block: %v\n", err)
+			return err
 		}
-	} else if method == "eth_getTransactionReceipt" {
-		_, err = writer.Write(txDict[params[0].(string)])
-		if err != nil {
-			fmt.Printf("Error returning block: %v\n", err)
+		if n != sha256.Size {
+			return errors.New("unexpected encoded hash size")
 		}
+
+		responses[key] = val
 	}
 
+	m.responses = responses
+	return nil
+}
+
+func (m *MockChain) writeResponses() error {
+	responsesHex := make(map[string]json.RawMessage, len(m.responses))
+	for k, v := range m.responses {
+		responsesHex[hex.EncodeToString(k[:])] = v
+	}
+
+	responsesData, err := json.Marshal(responsesHex)
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(m.responsesFile, responsesData, 0666)
 }

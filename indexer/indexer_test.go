@@ -11,17 +11,21 @@ import (
 	"time"
 
 	"github.com/ava-labs/coreth/ethclient"
+	"github.com/bradleyjkemp/cupaloy/v2"
 	"github.com/caarlos0/env/v10"
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 type testConfig struct {
-	DBHost        string `env:"DB_HOST" envDefault:"localhost"`
-	DBPort        int    `env:"DB_PORT" envDefault:"3306"`
-	DBName        string `env:"DB_NAME" envDefault:"flare_ftso_indexer_test"`
-	DBUsername    string `env:"DB_USERNAME" envDefault:"root"`
-	DBPassword    string `env:"DB_PASSWORD" envDefault:"root"`
-	MockChainPort int    `env:"MOCK_CHAIN_PORT" envDefault:"5500"`
+	DBHost          string `env:"DB_HOST" envDefault:"localhost"`
+	DBPort          int    `env:"DB_PORT" envDefault:"3306"`
+	DBName          string `env:"DB_NAME" envDefault:"flare_ftso_indexer_test"`
+	DBUsername      string `env:"DB_USERNAME" envDefault:"root"`
+	DBPassword      string `env:"DB_PASSWORD" envDefault:"root"`
+	MockChainPort   int    `env:"MOCK_CHAIN_PORT" envDefault:"5500"`
+	RecorderNodeURL string `env:"RECORDER_NODE_URL"`
+	ResponsesFile   string `env:"RESPONSES_FILE" envDefault:"../testing/chain_copy/responses.json"`
 }
 
 func TestIndexer(t *testing.T) {
@@ -32,21 +36,6 @@ func TestIndexer(t *testing.T) {
 	if err := env.Parse(&tCfg); err != nil {
 		t.Fatal("Config parse error:", err)
 	}
-
-	// mock blockchain
-	go func() {
-		err := indexer_testing.MockChain(
-			tCfg.MockChainPort,
-			"../testing/chain_copy/blocks.json",
-			"../testing/chain_copy/transactions.json",
-		)
-		if err != nil {
-			logger.Fatal("Mock chain error: %s", err)
-		}
-	}()
-
-	time.Sleep(3 * time.Second)
-	indexer_testing.ChainLastBlock = 2000
 
 	// set configuration parameters
 	mockChainAddress := fmt.Sprintf("http://localhost:%d", tCfg.MockChainPort)
@@ -98,11 +87,50 @@ func TestIndexer(t *testing.T) {
 	cfg := config.Config{Indexer: cfgIndexer, Chain: cfgChain, Logger: cfgLog, DB: cfgDB}
 	config.GlobalConfigCallback.Call(cfg)
 
+	// mock blockchain
+	mockChain, err := indexer_testing.NewMockChain(
+		tCfg.MockChainPort,
+		tCfg.ResponsesFile,
+		tCfg.RecorderNodeURL,
+	)
+	require.NoError(t, err)
+
 	// connect to the database
-	db, err := database.ConnectAndInitialize(ctx, &cfgDB)
+	db, err := database.ConnectAndInitialize(ctx, &cfg.DB)
 	if err != nil {
 		logger.Fatal("Database connect and initialize error: %s", err)
 	}
+
+	err = runIndexer(ctx, mockChain, db, &cfg)
+	require.NoError(t, err)
+
+	// correctness check
+	states, err := database.UpdateDBStates(ctx, db)
+	require.NoError(t, err)
+
+	// Set the update timestamps to zero for the snapshot as these will
+	// vary with current system  time.
+	for _, state := range states.States {
+		state.Updated = time.Time{}
+	}
+
+	cupaloy.SnapshotT(t, states)
+}
+
+func runIndexer(ctx context.Context, mockChain *indexer_testing.MockChain, db *gorm.DB, cfg *config.Config) error {
+	go func() {
+		if err := mockChain.Run(ctx); err != nil {
+			logger.Fatal("Mock chain error: %s", err)
+		}
+	}()
+
+	defer func() {
+		if err := mockChain.Stop(); err != nil {
+			logger.Error("Mock chain stop error: %s", err)
+		}
+	}()
+
+	time.Sleep(3 * time.Second)
 
 	// set a new starting index based on the history drop interval
 	historyDropIntervalSeconds := uint64(10000)
@@ -113,7 +141,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	// create the indexer
-	cIndexer, err := CreateBlockIndexer(&cfg, db, ethClient)
+	cIndexer, err := CreateBlockIndexer(cfg, db, ethClient)
 	if err != nil {
 		logger.Fatal("Create indexer error: %s", err)
 	}
@@ -123,9 +151,6 @@ func TestIndexer(t *testing.T) {
 	if err != nil {
 		logger.Fatal("History run error: %s", err)
 	}
-
-	// at the mock server add new blocks after some time
-	go increaseLastBlockAndStop()
 
 	// turn on the function to delete in the database everything that
 	// is older than the historyDrop interval
@@ -139,19 +164,5 @@ func TestIndexer(t *testing.T) {
 		logger.Fatal("Continuous run error: %s", err)
 	}
 
-	// correctness check
-	states, err := database.UpdateDBStates(ctx, db)
-	assert.NoError(t, err)
-	assert.Equal(t, 1112, int(states.States[database.FirstDatabaseIndexState].Index))
-	assert.Equal(t, 2400, int(states.States[database.LastDatabaseIndexState].Index))
-	assert.Equal(t, 8980059, int(states.States[database.LastChainIndexState].Index))
-}
-
-func increaseLastBlockAndStop() {
-	indexer_testing.ChainLastBlock = 2100
-	time.Sleep(time.Second)
-	indexer_testing.ChainLastBlock = 2200
-	time.Sleep(time.Second)
-	indexer_testing.ChainLastBlock = 2499
-	time.Sleep(10 * time.Second)
+	return nil
 }
