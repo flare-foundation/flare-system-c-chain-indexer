@@ -19,6 +19,7 @@ var (
 )
 
 const defaultConfirmations = 1
+const defaultChainType = 1
 
 func init() {
 	GlobalConfigCallback.AddCallback(func(config GlobalConfig) {
@@ -66,8 +67,9 @@ type DBConfig struct {
 }
 
 type ChainConfig struct {
-	NodeURL string `toml:"node_url"`
-	APIKey  string `toml:"api_key"`
+	NodeURL   string `toml:"node_url"`
+	APIKey    string `toml:"api_key"`
+	ChainType int    `toml:"chain_type"`
 }
 
 type IndexerConfig struct {
@@ -102,7 +104,7 @@ type LogInfo struct {
 func BuildConfig() (*Config, error) {
 	cfgFileName := *CfgFlag
 
-	cfg := &Config{Indexer: IndexerConfig{Confirmations: defaultConfirmations}}
+	cfg := &Config{Indexer: IndexerConfig{Confirmations: defaultConfirmations}, Chain: ChainConfig{ChainType: defaultChainType}}
 	err := parseConfigFile(cfg, cfgFileName)
 	if err != nil {
 		return nil, err

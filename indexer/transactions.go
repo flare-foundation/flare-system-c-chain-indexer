@@ -3,6 +3,7 @@ package indexer
 import (
 	"context"
 	"encoding/hex"
+	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/logger"
@@ -18,19 +19,19 @@ import (
 )
 
 type transactionsBatch struct {
-	transactions []*types.Transaction
-	toBlock      []*types.Block
+	transactions []*chain.Transaction
+	toBlock      []*chain.Block
 	toIndex      []uint64
-	toReceipt    []*types.Receipt
+	toReceipt    []*chain.Receipt
 	toPolicy     []transactionsPolicy
 	mu           sync.RWMutex
 }
 
 func (tb *transactionsBatch) Add(
-	tx *types.Transaction,
-	block *types.Block,
+	tx *chain.Transaction,
+	block *chain.Block,
 	index uint64,
-	receipt *types.Receipt,
+	receipt *chain.Receipt,
 	policy transactionsPolicy,
 ) {
 	tb.mu.Lock()
@@ -66,7 +67,7 @@ func (ci *BlockIndexer) getTransactionsReceipt(
 		policy := txBatch.toPolicy[i]
 		txBatch.mu.RUnlock()
 
-		var receipt *types.Receipt
+		var receipt *chain.Receipt
 
 		if policy.status || policy.collectEvents {
 			err := backoff.RetryNotify(
@@ -117,7 +118,7 @@ func (ci *BlockIndexer) processTransactions(txBatch *transactionsBatch, data *da
 
 		// if it was chosen to get the logs of the transaction we process it
 		if receipt != nil && policy.collectEvents {
-			for _, log := range receipt.Logs {
+			for _, log := range receipt.Logs() {
 				dbLog, err := buildDBLog(dbTx, log, block)
 				if err != nil {
 					return err
@@ -135,19 +136,19 @@ func (ci *BlockIndexer) processTransactions(txBatch *transactionsBatch, data *da
 }
 
 func buildDBTx(
-	tx *types.Transaction, receipt *types.Receipt, block *types.Block, txIndex uint64,
+	tx *chain.Transaction, receipt *chain.Receipt, block *chain.Block, txIndex uint64,
 ) (*database.Transaction, error) {
 	txData := hex.EncodeToString(tx.Data())
 	funcSig := txData[:8]
 
-	fromAddress, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx) // todo: this is a bit slow
+	fromAddress, err := tx.FromAddress() // todo: this is a bit slow
 	if err != nil {
 		return nil, errors.Wrap(err, "types.Sender")
 	}
 
 	status := uint64(2)
 	if receipt != nil {
-		status = receipt.Status
+		status = receipt.Status()
 	}
 
 	base := database.BaseEntity{ID: database.TransactionId.Load()}
@@ -156,7 +157,7 @@ func buildDBTx(
 		Hash:             tx.Hash().Hex()[2:],
 		FunctionSig:      funcSig,
 		Input:            txData,
-		BlockNumber:      block.NumberU64(),
+		BlockNumber:      block.Number().Uint64(),
 		BlockHash:        block.Hash().Hex()[2:],
 		TransactionIndex: txIndex,
 		FromAddress:      strings.ToLower(fromAddress.Hex()[2:]),
@@ -169,7 +170,7 @@ func buildDBTx(
 	}, nil
 }
 
-func buildDBLog(dbTx *database.Transaction, log *types.Log, block *types.Block) (*database.Log, error) {
+func buildDBLog(dbTx *database.Transaction, log *types.Log, block *chain.Block) (*database.Log, error) {
 	if blockNum := block.Number(); blockNum.Cmp(new(big.Int).SetUint64(log.BlockNumber)) != 0 {
 		return nil, errors.Errorf("block number mismatch %s != %d", blockNum, log.BlockNumber)
 	}

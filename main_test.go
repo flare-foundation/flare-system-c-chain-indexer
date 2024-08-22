@@ -2,6 +2,7 @@ package main_test
 
 import (
 	"context"
+	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer"
@@ -9,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ava-labs/coreth/ethclient"
 	"github.com/bradleyjkemp/cupaloy/v2"
 	"github.com/caarlos0/env/v10"
 	"github.com/ethereum/go-ethereum/common"
@@ -39,7 +39,6 @@ type testConfig struct {
 
 func TestIntegration(t *testing.T) {
 	ctx := context.Background()
-
 	var tCfg testConfig
 	err := env.Parse(&tCfg)
 	require.NoError(t, err, "Could not parse test config")
@@ -111,8 +110,9 @@ func initConfig(tCfg testConfig, history bool) config.Config {
 			CollectLogs:         []config.LogInfo{logInfo},
 		},
 		Chain: config.ChainConfig{
-			NodeURL: tCfg.NodeURL,
-			APIKey:  tCfg.NodeAPIKey,
+			NodeURL:   tCfg.NodeURL,
+			APIKey:    tCfg.NodeAPIKey,
+			ChainType: int(chain.ChainTypeAvax),
 		},
 		Logger: config.LoggerConfig{
 			Level:       "DEBUG",
@@ -138,21 +138,12 @@ func initConfig(tCfg testConfig, history bool) config.Config {
 }
 
 func createIndexer(cfg *config.Config, db *gorm.DB) (*indexer.BlockIndexer, error) {
-	ethClient, err := dialRPCNode(cfg)
+	ethClient, err := chain.DialRPCNode(cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, "Could not connect to the RPC nodes")
 	}
 
 	return indexer.CreateBlockIndexer(cfg, db, ethClient)
-}
-
-func dialRPCNode(cfg *config.Config) (ethclient.Client, error) {
-	nodeURL, err := cfg.Chain.FullNodeURL()
-	if err != nil {
-		return nil, err
-	}
-
-	return ethclient.Dial(nodeURL.String())
 }
 
 func checkDB(ctx context.Context, t *testing.T, db *gorm.DB, cfg *config.Config) {
