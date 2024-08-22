@@ -3,13 +3,13 @@ package main
 import (
 	"context"
 	"flag"
+	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer"
 	"flare-ftso-indexer/logger"
 	"time"
 
-	"github.com/ava-labs/coreth/ethclient"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -30,7 +30,7 @@ func run(ctx context.Context) error {
 
 	config.GlobalConfigCallback.Call(cfg)
 
-	ethClient, err := dialRPCNode(cfg)
+	ethClient, err := chain.DialRPCNode(cfg)
 	if err != nil {
 		return errors.Wrap(err, "Could not connect to the RPC nodes")
 	}
@@ -78,16 +78,7 @@ func run(ctx context.Context) error {
 	return runIndexer(ctx, cfg, db, ethClient)
 }
 
-func dialRPCNode(cfg *config.Config) (ethclient.Client, error) {
-	nodeURL, err := cfg.Chain.FullNodeURL()
-	if err != nil {
-		return nil, err
-	}
-
-	return ethclient.Dial(nodeURL.String())
-}
-
-func runIndexer(ctx context.Context, cfg *config.Config, db *gorm.DB, ethClient ethclient.Client) error {
+func runIndexer(ctx context.Context, cfg *config.Config, db *gorm.DB, ethClient *chain.Client) error {
 	cIndexer, err := indexer.CreateBlockIndexer(cfg, db, ethClient)
 	if err != nil {
 		return err

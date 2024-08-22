@@ -2,20 +2,19 @@ package database
 
 import (
 	"context"
+	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/logger"
 	"math/big"
 	"time"
 
-	"github.com/ava-labs/coreth/core/types"
-	"github.com/ava-labs/coreth/ethclient"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
 
 func DropHistory(
-	ctx context.Context, db *gorm.DB, intervalSeconds, checkInterval uint64, client ethclient.Client,
+	ctx context.Context, db *gorm.DB, intervalSeconds, checkInterval uint64, client *chain.Client,
 ) {
 	for {
 		logger.Info("starting DropHistory iteration")
@@ -44,7 +43,7 @@ var deleteOrder []interface{} = []interface{}{
 const deleteBatchSize = 1000
 
 func DropHistoryIteration(
-	ctx context.Context, db *gorm.DB, intervalSeconds uint64, client ethclient.Client,
+	ctx context.Context, db *gorm.DB, intervalSeconds uint64, client *chain.Client,
 ) (uint64, error) {
 	lastBlockTime, _, err := getBlockTimestamp(ctx, nil, client)
 	if err != nil {
@@ -99,11 +98,11 @@ func deleteInBatches(db *gorm.DB, deleteStart uint64, entity interface{}) error 
 	}
 }
 
-func getBlockTimestamp(ctx context.Context, index *big.Int, client ethclient.Client) (uint64, uint64, error) {
+func getBlockTimestamp(ctx context.Context, index *big.Int, client *chain.Client) (uint64, uint64, error) {
 	bOff := backoff.NewExponentialBackOff()
 	bOff.MaxElapsedTime = config.BackoffMaxElapsedTime
 
-	var block *types.Block
+	var block *chain.Block
 	err := backoff.RetryNotify(
 		func() (err error) {
 			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)

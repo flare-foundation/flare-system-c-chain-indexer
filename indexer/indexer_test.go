@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/logger"
@@ -10,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ava-labs/coreth/ethclient"
 	"github.com/bradleyjkemp/cupaloy/v2"
 	"github.com/caarlos0/env/v10"
 	"github.com/stretchr/testify/require"
@@ -39,7 +39,7 @@ func TestIndexer(t *testing.T) {
 
 	// set configuration parameters
 	mockChainAddress := fmt.Sprintf("http://localhost:%d", tCfg.MockChainPort)
-	cfgChain := config.ChainConfig{NodeURL: mockChainAddress}
+	cfgChain := config.ChainConfig{NodeURL: mockChainAddress, ChainType: int(chain.ChainTypeAvax)}
 
 	// for the test we do not use finalizations
 	collectTransactions := []config.TransactionInfo{
@@ -135,7 +135,7 @@ func runIndexer(ctx context.Context, mockChain *indexer_testing.MockChain, db *g
 	// set a new starting index based on the history drop interval
 	historyDropIntervalSeconds := uint64(10000)
 
-	ethClient, err := ethclient.Dial(cfg.Chain.NodeURL)
+	ethClient, err := chain.DialRPCNode(cfg)
 	if err != nil {
 		logger.Fatal("Could not connect to the Ethereum node: %s", err)
 	}

@@ -2,13 +2,12 @@ package benchmarks
 
 import (
 	"context"
+	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer"
 	"flare-ftso-indexer/logger"
 	"testing"
-
-	"github.com/ava-labs/coreth/ethclient"
 )
 
 func BenchmarkBlockRequests(b *testing.B) {
@@ -31,7 +30,7 @@ func BenchmarkBlockRequests(b *testing.B) {
 			logger.Fatal("Database connect and initialize error: %s", err)
 		}
 
-		ethClient, err := ethclient.Dial(cfg.Chain.NodeURL)
+		ethClient, err := chain.DialRPCNode(cfg)
 		if err != nil {
 			logger.Fatal("Eth client error: %s", err)
 		}

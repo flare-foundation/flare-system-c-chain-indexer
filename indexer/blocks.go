@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/logger"
@@ -9,22 +10,21 @@ import (
 	"sync"
 	"time"
 
-	"github.com/ava-labs/coreth/core/types"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 )
 
 type blockBatch struct {
-	blocks []*types.Block
+	blocks []*chain.Block
 	mu     sync.RWMutex
 }
 
 func newBlockBatch(batchSize uint64) *blockBatch {
-	return &blockBatch{blocks: make([]*types.Block, batchSize)}
+	return &blockBatch{blocks: make([]*chain.Block, batchSize)}
 }
 
-func (ci *BlockIndexer) fetchBlock(ctx context.Context, index *uint64) (block *types.Block, err error) {
+func (ci *BlockIndexer) fetchBlock(ctx context.Context, index *uint64) (block *chain.Block, err error) {
 	indexBigInt := indexToBigInt(index)
 
 	bOff := backoff.NewExponentialBackOff()
@@ -51,7 +51,7 @@ func (ci *BlockIndexer) fetchBlock(ctx context.Context, index *uint64) (block *t
 	return block, nil
 }
 
-func (ci *BlockIndexer) fetchBlockHeader(ctx context.Context, index *uint64) (header *types.Header, err error) {
+func (ci *BlockIndexer) fetchBlockHeader(ctx context.Context, index *uint64) (header *chain.Header, err error) {
 	indexBigInt := indexToBigInt(index)
 
 	bOff := backoff.NewExponentialBackOff()
@@ -92,13 +92,13 @@ func (ci *BlockIndexer) fetchLastBlockIndex(ctx context.Context) (uint64, uint64
 		return 0, 0, errors.Wrap(err, "fetchBlockHeader last")
 	}
 
-	latestConfirmedNumber := lastBlock.Number.Uint64() - ci.params.Confirmations
+	latestConfirmedNumber := lastBlock.Number().Uint64() - ci.params.Confirmations
 	latestConfirmedHeader, err := ci.fetchBlockHeader(ctx, &latestConfirmedNumber)
 	if err != nil {
 		return 0, 0, errors.Wrap(err, "fetchBlockHeader latestConfirmed")
 	}
 
-	return latestConfirmedNumber, latestConfirmedHeader.Time, nil
+	return latestConfirmedNumber, latestConfirmedHeader.Time(), nil
 }
 
 func (ci *BlockIndexer) fetchBlockTimestamp(ctx context.Context, index uint64) (uint64, error) {
@@ -107,7 +107,7 @@ func (ci *BlockIndexer) fetchBlockTimestamp(ctx context.Context, index uint64) (
 		return 0, errors.Wrap(err, "fetchBlockHeader")
 	}
 
-	return lastBlock.Time, nil
+	return lastBlock.Time(), nil
 }
 
 func (ci *BlockIndexer) processBlocks(
