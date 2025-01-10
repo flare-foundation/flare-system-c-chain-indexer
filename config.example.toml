@@ -1,0 +1,116 @@
+# Example of config.toml file for  coston2
+
+[indexer] 
+start_index = 12952779 # the number of the block that the indexer will start with
+stop_index = 0 # the number of the block that the indexer will stop with; set 0 or skip to index indefinitely
+num_parallel_req = 100 # the number of threads doing requests to the chain in parallel
+batch_size = 1000 # the number of blocks that will be pushed to a database in a batch (should be divisible by num_parallel_req)
+log_range = 10 # the size of the interval of blocks used to request logs in each request; suggested value is log_range = batch_size / num_parallel_req; note that a blockchain node might have an upper bound on this
+new_block_check_millis = 1000 # interval for checking for new blocks
+no_new_blocks_delay_warning = 60 # the maximum allowed time interval (in seconds) between the processing of consecutive blocks before triggering a warning, if 0 no warning will be triggered
+
+[[indexer.collect_transactions]]
+contract_address = "0x2cA6571Daa15ce734Bbd0Bf27D5C9D16787fc33f" # Submission
+func_sig = "6c532fae"
+status = true
+
+[[indexer.collect_transactions]]
+contract_address = "0x2cA6571Daa15ce734Bbd0Bf27D5C9D16787fc33f" # Submission
+func_sig = "9d00c9fd"
+status = true
+
+[[indexer.collect_transactions]]
+contract_address = "0x2cA6571Daa15ce734Bbd0Bf27D5C9D16787fc33f" # Submission
+func_sig = "57eed580"
+status = true
+
+[[indexer.collect_transactions]]
+contract_address = "0x4087D4B5E009Af9FF41db910205439F82C3dc63c" # Relay
+func_sig = "b59589d1"
+status = true
+collect_events = true
+
+[[indexer.collect_transactions]]
+contract_address = "0x0D462d2Fec11554D64F52D7c5A5C269d748037aD" # Songbird: New Relay Pre Patch
+func_sig = "b59589d1"
+status = true
+collect_events = true
+
+[[indexer.collect_transactions]]
+contract_address = "0xbA35e39D01A3f5710d1e43FC61dbb738B68641c4" # Songbird: Old Relay
+func_sig = "b59589d1"
+status = true
+collect_events = true
+
+[[indexer.collect_logs]]
+contract_address = "0xA90Db6D10F856799b10ef2A77EBCbF460aC71e52" # FlareSystemsManager
+topic = "undefined"
+
+[[indexer.collect_logs]]
+contract_address = "0xc6E40401395DCc648bC4bBb38fE4552423cD9BAC" # VoterRegistry
+topic = "undefined"
+
+[[indexer.collect_logs]]
+contract_address = "0x16EdaECC2D3713C3A94CCd1FFCd2589cfb7Ee9e0" # Songbird: Old VoterRegistry
+topic = "undefined"
+
+[[indexer.collect_logs]]
+contract_address = "0x9aF60c16192330EC98d04Ec9675d22dBb9892951" # FlareSystemsCalculator
+topic = "undefined"
+
+[[indexer.collect_logs]]
+contract_address = "0x4087D4B5E009Af9FF41db910205439F82C3dc63c" # Relay
+topic = "undefined"
+
+[[indexer.collect_logs]]
+contract_address = "0x0D462d2Fec11554D64F52D7c5A5C269d748037aD" # Songbird: New Relay Pre Patch
+topic = "undefined"
+
+[[indexer.collect_logs]]
+contract_address = "0xbA35e39D01A3f5710d1e43FC61dbb738B68641c4" # Songbird: Old Relay
+topic = "undefined"
+
+[[indexer.collect_logs]]
+contract_address = "0x1b7ffab226b66b5eCBdC79a42287BC09C05bCb33" # FtsoRewardOffersManager
+topic = "undefined"
+
+[[indexer.collect_logs]]
+contract_address = "0x0B162CA3acf3482d3357972e12d794434085D839" # FastUpdater
+topic = "undefined"
+
+[[indexer.collect_logs]]
+contract_address = "0x70e8870ef234EcD665F96Da4c669dc12c1e1c116" # Songbird: Old FastUpdater
+topic = "undefined"
+
+[[indexer.collect_logs]]
+contract_address = "0xC71C1C6E6FB31eF6D948B2C074fA0d38a07D4f68" # FastUpdateIncentiveManager
+topic = "undefined"
+
+[[indexer.collect_logs]]
+contract_address = "0xc1a22A1d295e829Caf3be61bd1E11E5eEd7f0F15" # Coston: Old FastUpdateIncentiveManager
+topic = "undefined"
+
+[[indexer.collect_logs]]
+contract_address = "" # FdcHub
+topic = "undefined"
+
+[logger]
+level = "INFO"
+file = "./logger/logs/flare-ftso-indexer.log"
+console = true
+
+[chain]
+node_url = "http://coston2.test.aflabs.net:9650/ext/bc/C/rpc"
+api_key = ""
+
+# Configuration for DB
+[db] # Configuration for DB
+host = "localhost"
+port = 3306
+database = "flare_ftso_indexer"
+username = "root"
+password = "root"
+log_queries = false
+drop_table_at_start = false
+history_drop = 3628800 # 42 days
+

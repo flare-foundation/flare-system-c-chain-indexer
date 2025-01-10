@@ -1,4 +1,4 @@
-# Flare FTSO indexer ![build and test](https://github.com/flare-foundation/flare-ftso-indexer/actions/workflows/build_and_test.yml/badge.svg)
+# Flare FTSO indexer
 
 This code implements a fast and parallelized indexer of C-chain that fetches data needed for
 various Flare protocols. It saves the data in a MySQL database.
@@ -69,7 +69,7 @@ timeout_milis = 1000  # optional, defaults to 1000ms = 1s. Try increasing if you
 
 In `database/docker` we provide a simple database. Navigate to the folder and run
 
-```
+```bash
 docker-compose up
 ```
 
@@ -77,13 +77,13 @@ docker-compose up
 
 Simply run
 
-```
+```bash
 go run main.go --config config.toml
 ```
 
 or build and run the binaries with
 
-```
+```bash
 go build
 ./flare-ftso-indexer --config config.toml
 ```
@@ -91,28 +91,30 @@ go build
 ### Tests
 
 There is an integration test which checks the historical indexing against known transactions and
-logs on Coston2. To run this test you will need a MySQL server and a Coston2 node - ideally one that
-is not rate-limited. The test is configured via environment variables, see `.env.example`
-for an example configuration. With the appropriate environment vars set the test can be run with:
+logs on Coston2. To run this test you will need a MySQL server and a Coston2 node, preferably one that is not rate-limited.
+The integration test is configured via `testing/config_test.toml`. You can execute it with:
 
-```
+```bash
 $ go test ./main_test.go
 ```
 
-A unit test using a mocked chain node is also provided at `indexer/indexer_test.go`. This test is
-also configured via environment variables, with an example at `indexer/.env.example`, and may be run with:
+Additionally, a unit test with a mocked chain node is available in `indexer/indexer_test.go`. Like the integration test, it uses `testing/config_test.toml` for configuration. You can run it using:
 
-```
+```bash
 go test ./indexer
+```
+
+To run tests with coverage analysis across all packages, save the results to `coverage.out`, and convert the report into an interactive HTML file run:
+
+```bash
+go test -v -coverpkg=./... -coverprofile=coverage.out ./...
+go tool cover -html=coverage.out
 ```
 
 ### Benchmarks
 
-File `benchmarks/songbird_test.go` implements a benchmark test that indexes the (not-yet-scaled) FTSO
-protocol on the songbird network. It requests for 10000 blocks and analyses them (see `config.songbird.toml`
-for the other parameters).
-Run the following (where 10x can be replaced by any other number of repeats)
+File `benchmarks/songbird_test.go` contains a benchmark test for indexing the FTSO protocol on the Songbird network. It processes 10,000 blocks and analyzes them. The test configuration is specified in `benchmarks/config_benchmark.toml`. To run the benchmark (replacing 10x with any desired number of repetitions), use:
 
-```
+```bash
 go test -benchmem -run=^$ -benchtime 10x -bench ^BenchmarkBlockRequests$ flare-ftso-indexer/benchmarks
 ```

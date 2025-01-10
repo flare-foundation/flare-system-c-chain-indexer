@@ -1,4 +1,7 @@
 logger/logs
 tmp/
 *.log
-config.*.toml
+config.toml
+.vscode/
+coverage.out
+

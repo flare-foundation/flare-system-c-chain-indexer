@@ -6,15 +6,15 @@ import (
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer"
-	"log"
 	"strings"
 	"testing"
 
+	"github.com/BurntSushi/toml"
 	"github.com/bradleyjkemp/cupaloy/v2"
-	"github.com/caarlos0/env/v10"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"gorm.io/gorm"
 )
 
@@ -26,56 +26,125 @@ const (
 )
 
 type testConfig struct {
-	DBHost     string `env:"DB_HOST" envDefault:"localhost"`
-	DBPort     int    `env:"DB_PORT" envDefault:"3306"`
-	DBName     string `env:"DB_NAME" envDefault:"flare_ftso_indexer_test"`
-	DBUsername string `env:"DB_USERNAME" envDefault:"root"`
-	DBPassword string `env:"DB_PASSWORD" envDefault:"root"`
+	DBHost     string `toml:"test_host"`
+	DBPort     int    `toml:"test_port"`
+	DBName     string `toml:"test_database_main"`
+	DBUsername string `toml:"test_username"`
+	DBPassword string `toml:"test_password"`
 
 	// This should be a Coston2 node.
-	NodeURL    string `env:"NODE_URL" envDefault:"http://localhost:8545"`
-	NodeAPIKey string `env:"NODE_API_KEY"`
+	NodeURL    string `toml:"test_node_url"`
+	NodeAPIKey string `toml:"test_api_key"`
 }
 
-func TestIntegration(t *testing.T) {
-	ctx := context.Background()
-	var tCfg testConfig
-	err := env.Parse(&tCfg)
-	require.NoError(t, err, "Could not parse test config")
+type IntegrationIndex struct {
+	suite.Suite
+	ctx     context.Context
+	cfg     config.Config
+	indexer *indexer.BlockIndexer
+	db      *gorm.DB
+}
 
-	t.Run("IndexHistory", func(t *testing.T) {
-		t.Log("Indexing history")
+type IntegrationIndexContinuousSuite struct {
+	IntegrationIndex
+}
 
-		cfg := initConfig(tCfg, true)
+type IntegrationIndexHistorySuite struct {
+	IntegrationIndex
+}
 
-		db, err := database.ConnectAndInitialize(ctx, &cfg.DB)
-		require.NoError(t, err, "Could not connect to the database")
+func TestIntegrationIndexContinuous(t *testing.T) {
+	testSuite := new(IntegrationIndexContinuousSuite)
+	err := testSuite.prepareSuite(false)
+	if err != nil {
+		t.Fatal("Could not prepare the test suite")
+	}
+	suite.Run(t, testSuite)
+}
 
-		indexer, err := createIndexer(&cfg, db)
-		require.NoError(t, err, "Could not create the indexer")
+func TestIntegrationIndexHistory(t *testing.T) {
+	testSuite := new(IntegrationIndexHistorySuite)
+	err := testSuite.prepareSuite(true)
+	if err != nil {
+		t.Fatal("Could not prepare the test suite")
+	}
+	suite.Run(t, testSuite)
+}
 
-		err = indexer.IndexHistory(ctx)
-		require.NoError(t, err, "Could not run the indexer")
+func (suite *IntegrationIndexContinuousSuite) SetupSuite() {
+	err := suite.indexer.IndexContinuous(suite.ctx)
+	require.NoError(suite.T(), err, "Could not run the indexer")
+}
 
-		checkDB(ctx, t, db, &cfg)
-	})
+func (suite *IntegrationIndexHistorySuite) SetupSuite() {
+	err := suite.indexer.IndexHistory(suite.ctx)
+	require.NoError(suite.T(), err, "Could not run the indexer")
+}
 
-	t.Run("IndexContinuous", func(t *testing.T) {
-		t.Log("Indexing continuous")
+func (suite *IntegrationIndex) TestCheckBlocks() {
+	var blocks []database.Block
+	result := suite.db.WithContext(suite.ctx).Order("hash ASC").Find(&blocks)
+	require.NoError(suite.T(), result.Error, "Could not find blocks")
 
-		cfg := initConfig(tCfg, false)
+	suite.T().Logf("Found %d blocks", len(blocks))
 
-		db, err := database.ConnectAndInitialize(ctx, &cfg.DB)
-		require.NoError(t, err, "Could not connect to the database")
+	checkBlocks(suite.T(), blocks, &suite.cfg)
 
-		indexer, err := createIndexer(&cfg, db)
-		require.NoError(t, err, "Could not create the indexer")
+	zeroBlockIDs(blocks)
+	cupaloy.SnapshotT(suite.T(), blocks)
+}
 
-		err = indexer.IndexContinuous(ctx)
-		require.NoError(t, err, "Could not run the indexer")
+func (suite *IntegrationIndex) TestCheckTransactions() {
+	var transactions []database.Transaction
+	result := suite.db.WithContext(suite.ctx).Order("hash ASC").Find(&transactions)
+	require.NoError(suite.T(), result.Error, "Could not find transactions")
 
-		checkDB(ctx, t, db, &cfg)
-	})
+	suite.T().Logf("Found %d transactions", len(transactions))
+
+	checkTransactions(suite.T(), transactions, &suite.cfg)
+
+	zeroTransactionIDs(transactions)
+	cupaloy.SnapshotT(suite.T(), transactions)
+}
+
+func (suite *IntegrationIndex) TestCheckLogs() {
+	var logs []database.Log
+	result := suite.db.WithContext(suite.ctx).
+		Preload("Transaction").
+		Order("transaction_hash ASC, log_index ASC").
+		Find(&logs)
+	require.NoError(suite.T(), result.Error, "Could not find logs")
+
+	suite.T().Logf("Found %d logs", len(logs))
+
+	checkLogs(suite.T(), logs, &suite.cfg)
+
+	zeroLogIDs(logs)
+	cupaloy.SnapshotT(suite.T(), logs)
+}
+
+func (suite *IntegrationIndex) prepareSuite(isHistory bool) error {
+	suite.ctx = context.Background()
+	tCfg := testConfig{}
+
+	_, err := toml.DecodeFile("testing/config_test.toml", &tCfg)
+	if err != nil {
+		return errors.Wrap(err, "Could not parse config file")
+	}
+
+	suite.cfg = initConfig(tCfg, isHistory)
+
+	suite.db, err = database.ConnectAndInitialize(suite.ctx, &suite.cfg.DB)
+	if err != nil {
+		return errors.Wrap(err, "Could not connect to the database")
+	}
+
+	suite.indexer, err = createIndexer(&suite.cfg, suite.db)
+	if err != nil {
+		return errors.Wrap(err, "Could not create the indexer")
+	}
+
+	return nil
 }
 
 func initConfig(tCfg testConfig, history bool) config.Config {
@@ -100,14 +169,15 @@ func initConfig(tCfg testConfig, history bool) config.Config {
 
 	cfg := config.Config{
 		Indexer: config.IndexerConfig{
-			BatchSize:           500,
-			StartIndex:          startBlock,
-			StopIndex:           endBlock,
-			NumParallelReq:      16,
-			LogRange:            10,
-			NewBlockCheckMillis: 1000,
-			CollectTransactions: []config.TransactionInfo{txInfo},
-			CollectLogs:         []config.LogInfo{logInfo},
+			BatchSize:               500,
+			StartIndex:              startBlock,
+			StopIndex:               endBlock,
+			NumParallelReq:          16,
+			LogRange:                10,
+			NewBlockCheckMillis:     1000,
+			CollectTransactions:     []config.TransactionInfo{txInfo},
+			CollectLogs:             []config.LogInfo{logInfo},
+			NoNewBlocksDelayWarning: 60,
 		},
 		Chain: config.ChainConfig{
 			NodeURL:   tCfg.NodeURL,
@@ -116,7 +186,7 @@ func initConfig(tCfg testConfig, history bool) config.Config {
 		},
 		Logger: config.LoggerConfig{
 			Level:       "DEBUG",
-			File:        "flare-indexer-inttest.log",
+			File:        "./logger/logs/flare-indexer-inttest.log",
 			MaxFileSize: 10,
 			Console:     true,
 		},
@@ -144,50 +214,6 @@ func createIndexer(cfg *config.Config, db *gorm.DB) (*indexer.BlockIndexer, erro
 	}
 
 	return indexer.CreateBlockIndexer(cfg, db, ethClient)
-}
-
-func checkDB(ctx context.Context, t *testing.T, db *gorm.DB, cfg *config.Config) {
-	t.Run("check blocks", func(t *testing.T) {
-		var blocks []database.Block
-		result := db.WithContext(ctx).Order("hash ASC").Find(&blocks)
-		require.NoError(t, result.Error, "Could not find blocks")
-
-		log.Printf("Found %d blocks", len(blocks))
-
-		checkBlocks(t, blocks, cfg)
-
-		zeroBlockIDs(blocks)
-		cupaloy.SnapshotT(t, blocks)
-	})
-
-	t.Run("check transactions", func(t *testing.T) {
-		var transactions []database.Transaction
-		result := db.WithContext(ctx).Order("hash ASC").Find(&transactions)
-		require.NoError(t, result.Error, "Could not find transactions")
-
-		log.Printf("Found %d transactions", len(transactions))
-
-		checkTransactions(t, transactions, cfg)
-
-		zeroTransactionIDs(transactions)
-		cupaloy.SnapshotT(t, transactions)
-	})
-
-	t.Run("check logs", func(t *testing.T) {
-		var logs []database.Log
-		result := db.WithContext(ctx).
-			Preload("Transaction").
-			Order("transaction_hash ASC, log_index ASC").
-			Find(&logs)
-		require.NoError(t, result.Error, "Could not find logs")
-
-		log.Printf("Found %d logs", len(logs))
-
-		checkLogs(t, logs, cfg)
-
-		zeroLogIDs(logs)
-		cupaloy.SnapshotT(t, logs)
-	})
 }
 
 func checkBlocks(t *testing.T, blocks []database.Block, cfg *config.Config) {

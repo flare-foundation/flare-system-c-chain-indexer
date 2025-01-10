@@ -1,7 +1,8 @@
+# Configuration for benchmark testing
 [db]
 host = "localhost"
 port = 3306
-database = "flare_ftso_indexer_songbird"
+database = "flare_ftso_indexer_benchmarks"
 username = "root"
 password = "root"
 log_queries = false
@@ -10,12 +11,11 @@ drop_table_at_start = true
 
 [logger]
 level = "INFO"
-file = "../logger/logs/flare-ftso-indexer_benchmark.log"
+file = "../logger/logs/flare-ftso-indexer_log"
 console = true
 
 [chain]
 node_url = "https://songbird-node2.flare.space/ext/C/rpc"
-# node_url = "wss://songbird-node2.flare.space/ext/C/ws"
 
 [indexer]
 start_index = 48800000
@@ -24,6 +24,7 @@ new_block_check_millis = 1000
 batch_size = 2500
 num_parallel_req = 250
 log_range = 10
+no_new_blocks_delay_warning = 60
 
 [[indexer.collect_transactions]]
 contract_address = "1000000000000000000000000000000000000003"

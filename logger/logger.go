@@ -1,11 +1,9 @@
 package logger
 
 import (
-	"errors"
 	"flare-ftso-indexer/config"
-	"log"
+	"io"
 	"os"
-	"syscall"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -33,7 +31,7 @@ func createSugaredLogger(config config.LoggerConfig) *zap.SugaredLogger {
 
 	var cores []zapcore.Core
 	if config.Console {
-		cores = append(cores, createConsoleLoggerCore(config, atom))
+		cores = append(cores, createConsoleLoggerCore(atom))
 	}
 
 	if len(config.File) > 0 {
@@ -49,13 +47,6 @@ func createSugaredLogger(config config.LoggerConfig) *zap.SugaredLogger {
 		zap.AddCallerSkip(1),
 	)
 
-	defer func() {
-		err := logger.Sync()
-		if err != nil && !errors.Is(err, syscall.ENOTTY) && !errors.Is(err, syscall.EBADF) {
-			log.Print("Failed to sync logger", err)
-		}
-	}()
-
 	sug := logger.Sugar()
 
 	level, err := zapcore.ParseLevel(config.Level)
@@ -67,6 +58,14 @@ func createSugaredLogger(config config.LoggerConfig) *zap.SugaredLogger {
 	sug.Infof("Set log level to %s", level)
 
 	return sug
+}
+
+func SyncFileLogger() {
+	sugar.Infof("Syncing file logger.")
+	err := sugar.Sync()
+	if err != nil {
+		sugar.Infof("Failed to sync logger: %v", err)
+	}
 }
 
 func createFileLoggerCore(config config.LoggerConfig, atom zap.AtomicLevel) zapcore.Core {
@@ -86,14 +85,22 @@ func createFileLoggerCore(config config.LoggerConfig, atom zap.AtomicLevel) zapc
 	)
 }
 
-func createConsoleLoggerCore(config config.LoggerConfig, atom zap.AtomicLevel) zapcore.Core {
+type noSyncWriterWrapper struct {
+	io.Writer
+}
+
+func (n noSyncWriterWrapper) Sync() error {
+	return nil
+}
+
+func createConsoleLoggerCore(atom zap.AtomicLevel) zapcore.Core {
 	encoderCfg := zap.NewProductionEncoderConfig()
 	encoderCfg.EncodeLevel = consoleColorLevelEncoder
 	encoderCfg.EncodeTime = zapcore.TimeEncoderOfLayout(timeFormat)
 
 	return zapcore.NewCore(
 		zapcore.NewConsoleEncoder(encoderCfg),
-		zapcore.AddSync(os.Stdout),
+		noSyncWriterWrapper{os.Stdout},
 		atom,
 	)
 }
@@ -134,5 +141,6 @@ func Debug(msg string, args ...interface{}) {
 }
 
 func Fatal(msg string, args ...interface{}) {
+	SyncFileLogger()
 	sugar.Fatalf(msg, args...)
 }
