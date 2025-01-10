@@ -8,6 +8,9 @@ import (
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer"
 	"flare-ftso-indexer/logger"
+	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/cenkalti/backoff/v4"
@@ -16,6 +19,8 @@ import (
 )
 
 func main() {
+	defer logger.SyncFileLogger()
+
 	if err := run(context.Background()); err != nil {
 		logger.Fatal("Fatal error: %s", err)
 	}
@@ -29,6 +34,16 @@ func run(ctx context.Context) error {
 	}
 
 	config.GlobalConfigCallback.Call(cfg)
+
+	// Sync logger when docker container stops or Ctrl+C is pressed
+	signalChan := make(chan os.Signal, 1)
+	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT)
+	go func() {
+		sig := <-signalChan
+		logger.Info("Received signal: %v", sig)
+		logger.SyncFileLogger()
+		os.Exit(0)
+	}()
 
 	ethClient, err := chain.DialRPCNode(cfg)
 	if err != nil {

@@ -11,31 +11,32 @@ import (
 	"testing"
 	"time"
 
+	"github.com/BurntSushi/toml"
 	"github.com/bradleyjkemp/cupaloy/v2"
-	"github.com/caarlos0/env/v10"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
 
 type testConfig struct {
-	DBHost          string `env:"DB_HOST" envDefault:"localhost"`
-	DBPort          int    `env:"DB_PORT" envDefault:"3306"`
-	DBName          string `env:"DB_NAME" envDefault:"flare_ftso_indexer_test"`
-	DBUsername      string `env:"DB_USERNAME" envDefault:"root"`
-	DBPassword      string `env:"DB_PASSWORD" envDefault:"root"`
-	MockChainPort   int    `env:"MOCK_CHAIN_PORT" envDefault:"5500"`
-	RecorderNodeURL string `env:"RECORDER_NODE_URL"`
-	ResponsesFile   string `env:"RESPONSES_FILE" envDefault:"../testing/chain_copy/responses.json"`
+	DBHost          string `toml:"test_host"`
+	DBPort          int    `toml:"test_port"`
+	DBName          string `toml:"test_database_indexer"`
+	DBUsername      string `toml:"test_username"`
+	DBPassword      string `toml:"test_password"`
+	MockChainPort   int    `toml:"test_mock_chain_port"`
+	RecorderNodeURL string
+	ResponsesFile   string
 }
 
 func TestIndexer(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 
-	var tCfg testConfig
-	if err := env.Parse(&tCfg); err != nil {
-		t.Fatal("Config parse error:", err)
-	}
+	tCfg := testConfig{}
+	tCfg.ResponsesFile = "../testing/chain_copy/responses.json"
+
+	_, err := toml.DecodeFile("../testing/config_test.toml", &tCfg)
+	require.NoError(t, err, "Could not parse config file")
 
 	// set configuration parameters
 	mockChainAddress := fmt.Sprintf("http://localhost:%d", tCfg.MockChainPort)

@@ -73,15 +73,16 @@ type ChainConfig struct {
 }
 
 type IndexerConfig struct {
-	BatchSize           uint64            `toml:"batch_size"`
-	StartIndex          uint64            `toml:"start_index"`
-	StopIndex           uint64            `toml:"stop_index"`
-	NumParallelReq      int               `toml:"num_parallel_req"`
-	LogRange            uint64            `toml:"log_range"`
-	NewBlockCheckMillis int               `toml:"new_block_check_millis"`
-	CollectTransactions []TransactionInfo `toml:"collect_transactions"`
-	CollectLogs         []LogInfo         `toml:"collect_logs"`
-	Confirmations       uint64            `toml:"confirmations"`
+	BatchSize               uint64            `toml:"batch_size"`
+	StartIndex              uint64            `toml:"start_index"`
+	StopIndex               uint64            `toml:"stop_index"`
+	NumParallelReq          int               `toml:"num_parallel_req"`
+	LogRange                uint64            `toml:"log_range"`
+	NewBlockCheckMillis     int               `toml:"new_block_check_millis"`
+	CollectTransactions     []TransactionInfo `toml:"collect_transactions"`
+	CollectLogs             []LogInfo         `toml:"collect_logs"`
+	Confirmations           uint64            `toml:"confirmations"`
+	NoNewBlocksDelayWarning float64           `toml:"no_new_blocks_delay_warning"`
 }
 
 type TimeoutConfig struct {

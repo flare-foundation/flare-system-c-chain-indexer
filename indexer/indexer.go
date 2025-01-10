@@ -457,6 +457,7 @@ func (ci *BlockIndexer) IndexContinuous(ctx context.Context) error {
 
 	// Request blocks one by one
 	blockNum := ixRange.start
+	lastProcessedBlockTime := [2]time.Time{time.Now(), time.Now()}
 	for blockNum <= ci.params.StopIndex {
 		if blockNum > ixRange.end {
 			logger.Debug("Up to date, last block %d", states.States[database.LastChainIndexState].Index)
@@ -467,6 +468,13 @@ func (ci *BlockIndexer) IndexContinuous(ctx context.Context) error {
 				return err
 			}
 
+			elapsed := time.Since(lastProcessedBlockTime[0]).Seconds()
+			delay := ci.params.NoNewBlocksDelayWarning
+			if delay != 0 && elapsed > delay {
+				logger.Warn("Warning: %.2f seconds have elapsed since the last block was processed.", time.Since(lastProcessedBlockTime[1]).Seconds())
+				lastProcessedBlockTime[0] = time.Now()
+			}
+
 			continue
 		}
 
@@ -475,6 +483,7 @@ func (ci *BlockIndexer) IndexContinuous(ctx context.Context) error {
 			return err
 		}
 
+		lastProcessedBlockTime = [2]time.Time{time.Now(), time.Now()}
 		blockNum++
 	}
 

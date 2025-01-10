@@ -8,17 +8,25 @@ import (
 	"flare-ftso-indexer/indexer"
 	"flare-ftso-indexer/logger"
 	"testing"
+
+	"github.com/BurntSushi/toml"
 )
+
+type benchmarksConfig struct {
+	config.Config
+}
 
 func BenchmarkBlockRequests(b *testing.B) {
 	ctx := context.Background()
 
-	*config.CfgFlag = "../config.songbird.toml"
-	cfg, err := config.BuildConfig()
+	tCfg := benchmarksConfig{}
+	tCfg.Config.Indexer.Confirmations = 1
+	tCfg.Config.Chain.ChainType = 1
+	_, err := toml.DecodeFile("config_banchmark.toml", &tCfg)
 	if err != nil {
 		logger.Fatal("Config error: %s", err)
-		return
 	}
+	cfg := tCfg.Config
 	config.GlobalConfigCallback.Call(cfg)
 
 	for i := 0; i < b.N; i++ {
@@ -30,12 +38,12 @@ func BenchmarkBlockRequests(b *testing.B) {
 			logger.Fatal("Database connect and initialize error: %s", err)
 		}
 
-		ethClient, err := chain.DialRPCNode(cfg)
+		ethClient, err := chain.DialRPCNode(&cfg)
 		if err != nil {
 			logger.Fatal("Eth client error: %s", err)
 		}
 
-		cIndexer, err := indexer.CreateBlockIndexer(cfg, db, ethClient)
+		cIndexer, err := indexer.CreateBlockIndexer(&cfg, db, ethClient)
 		if err != nil {
 			logger.Fatal("Indexer create error: %s", err)
 		}
