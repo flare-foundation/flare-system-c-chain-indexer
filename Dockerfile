@@ -15,12 +15,9 @@ RUN go build -o /app/flare_cchain_indexer ./main.go
 
 FROM debian:latest AS execution
 
-ARG CONFIG_FILE=config.toml
-
 WORKDIR /app
 
 COPY --from=builder /app/flare_cchain_indexer .
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
-COPY --from=builder /build/$CONFIG_FILE ./config.toml
 
-CMD ["./flare_cchain_indexer", "--config", "config.toml"]
+CMD ["./flare_cchain_indexer"]
