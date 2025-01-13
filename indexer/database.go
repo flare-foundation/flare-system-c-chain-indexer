@@ -26,7 +26,7 @@ func (ci *BlockIndexer) saveData(
 ) error {
 	return ci.db.Transaction(func(tx *gorm.DB) error {
 		if len(data.Blocks) != 0 {
-			err := tx.Clauses(clause.OnConflict{DoNothing: true}).
+			err := tx.Clauses(clause.Insert{Modifier: "IGNORE"}).
 				CreateInBatches(data.Blocks, database.DBTransactionBatchesSize).
 				Error
 			if err != nil {
@@ -36,7 +36,7 @@ func (ci *BlockIndexer) saveData(
 
 		if len(data.Transactions) != 0 {
 			// insert transactions in the database, if an entry already exists, do nothing
-			err := tx.Clauses(clause.OnConflict{DoNothing: true}).
+			err := tx.Clauses(clause.Insert{Modifier: "IGNORE"}).
 				CreateInBatches(data.Transactions, database.DBTransactionBatchesSize).
 				Error
 			if err != nil {
@@ -46,7 +46,7 @@ func (ci *BlockIndexer) saveData(
 
 		if len(data.Logs) != 0 {
 			// insert logs in the database, if an entry already exists, do nothing
-			err := tx.Clauses(clause.OnConflict{DoNothing: true}).
+			err := tx.Clauses(clause.Insert{Modifier: "IGNORE"}).
 				CreateInBatches(data.Logs, database.DBTransactionBatchesSize).
 				Error
 			if err != nil {
