@@ -6,6 +6,7 @@ import (
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/logger"
+	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -92,7 +93,12 @@ func (ci *BlockIndexer) fetchLastBlockIndex(ctx context.Context) (uint64, uint64
 		return 0, 0, errors.Wrap(err, "fetchBlockHeader last")
 	}
 
-	latestConfirmedNumber := lastBlock.Number().Uint64() - ci.params.Confirmations
+	lastBlockNumber := lastBlock.Number().Uint64()
+	if lastBlockNumber < ci.params.Confirmations {
+		return 0, 0, fmt.Errorf("not enough confirmations for, latest block %d, confirmations required %d", lastBlockNumber, ci.params.Confirmations)
+	}
+
+	latestConfirmedNumber := lastBlockNumber - ci.params.Confirmations
 	latestConfirmedHeader, err := ci.fetchBlockHeader(ctx, &latestConfirmedNumber)
 	if err != nil {
 		return 0, 0, errors.Wrap(err, "fetchBlockHeader latestConfirmed")
