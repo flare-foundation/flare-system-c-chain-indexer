@@ -25,7 +25,7 @@ type Transaction struct {
 type Log struct {
 	BaseEntity
 	TransactionID   uint64       `gorm:"default:null"`
-	Transaction     *Transaction `gorm:"foreignKey:TransactionID;references:ID;constraint:OnUpdate:CASCADE"`
+	Transaction     *Transaction `gorm:"foreignKey:TransactionID;references:ID;constraint:OnUpdate:CASCADE,OnDelete:CASCADE"`
 	Address         string       `gorm:"type:varchar(40);index"`
 	Data            string       `gorm:"type:string"`
 	Topic0          string       `gorm:"type:varchar(64);index"`
