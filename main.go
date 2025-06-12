@@ -69,9 +69,6 @@ func run(ctx context.Context) error {
 				firstBlockNumber, err = database.DropHistoryIteration(
 					ctx, db, cfg.DB.HistoryDrop, ethClient, cfg.Indexer.StartIndex,
 				)
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return nil
-				}
 
 				return err
 			},
