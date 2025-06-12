@@ -30,8 +30,12 @@
   },
   mu: (sync.RWMutex) {
     w: (sync.Mutex) {
-      state: (int32) 0,
-      sema: (uint32) 0
+      _: (sync.noCopy) {
+      },
+      mu: (sync.Mutex) {
+        state: (int32) 0,
+        sema: (uint32) 0
+      }
     },
     writerSem: (uint32) 0,
     readerSem: (uint32) 0,

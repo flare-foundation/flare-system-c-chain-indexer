@@ -20,8 +20,8 @@ func BenchmarkBlockRequests(b *testing.B) {
 	ctx := context.Background()
 
 	tCfg := benchmarksConfig{}
-	tCfg.Config.Indexer.Confirmations = 1
-	tCfg.Config.Chain.ChainType = 1
+	tCfg.Indexer.Confirmations = 1
+	tCfg.Chain.ChainType = 1
 	_, err := toml.DecodeFile("config_banchmark.toml", &tCfg)
 	if err != nil {
 		logger.Fatal("Config error: %s", err)

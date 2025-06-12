@@ -103,8 +103,14 @@ func (m *MockChain) ChainMockResponses(
 	writer http.ResponseWriter,
 	request *http.Request,
 ) {
+	defer func() {
+		err := request.Body.Close()
+		if err != nil {
+			logger.Error("error closing request body:", err)
+		}
+	}()
+
 	reqBody, err := io.ReadAll(request.Body)
-	request.Body.Close()
 	if err != nil {
 		http.Error(writer, "error reading request body", http.StatusInternalServerError)
 		return
@@ -133,16 +139,20 @@ func (m *MockChain) ChainMockResponses(
 	if err != nil {
 		logger.Error("error writing response:", err)
 	}
-
-	//logger.Debug("written response for req %s: %s", reqBody, rspData)
 }
 
 func (m *MockChain) RecordResponses(
 	writer http.ResponseWriter,
 	request *http.Request,
 ) {
+	defer func() {
+		err := request.Body.Close()
+		if err != nil {
+			logger.Error("error closing request body:", err)
+		}
+	}()
+
 	reqBody, err := io.ReadAll(request.Body)
-	request.Body.Close()
 	if err != nil {
 		http.Error(writer, "error reading request body", http.StatusInternalServerError)
 		return
@@ -168,13 +178,19 @@ func (m *MockChain) RecordResponses(
 		return
 	}
 
+	defer func() {
+		err := rsp.Body.Close()
+		if err != nil {
+			logger.Error("error closing response body:", err)
+		}
+	}()
+
 	if rsp.StatusCode != http.StatusOK {
 		http.Error(writer, rsp.Status, rsp.StatusCode)
 		return
 	}
 
 	rspBody, err := io.ReadAll(rsp.Body)
-	rsp.Body.Close()
 	if err != nil {
 		http.Error(writer, "error reading rsp body", http.StatusInternalServerError)
 		return

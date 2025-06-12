@@ -11,6 +11,7 @@ import (
 	"os"
 
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/pkg/errors"
 )
 
 type PostToChain struct {
@@ -45,14 +46,21 @@ func CopyChain(
 		if err != nil {
 			return nil, nil, err
 		}
-		defer res.Body.Close()
+
+		defer func() {
+			err := res.Body.Close()
+			if err != nil {
+				fmt.Println("Error closing response body:", err)
+			}
+		}()
+
 		if res.StatusCode != 200 {
-			return nil, nil, fmt.Errorf("Error response")
+			return nil, nil, errors.Errorf("error response")
 		}
 
 		b, err := io.ReadAll(res.Body)
 		if err != nil {
-			return nil, nil, fmt.Errorf("Error reading")
+			return nil, nil, errors.Errorf("error reading")
 		}
 		blockDict[i] = b
 	}
@@ -86,14 +94,21 @@ func CopyChain(
 			if err != nil {
 				return nil, nil, err
 			}
-			defer res.Body.Close()
+
+			defer func() {
+				err := res.Body.Close()
+				if err != nil {
+					fmt.Println("Error closing response body:", err)
+				}
+			}()
+
 			if res.StatusCode != 200 {
-				return nil, nil, fmt.Errorf("Error response")
+				return nil, nil, errors.Errorf("error response")
 			}
 
 			b, err := io.ReadAll(res.Body)
 			if err != nil {
-				return nil, nil, fmt.Errorf("Error reading")
+				return nil, nil, errors.Errorf("error reading")
 			}
 			txDict[hashHex] = b
 		}
