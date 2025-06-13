@@ -156,7 +156,7 @@ func runIndexer(ctx context.Context, mockChain *indexer_testing.MockChain, db *g
 	// turn on the function to delete in the database everything that
 	// is older than the historyDrop interval
 	go database.DropHistory(
-		ctx, db, historyDropIntervalSeconds, database.HistoryDropIntervalCheck, ethClient,
+		ctx, db, historyDropIntervalSeconds, database.HistoryDropIntervalCheck, ethClient, 0,
 	)
 
 	// run indexer
