@@ -72,7 +72,12 @@ func DropHistoryIteration(
 		}
 	}
 
-	return deleteStartBlock, err
+	err = globalStates.Update(db, FirstDatabaseIndexState, deleteStartBlock, deleteStartTime)
+	if err != nil {
+		return 0, errors.Wrap(err, "Failed to update state in the DB")
+	}
+
+	return deleteStartBlock, nil
 }
 
 func deleteInBatches(db *gorm.DB, deleteStartTime uint64, entity interface{}) error {
