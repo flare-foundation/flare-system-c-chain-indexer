@@ -26,7 +26,7 @@ func DropHistory(
 
 		startTime := time.Now()
 		_, err := DropHistoryIteration(ctx, db, intervalSeconds, client, startBlockNumber)
-		if err == nil || errors.Is(err, gorm.ErrRecordNotFound) {
+		if err == nil {
 			duration := time.Since(startTime)
 			logger.Info("finished DropHistory iteration in %v", duration)
 		} else {
