@@ -110,9 +110,12 @@ func TestIndexer(t *testing.T) {
 	require.NoError(t, err)
 
 	// Set the update timestamps to zero for the snapshot as these will
-	// vary with current system  time.
+	// vary with current system  time. Also set the IDs to zero as these
+	// depend on a race condition between the different states being
+	// inserted concurrently.
 	for _, state := range states.States {
 		state.Updated = time.Time{}
+		state.ID = 0
 	}
 
 	cupaloy.SnapshotT(t, states)
@@ -156,7 +159,7 @@ func runIndexer(ctx context.Context, mockChain *indexer_testing.MockChain, db *g
 	// turn on the function to delete in the database everything that
 	// is older than the historyDrop interval
 	go database.DropHistory(
-		ctx, db, historyDropIntervalSeconds, database.HistoryDropIntervalCheck, ethClient,
+		ctx, db, historyDropIntervalSeconds, database.HistoryDropIntervalCheck, ethClient, 0,
 	)
 
 	// run indexer

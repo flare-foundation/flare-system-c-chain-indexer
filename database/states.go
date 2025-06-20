@@ -76,6 +76,14 @@ func (s *DBStates) updateDB(db *gorm.DB, name string) error {
 }
 
 func (s *DBStates) Update(db *gorm.DB, name string, newIndex, blockTimestamp uint64) error {
+	s.mu.RLock()
+	state := s.States[name]
+	s.mu.RUnlock()
+
+	if state == nil {
+		return errors.Errorf("state %s not found", name)
+	}
+
 	s.updateIndex(name, newIndex, blockTimestamp)
 	return s.updateDB(db, name)
 }
@@ -134,7 +142,16 @@ func getDBStates(ctx context.Context, db *gorm.DB) (map[string]*State, error) {
 			state := new(State)
 			err := db.WithContext(ctx).Where(&State{Name: name}).First(state).Error
 			if err != nil {
-				return errors.Wrap(err, "db.Where")
+				if !errors.Is(err, gorm.ErrRecordNotFound) {
+					return errors.Wrap(err, "db.Where")
+				}
+
+				// If the state is not found, create a new one.
+				state = &State{Name: name, Updated: time.Now()}
+				err := db.Create(state).Error
+				if err != nil {
+					return errors.Wrap(err, "db.Create")
+				}
 			}
 
 			mu.Lock()

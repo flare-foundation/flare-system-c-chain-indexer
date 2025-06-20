@@ -66,10 +66,9 @@ func run(ctx context.Context) error {
 
 		err = backoff.RetryNotify(
 			func() (err error) {
-				firstBlockNumber, err = database.DropHistoryIteration(ctx, db, cfg.DB.HistoryDrop, ethClient)
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					return nil
-				}
+				firstBlockNumber, err = database.DropHistoryIteration(
+					ctx, db, cfg.DB.HistoryDrop, ethClient, cfg.Indexer.StartIndex,
+				)
 
 				return err
 			},
@@ -82,7 +81,7 @@ func run(ctx context.Context) error {
 			return errors.Wrap(err, "startup DropHistory error")
 		}
 
-		logger.Info("initial DropHistory iteration finished in %s", time.Since(startTime))
+		logger.Info("initial DropHistory iteration finished in %s, firstBlockBumber = %d", time.Since(startTime), firstBlockNumber)
 
 		if firstBlockNumber > cfg.Indexer.StartIndex {
 			logger.Info("Setting new startIndex due to history drop: %d", firstBlockNumber)
@@ -116,7 +115,12 @@ func runIndexer(ctx context.Context, cfg *config.Config, db *gorm.DB, ethClient 
 
 	if cfg.DB.HistoryDrop > 0 {
 		go database.DropHistory(
-			ctx, db, cfg.DB.HistoryDrop, database.HistoryDropIntervalCheck, ethClient,
+			ctx,
+			db,
+			cfg.DB.HistoryDrop,
+			database.HistoryDropIntervalCheck,
+			ethClient,
+			cfg.Indexer.StartIndex,
 		)
 	}
 
