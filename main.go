@@ -8,6 +8,7 @@ import (
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer"
 	"flare-ftso-indexer/logger"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -30,7 +31,10 @@ func run(ctx context.Context) error {
 	flag.Parse()
 	cfg, err := config.BuildConfig()
 	if err != nil {
-		return errors.Wrap(err, "config error")
+		// The logger is not initialized yet so fallback to directly
+		// printing to stdout.
+		fmt.Println("Error building config: ", err)
+		return err
 	}
 
 	config.GlobalConfigCallback.Call(cfg)
