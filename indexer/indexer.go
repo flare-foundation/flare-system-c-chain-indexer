@@ -80,6 +80,8 @@ func updateParams(params config.IndexerConfig) config.IndexerConfig {
 }
 
 func makeTransactions(txInfo []config.TransactionInfo) (map[common.Address]map[functionSignature]transactionsPolicy, error) {
+	logger.Info("Creating transactions policies from config: %+v", txInfo)
+
 	transactions := make(map[common.Address]map[functionSignature]transactionsPolicy)
 
 	for i := range txInfo {
@@ -101,6 +103,8 @@ func makeTransactions(txInfo []config.TransactionInfo) (map[common.Address]map[f
 			collectSignature: transaction.Signature,
 		}
 	}
+
+	logger.Info("Created transactions policies: %+v", transactions)
 
 	return transactions, nil
 }

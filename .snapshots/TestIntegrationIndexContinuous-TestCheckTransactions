@@ -16,7 +16,7 @@
     GasPrice: (string) (len=11) "50000000000",
     Gas: (uint64) 117214,
     Timestamp: (uint64) 1696930835,
-    Signature: (*string)(<nil>)
+    Signature: (*string)((len=130) "4fb1f1f843d51ef98e1f7c7ef3939985ebf773aa057e48a0557a07f1972eb6a940236bb4238fefb59e7abb3d26d6320193fbd2cea98c0b9e71370f3539ba21b600")
   },
   (database.Transaction) {
     BaseEntity: (database.BaseEntity) {
@@ -35,6 +35,6 @@
     GasPrice: (string) (len=11) "50000000000",
     Gas: (uint64) 117202,
     Timestamp: (uint64) 1696930654,
-    Signature: (*string)(<nil>)
+    Signature: (*string)((len=130) "8d318f72e059819efb683532e81a70ff437cc24c209fc3f1dd35d3f586498acd65aa0bf343f38b1c94f07d150e3c8919e3b9922cab438b1c2c0016930afcc10101")
   }
 }

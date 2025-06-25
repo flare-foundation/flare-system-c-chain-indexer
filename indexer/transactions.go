@@ -16,7 +16,6 @@ import (
 	"github.com/ava-labs/coreth/core/types"
 	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 )
 
@@ -155,11 +154,16 @@ func buildDBTx(
 
 	var signature *string
 	if collectSignature {
-		var err error
-		signature, err = packSignature(tx)
+		logger.Debug("Collecting signature for transaction %s", tx.Hash().Hex())
+
+		sig, err := packSignature(tx)
 		if err != nil {
 			return nil, errors.Wrap(err, "packSignature")
 		}
+
+		signature = &sig
+	} else {
+		logger.Debug("Skipping signature collection for transaction %s", tx.Hash().Hex())
 	}
 
 	base := database.BaseEntity{ID: database.TransactionId.Load()}
@@ -182,10 +186,10 @@ func buildDBTx(
 	}, nil
 }
 
-func packSignature(tx *chain.Transaction) (*string, error) {
+func packSignature(tx *chain.Transaction) (string, error) {
 	v, r, s := tx.RawSignatureValues()
 	if v == nil || r == nil || s == nil {
-		return nil, errors.New("transaction missing signature values")
+		return "", errors.New("transaction missing signature values")
 	}
 
 	sig := make([]byte, 65)
@@ -194,16 +198,14 @@ func packSignature(tx *chain.Transaction) (*string, error) {
 
 	// Convert v to a byte. First check that it is a valid value.
 	if v.Sign() < 0 {
-		return nil, errors.New("transaction v value is negative")
+		return "", errors.New("transaction v value is negative")
 	}
 	if v.BitLen() > 8 {
-		return nil, errors.New("transaction v value is too large")
+		return "", errors.New("transaction v value is too large")
 	}
 
 	sig[64] = byte(v.Uint64())
-	sigHex := hexutil.Encode(sig)
-
-	return &sigHex, nil
+	return hex.EncodeToString(sig), nil
 }
 
 func buildDBLog(dbTx *database.Transaction, log *types.Log, block *chain.Block) (*database.Log, error) {
