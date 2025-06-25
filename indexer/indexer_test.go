@@ -8,11 +8,14 @@ import (
 	"flare-ftso-indexer/logger"
 	indexer_testing "flare-ftso-indexer/testing"
 	"fmt"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/BurntSushi/toml"
 	"github.com/bradleyjkemp/cupaloy/v2"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
@@ -37,6 +40,8 @@ func TestIndexer(t *testing.T) {
 
 	_, err := toml.DecodeFile("../testing/config_test.toml", &tCfg)
 	require.NoError(t, err, "Could not parse config file")
+
+	applyEnvOverrides(&tCfg)
 
 	// set configuration parameters
 	mockChainAddress := fmt.Sprintf("http://localhost:%d", tCfg.MockChainPort)
@@ -119,6 +124,30 @@ func TestIndexer(t *testing.T) {
 	}
 
 	cupaloy.SnapshotT(t, states)
+}
+
+var envOverrides = map[string]func(*testConfig, string){
+	"TEST_DB_HOST":      func(c *testConfig, v string) { c.DBHost = v },
+	"TEST_DB_PORT":      func(c *testConfig, v string) { c.DBPort = mustParseInt(v) },
+	"TEST_DB_NAME_MAIN": func(c *testConfig, v string) { c.DBName = v },
+	"TEST_DB_USERNAME":  func(c *testConfig, v string) { c.DBUsername = v },
+	"TEST_DB_PASSWORD":  func(c *testConfig, v string) { c.DBPassword = v },
+}
+
+func mustParseInt(value string) int {
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		panic(errors.Wrapf(err, "Could not parse integer from value: %s", value))
+	}
+	return parsed
+}
+
+func applyEnvOverrides(cfg *testConfig) {
+	for env, override := range envOverrides {
+		if val, ok := os.LookupEnv(env); ok {
+			override(cfg, val)
+		}
+	}
 }
 
 func runIndexer(ctx context.Context, mockChain *indexer_testing.MockChain, db *gorm.DB, cfg *config.Config) error {

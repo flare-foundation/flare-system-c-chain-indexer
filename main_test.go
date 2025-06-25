@@ -6,6 +6,8 @@ import (
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer"
+	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -132,6 +134,8 @@ func (suite *IntegrationIndex) prepareSuite(isHistory bool) error {
 		return errors.Wrap(err, "Could not parse config file")
 	}
 
+	applyEnvOverrides(&tCfg)
+
 	suite.cfg = initConfig(tCfg, isHistory)
 
 	suite.db, err = database.ConnectAndInitialize(suite.ctx, &suite.cfg.DB)
@@ -145,6 +149,32 @@ func (suite *IntegrationIndex) prepareSuite(isHistory bool) error {
 	}
 
 	return nil
+}
+
+var envOverrides = map[string]func(*testConfig, string){
+	"TEST_DB_HOST":      func(c *testConfig, v string) { c.DBHost = v },
+	"TEST_DB_PORT":      func(c *testConfig, v string) { c.DBPort = mustParseInt(v) },
+	"TEST_DB_NAME_MAIN": func(c *testConfig, v string) { c.DBName = v },
+	"TEST_DB_USERNAME":  func(c *testConfig, v string) { c.DBUsername = v },
+	"TEST_DB_PASSWORD":  func(c *testConfig, v string) { c.DBPassword = v },
+	"NODE_URL":          func(c *testConfig, v string) { c.NodeURL = v },
+	"NODE_API_KEY":      func(c *testConfig, v string) { c.NodeAPIKey = v },
+}
+
+func mustParseInt(value string) int {
+	parsed, err := strconv.Atoi(value)
+	if err != nil {
+		panic(errors.Wrapf(err, "Could not parse integer from value: %s", value))
+	}
+	return parsed
+}
+
+func applyEnvOverrides(cfg *testConfig) {
+	for env, override := range envOverrides {
+		if val, ok := os.LookupEnv(env); ok {
+			override(cfg, val)
+		}
+	}
 }
 
 func initConfig(tCfg testConfig, history bool) config.Config {
