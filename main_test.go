@@ -57,7 +57,7 @@ func TestIntegrationIndexContinuous(t *testing.T) {
 	testSuite := new(IntegrationIndexContinuousSuite)
 	err := testSuite.prepareSuite(false)
 	if err != nil {
-		t.Fatal("Could not prepare the test suite")
+		t.Fatal("Could not prepare the test suite:", err)
 	}
 	suite.Run(t, testSuite)
 }
@@ -160,6 +160,7 @@ func initConfig(tCfg testConfig, history bool) config.Config {
 		FuncSig:         "undefined",
 		Status:          true,
 		CollectEvents:   true,
+		Signature:       true,
 	}
 
 	logInfo := config.LogInfo{

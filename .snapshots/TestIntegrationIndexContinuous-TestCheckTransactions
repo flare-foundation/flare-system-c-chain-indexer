@@ -15,7 +15,8 @@
     Value: (string) (len=1) "0",
     GasPrice: (string) (len=11) "50000000000",
     Gas: (uint64) 117214,
-    Timestamp: (uint64) 1696930835
+    Timestamp: (uint64) 1696930835,
+    Signature: (*string)(<nil>)
   },
   (database.Transaction) {
     BaseEntity: (database.BaseEntity) {
@@ -33,6 +34,7 @@
     Value: (string) (len=1) "0",
     GasPrice: (string) (len=11) "50000000000",
     Gas: (uint64) 117202,
-    Timestamp: (uint64) 1696930654
+    Timestamp: (uint64) 1696930654,
+    Signature: (*string)(<nil>)
   }
 }
