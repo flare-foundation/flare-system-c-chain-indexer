@@ -36,8 +36,9 @@ type BlockIndexer struct {
 }
 
 type transactionsPolicy struct {
-	status        bool
-	collectEvents bool
+	status           bool
+	collectEvents    bool
+	collectSignature bool
 }
 
 type functionSignature [4]byte
@@ -95,8 +96,9 @@ func makeTransactions(txInfo []config.TransactionInfo) (map[common.Address]map[f
 		}
 
 		transactions[contractAddress][funcSig] = transactionsPolicy{
-			status:        transaction.Status,
-			collectEvents: transaction.CollectEvents,
+			status:           transaction.Status,
+			collectEvents:    transaction.CollectEvents,
+			collectSignature: transaction.Signature,
 		}
 	}
 

@@ -15,6 +15,8 @@ import (
 
 	"github.com/ava-labs/coreth/core/types"
 	"github.com/cenkalti/backoff/v4"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 )
 
@@ -108,7 +110,7 @@ func (ci *BlockIndexer) processTransactions(txBatch *transactionsBatch, data *da
 		txIndex := txBatch.toIndex[i]
 		policy := txBatch.toPolicy[i]
 
-		dbTx, err := buildDBTx(tx, receipt, block, txIndex)
+		dbTx, err := buildDBTx(tx, receipt, block, txIndex, policy.collectSignature)
 		if err != nil {
 			return err
 		}
@@ -136,7 +138,7 @@ func (ci *BlockIndexer) processTransactions(txBatch *transactionsBatch, data *da
 }
 
 func buildDBTx(
-	tx *chain.Transaction, receipt *chain.Receipt, block *chain.Block, txIndex uint64,
+	tx *chain.Transaction, receipt *chain.Receipt, block *chain.Block, txIndex uint64, collectSignature bool,
 ) (*database.Transaction, error) {
 	txData := hex.EncodeToString(tx.Data())
 	funcSig := txData[:8]
@@ -149,6 +151,15 @@ func buildDBTx(
 	status := uint64(2)
 	if receipt != nil {
 		status = receipt.Status()
+	}
+
+	var signature *string
+	if collectSignature {
+		var err error
+		signature, err = packSignature(tx)
+		if err != nil {
+			return nil, errors.Wrap(err, "packSignature")
+		}
 	}
 
 	base := database.BaseEntity{ID: database.TransactionId.Load()}
@@ -167,7 +178,32 @@ func buildDBTx(
 		GasPrice:         tx.GasPrice().String(),
 		Gas:              tx.Gas(),
 		Timestamp:        block.Time(),
+		Signature:        signature,
 	}, nil
+}
+
+func packSignature(tx *chain.Transaction) (*string, error) {
+	v, r, s := tx.RawSignatureValues()
+	if v == nil || r == nil || s == nil {
+		return nil, errors.New("transaction missing signature values")
+	}
+
+	sig := make([]byte, 65)
+	copy(sig[0:32], common.LeftPadBytes(r.Bytes(), 32)) // pad to 32 bytes
+	copy(sig[32:64], common.LeftPadBytes(s.Bytes(), 32))
+
+	// Convert v to a byte. First check that it is a valid value.
+	if v.Sign() < 0 {
+		return nil, errors.New("transaction v value is negative")
+	}
+	if v.BitLen() > 8 {
+		return nil, errors.New("transaction v value is too large")
+	}
+
+	sig[64] = byte(v.Uint64())
+	sigHex := hexutil.Encode(sig)
+
+	return &sigHex, nil
 }
 
 func buildDBLog(dbTx *database.Transaction, log *types.Log, block *chain.Block) (*database.Log, error) {
