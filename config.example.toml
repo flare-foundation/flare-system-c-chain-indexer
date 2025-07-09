@@ -1,6 +1,6 @@
 # Example of config.toml file for  coston2
 
-[indexer] 
+[indexer]
 start_index = 12952779 # the number of the block that the indexer will start with
 stop_index = 0 # the number of the block that the indexer will stop with; set 0 or skip to index indefinitely
 num_parallel_req = 100 # the number of threads doing requests to the chain in parallel
@@ -13,6 +13,7 @@ no_new_blocks_delay_warning = 60 # the maximum allowed time interval (in seconds
 contract_address = "0x2cA6571Daa15ce734Bbd0Bf27D5C9D16787fc33f" # Submission
 func_sig = "6c532fae"
 status = true
+signature = true
 
 [[indexer.collect_transactions]]
 contract_address = "0x2cA6571Daa15ce734Bbd0Bf27D5C9D16787fc33f" # Submission
@@ -29,6 +30,7 @@ contract_address = "0x4087D4B5E009Af9FF41db910205439F82C3dc63c" # Relay
 func_sig = "b59589d1"
 status = true
 collect_events = true
+signature = true
 
 [[indexer.collect_transactions]]
 contract_address = "0x0D462d2Fec11554D64F52D7c5A5C269d748037aD" # Songbird: New Relay Pre Patch
@@ -113,4 +115,3 @@ password = "root"
 log_queries = false
 drop_table_at_start = false
 history_drop = 3628800 # 42 days
-
