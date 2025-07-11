@@ -38,6 +38,16 @@ func run(ctx context.Context) error {
 	}
 
 	config.GlobalConfigCallback.Call(cfg)
+	if cfg.DB.HistoryDrop < config.MinHistoryDropSeconds {
+		// For now this is just a warning rather than an error,
+		// Note: due to a circular dependency, we cannot use the logger
+		// from within the config package so logging here instead.
+		logger.Warn(
+			"history drop of %d seconds is less than recommended minimum of %d seconds",
+			cfg.DB.HistoryDrop,
+			config.MinHistoryDropSeconds,
+		)
+	}
 
 	// Sync logger when docker container stops or Ctrl+C is pressed
 	signalChan := make(chan os.Signal, 1)
