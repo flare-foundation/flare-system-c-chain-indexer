@@ -16,7 +16,7 @@ var (
 	Timeout               time.Duration                = 1000 * time.Millisecond
 	GlobalConfigCallback  ConfigCallback[GlobalConfig] = ConfigCallback[GlobalConfig]{}
 	CfgFlag                                            = flag.String("config", "config.toml", "Configuration file (toml format)")
-	MinHistoryDropSeconds uint64                       = uint64((10 * 24 * time.Hour).Seconds()) // Minimum history drop duration (10 days)
+	minHistoryDropSeconds uint64                       = uint64((10 * 24 * time.Hour).Seconds()) // Minimum history drop duration (10 days)
 )
 
 const defaultConfirmations = 1
@@ -67,6 +67,18 @@ type DBConfig struct {
 	DropTableAtStart bool   `toml:"drop_table_at_start"`
 }
 
+func (db *DBConfig) validate() error {
+	if db.HistoryDrop > 0 && db.HistoryDrop < minHistoryDropSeconds {
+		return errors.Errorf(
+			"history drop must be at least %d seconds, got %d seconds",
+			minHistoryDropSeconds,
+			db.HistoryDrop,
+		)
+	}
+
+	return nil
+}
+
 type ChainConfig struct {
 	NodeURL   string `toml:"node_url"`
 	APIKey    string `toml:"api_key"`
@@ -108,7 +120,7 @@ func BuildConfig() (*Config, error) {
 
 	// Set default values for the config
 	cfg := &Config{
-		DB:      DBConfig{HistoryDrop: MinHistoryDropSeconds},
+		DB:      DBConfig{HistoryDrop: minHistoryDropSeconds},
 		Indexer: IndexerConfig{Confirmations: defaultConfirmations},
 		Chain:   ChainConfig{ChainType: defaultChainType},
 	}
@@ -119,6 +131,10 @@ func BuildConfig() (*Config, error) {
 	}
 
 	applyEnvOverrides(cfg)
+
+	if err := validateConfig(cfg); err != nil {
+		return nil, errors.Wrap(err, "config validation failed")
+	}
 
 	return cfg, nil
 }
@@ -172,4 +188,12 @@ func applyEnvOverrides(cfg *Config) {
 			override(cfg, val)
 		}
 	}
+}
+
+func validateConfig(cfg *Config) error {
+	if err := cfg.DB.validate(); err != nil {
+		return errors.Wrap(err, "db configuration validation failed")
+	}
+
+	return nil
 }
