@@ -3,9 +3,9 @@ package chain
 import (
 	"context"
 	"errors"
-	"flare-ftso-indexer/config"
 	"fmt"
 	"math/big"
+	"net/url"
 
 	avxClient "github.com/ava-labs/coreth/ethclient"
 	"github.com/ava-labs/coreth/interfaces"
@@ -17,6 +17,23 @@ import (
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 )
 
+// ChainID represents the external chain ID which identifies a particular
+// blockchain network.
+type ChainID int
+
+const (
+	ChainIDFlare    ChainID = 14
+	ChainIDSongbird ChainID = 19
+	ChainIDCoston   ChainID = 16
+	ChainIDCoston2  ChainID = 114
+)
+
+func ChainIDFromBigInt(chainID *big.Int) ChainID {
+	return ChainID(chainID.Int64())
+}
+
+// ChainType is an internal type used to differentiate between different
+// types of EVM-compatible chains.
 type ChainType int
 
 const (
@@ -54,12 +71,10 @@ type Transaction struct {
 	avx   *avxTypes.Transaction
 }
 
-func DialRPCNode(cfg *config.Config) (*Client, error) {
-	nodeURL, err := cfg.Chain.FullNodeURL()
-	if err != nil {
-		return nil, err
-	}
-	c := &Client{chain: ChainType(cfg.Chain.ChainType)}
+func DialRPCNode(nodeURL *url.URL, chainType ChainType) (*Client, error) {
+	c := &Client{chain: chainType}
+	var err error
+
 	switch c.chain {
 	case ChainTypeAvax:
 		c.avx, err = avxClient.Dial(nodeURL.String())
@@ -70,6 +85,17 @@ func DialRPCNode(cfg *config.Config) (*Client, error) {
 	}
 
 	return c, err
+}
+
+func (c *Client) ChainID(ctx context.Context) (*big.Int, error) {
+	switch c.chain {
+	case ChainTypeAvax:
+		return c.avx.ChainID(ctx)
+	case ChainTypeEth:
+		return c.eth.ChainID(ctx)
+	default:
+		return nil, errors.New("invalid chain")
+	}
 }
 
 func (c *Client) BlockByNumber(ctx context.Context, number *big.Int) (*Block, error) {

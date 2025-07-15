@@ -40,7 +40,7 @@ func TestIndexer(t *testing.T) {
 
 	// set configuration parameters
 	mockChainAddress := fmt.Sprintf("http://localhost:%d", tCfg.MockChainPort)
-	cfgChain := config.ChainConfig{NodeURL: mockChainAddress, ChainType: int(chain.ChainTypeAvax)}
+	cfgChain := config.ChainConfig{NodeURL: mockChainAddress, ChainType: chain.ChainTypeAvax}
 
 	// for the test we do not use finalizations
 	collectTransactions := []config.TransactionInfo{
@@ -139,7 +139,12 @@ func runIndexer(ctx context.Context, mockChain *indexer_testing.MockChain, db *g
 	// set a new starting index based on the history drop interval
 	historyDropIntervalSeconds := uint64(10000)
 
-	ethClient, err := chain.DialRPCNode(cfg)
+	nodeURL, err := cfg.Chain.FullNodeURL()
+	if err != nil {
+		logger.Fatal("Invalid node URL in config: %s", err)
+	}
+
+	ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType)
 	if err != nil {
 		logger.Fatal("Could not connect to the Ethereum node: %s", err)
 	}
