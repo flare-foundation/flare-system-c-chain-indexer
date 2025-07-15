@@ -38,7 +38,12 @@ func BenchmarkBlockRequests(b *testing.B) {
 			logger.Fatal("Database connect and initialize error: %s", err)
 		}
 
-		ethClient, err := chain.DialRPCNode(&cfg)
+		nodeURL, err := cfg.Chain.FullNodeURL()
+		if err != nil {
+			logger.Fatal("Invalid node URL in config: %s", err)
+		}
+
+		ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType)
 		if err != nil {
 			logger.Fatal("Eth client error: %s", err)
 		}
