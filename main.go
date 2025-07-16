@@ -76,7 +76,12 @@ func run(ctx context.Context) error {
 		return errors.Wrap(err, "Failed to get history drop configuration")
 	}
 
-	logger.Info("History drop period is set to %s", time.Duration(historyDrop)*time.Second)
+	historyDropDays := float64(historyDrop*time.Second) / float64(time.Hour*24)
+	if cfg.DB.HistoryDrop == nil {
+		logger.Info("Using default history drop value of %.1f days", historyDropDays)
+	} else {
+		logger.Info("Using configured history drop value of %.1f days", historyDropDays)
+	}
 
 	if historyDrop > 0 {
 		// Run an initial iteration of the history drop. This could take some
