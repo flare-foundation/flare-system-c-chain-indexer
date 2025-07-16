@@ -95,6 +95,7 @@ type TransactionInfo struct {
 	FuncSig         string `toml:"func_sig"`
 	Status          bool   `toml:"status"`
 	CollectEvents   bool   `toml:"collect_events"`
+	Signature       bool   `toml:"signature"` // if true, the transaction signature will be collected
 }
 
 type LogInfo struct {
