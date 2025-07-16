@@ -7,6 +7,8 @@ import (
 	"math/big"
 	"net/url"
 
+	"flare-ftso-indexer/logger"
+
 	avxClient "github.com/ava-labs/coreth/ethclient"
 	"github.com/ava-labs/coreth/interfaces"
 	"github.com/ethereum/go-ethereum"
@@ -355,5 +357,17 @@ func (t *Transaction) FromAddress() (common.Address, error) {
 		return ethTypes.Sender(ethTypes.LatestSignerForChainID(t.eth.ChainId()), t.eth)
 	default:
 		return common.Address{}, fmt.Errorf("wrong chain")
+	}
+}
+
+func (t *Transaction) RawSignatureValues() (v, r, s *big.Int) {
+	switch t.chain {
+	case ChainTypeAvax:
+		return t.avx.RawSignatureValues()
+	case ChainTypeEth:
+		return t.eth.RawSignatureValues()
+	default:
+		logger.Error("RawSignatureValues called on unsupported chain type: %d", t.chain)
+		return nil, nil, nil
 	}
 }

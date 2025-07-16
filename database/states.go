@@ -102,6 +102,8 @@ func (s *DBStates) UpdateAtStart(
 		logger.Info("Data from blocks %d to %d already in the database", startIndex, lastIndex)
 		startIndex = lastIndex + 1
 	} else {
+		logger.Warn("Data from blocks %d to %d not in the database, starting from %d", startIndex, lastIndex, firstIndex)
+
 		// if startIndex is set before existing data in the DB or a break among saved blocks
 		// in the DB is created, then we change the guaranties about the starting block
 		err = s.Update(db, FirstDatabaseIndexState, startIndex, startBlockTimestamp)

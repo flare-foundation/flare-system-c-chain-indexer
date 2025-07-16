@@ -147,7 +147,7 @@ func (ci *BlockIndexer) processBlockBatch(
 
 		contractAddress := tx.To()
 		check := false
-		policy := transactionsPolicy{status: false, collectEvents: false}
+		var policy transactionsPolicy
 
 		for _, address := range []common.Address{*contractAddress, undefinedAddress} {
 			if val, ok := ci.transactions[address]; ok {
@@ -156,6 +156,7 @@ func (ci *BlockIndexer) processBlockBatch(
 						check = true
 						policy.status = policy.status || pol.status
 						policy.collectEvents = policy.collectEvents || pol.collectEvents
+						policy.collectSignature = policy.collectSignature || pol.collectSignature
 					}
 				}
 			}

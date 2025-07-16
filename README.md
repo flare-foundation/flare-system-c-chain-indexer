@@ -29,6 +29,7 @@ contract_address = "22474d350ec2da53d717e30b96e9a2b7628ede5b" # address of the c
 func_sig = "f14fcbc8" # signature of the function on the contract  (can be "undefined")
 status=true # boolean indicating if it should be checked if the transaction succeeded
 collect_events=true # boolean indicating if the logs of the emitted events should be saved to the database
+signature = true # boolean indicating if the transaction signature should be saved to the database
 
 [[indexer.collect_transactions]]
 contract_address = "22474d350ec2da53d717e30b96e9a2b7628ede5b"
