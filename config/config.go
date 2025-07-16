@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"flare-ftso-indexer/chain"
+	"flare-ftso-indexer/logger"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -47,6 +48,14 @@ func init() {
 		if tCfg.TimeoutMillis > 0 {
 			Timeout = time.Duration(tCfg.TimeoutMillis) * time.Millisecond
 		}
+
+		loggerCfg := config.LoggerConfig()
+		logger.InitializeLogger(
+			loggerCfg.Console,
+			loggerCfg.File,
+			loggerCfg.Level,
+			loggerCfg.MaxFileSize,
+		)
 	})
 }
 

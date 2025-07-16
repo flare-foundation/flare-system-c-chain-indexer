@@ -76,7 +76,7 @@ func run(ctx context.Context) error {
 		return errors.Wrap(err, "Failed to get history drop configuration")
 	}
 
-	historyDropDays := float64(historyDrop*time.Second) / float64(time.Hour*24)
+	historyDropDays := (float64(historyDrop) * float64(time.Second)) / float64(24*time.Hour)
 	if cfg.DB.HistoryDrop == nil {
 		logger.Info("Using default history drop value of %.1f days", historyDropDays)
 	} else {

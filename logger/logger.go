@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"flare-ftso-indexer/config"
 	"io"
 	"os"
 
@@ -18,24 +17,25 @@ const (
 	timeFormat = "[01-02|15:04:05.000]"
 )
 
-func init() {
-	sugar = createSugaredLogger(DefaultLoggerConfig())
+func InitializeLogger(console bool, file, level string, maxFileSize int) {
+	if sugar != nil {
+		sugar.Infof("Logger already initialized, skipping re-initialization.")
+		return
+	}
 
-	config.GlobalConfigCallback.AddCallback(func(config config.GlobalConfig) {
-		sugar = createSugaredLogger(config.LoggerConfig())
-	})
+	sugar = createSugaredLogger(console, file, level, maxFileSize)
 }
 
-func createSugaredLogger(config config.LoggerConfig) *zap.SugaredLogger {
+func createSugaredLogger(console bool, file, levelName string, maxFileSize int) *zap.SugaredLogger {
 	atom := zap.NewAtomicLevel()
 
 	var cores []zapcore.Core
-	if config.Console {
+	if console {
 		cores = append(cores, createConsoleLoggerCore(atom))
 	}
 
-	if len(config.File) > 0 {
-		cores = append(cores, createFileLoggerCore(config, atom))
+	if len(file) > 0 {
+		cores = append(cores, createFileLoggerCore(file, maxFileSize, atom))
 	}
 
 	core := zapcore.NewTee(cores...)
@@ -49,9 +49,9 @@ func createSugaredLogger(config config.LoggerConfig) *zap.SugaredLogger {
 
 	sug := logger.Sugar()
 
-	level, err := zapcore.ParseLevel(config.Level)
+	level, err := zapcore.ParseLevel(levelName)
 	if err != nil {
-		sug.Errorf("Wrong level %s", config.Level)
+		sug.Errorf("Wrong level %s", levelName)
 	}
 
 	atom.SetLevel(level)
@@ -68,10 +68,10 @@ func SyncFileLogger() {
 	}
 }
 
-func createFileLoggerCore(config config.LoggerConfig, atom zap.AtomicLevel) zapcore.Core {
+func createFileLoggerCore(file string, maxFileSize int, atom zap.AtomicLevel) zapcore.Core {
 	w := zapcore.AddSync(&lumberjack.Logger{
-		Filename: config.File,
-		MaxSize:  config.MaxFileSize,
+		Filename: file,
+		MaxSize:  maxFileSize,
 	})
 
 	encoderCfg := zap.NewProductionEncoderConfig()
@@ -116,12 +116,6 @@ func consoleColorLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder
 
 func fileLevelEncoder(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
 	enc.AppendString(l.CapitalString())
-}
-
-func DefaultLoggerConfig() config.LoggerConfig {
-	return config.LoggerConfig{
-		Level: "DEBUG",
-	}
 }
 
 func Warn(msg string, args ...interface{}) {
