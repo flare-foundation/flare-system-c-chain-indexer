@@ -22,6 +22,8 @@ func DropHistory(
 	startBlockNumber uint64,
 ) {
 	for {
+		time.Sleep(time.Duration(checkInterval) * time.Second)
+
 		logger.Info("starting DropHistory iteration")
 
 		startTime := time.Now()
@@ -32,8 +34,6 @@ func DropHistory(
 		} else {
 			logger.Error("DropHistory error: %s", err)
 		}
-
-		time.Sleep(time.Duration(checkInterval) * time.Second)
 	}
 }
 
