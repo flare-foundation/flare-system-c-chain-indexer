@@ -168,6 +168,7 @@ func initConfig(tCfg testConfig, history bool) config.Config {
 		Topic:           "undefined",
 	}
 
+	historyDrop := uint64(0)
 	cfg := config.Config{
 		Indexer: config.IndexerConfig{
 			BatchSize:               500,
@@ -183,7 +184,7 @@ func initConfig(tCfg testConfig, history bool) config.Config {
 		Chain: config.ChainConfig{
 			NodeURL:   tCfg.NodeURL,
 			APIKey:    tCfg.NodeAPIKey,
-			ChainType: int(chain.ChainTypeAvax),
+			ChainType: chain.ChainTypeAvax,
 		},
 		Logger: config.LoggerConfig{
 			Level:       "DEBUG",
@@ -198,7 +199,7 @@ func initConfig(tCfg testConfig, history bool) config.Config {
 			Username:         tCfg.DBUsername,
 			Password:         tCfg.DBPassword,
 			LogQueries:       false,
-			HistoryDrop:      0,
+			HistoryDrop:      &historyDrop,
 			DropTableAtStart: true,
 		},
 	}
@@ -209,7 +210,12 @@ func initConfig(tCfg testConfig, history bool) config.Config {
 }
 
 func createIndexer(cfg *config.Config, db *gorm.DB) (*indexer.BlockIndexer, error) {
-	ethClient, err := chain.DialRPCNode(cfg)
+	nodeURL, err := cfg.Chain.FullNodeURL()
+	if err != nil {
+		return nil, errors.Wrap(err, "Invalid node URL in config")
+	}
+
+	ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType)
 	if err != nil {
 		return nil, errors.Wrap(err, "Could not connect to the RPC nodes")
 	}

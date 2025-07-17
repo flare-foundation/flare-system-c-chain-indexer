@@ -154,16 +154,12 @@ func buildDBTx(
 
 	var signature *string
 	if collectSignature {
-		logger.Debug("Collecting signature for transaction %s", tx.Hash().Hex())
-
 		sig, err := packSignature(tx)
 		if err != nil {
 			return nil, errors.Wrap(err, "packSignature")
 		}
 
 		signature = &sig
-	} else {
-		logger.Debug("Skipping signature collection for transaction %s", tx.Hash().Hex())
 	}
 
 	base := database.BaseEntity{ID: database.TransactionId.Load()}

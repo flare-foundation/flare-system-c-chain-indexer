@@ -8,6 +8,7 @@ import (
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer"
 	"flare-ftso-indexer/logger"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -30,7 +31,10 @@ func run(ctx context.Context) error {
 	flag.Parse()
 	cfg, err := config.BuildConfig()
 	if err != nil {
-		return errors.Wrap(err, "config error")
+		// The logger is not initialized yet so fallback to directly
+		// printing to stdout.
+		fmt.Println("Error building config: ", err)
+		return err
 	}
 
 	config.GlobalConfigCallback.Call(cfg)
@@ -45,7 +49,12 @@ func run(ctx context.Context) error {
 		os.Exit(0)
 	}()
 
-	ethClient, err := chain.DialRPCNode(cfg)
+	nodeURL, err := cfg.Chain.FullNodeURL()
+	if err != nil {
+		return errors.Wrap(err, "Invalid node URL in config")
+	}
+
+	ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType)
 	if err != nil {
 		return errors.Wrap(err, "Could not connect to the RPC nodes")
 	}
@@ -55,7 +64,26 @@ func run(ctx context.Context) error {
 		return errors.Wrap(err, "Database connect and initialize errors")
 	}
 
-	if cfg.DB.HistoryDrop > 0 {
+	chainID, err := ethClient.ChainID(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get chain ID")
+	}
+
+	logger.Info("Connected to chain ID %s", chainID)
+
+	historyDrop, err := cfg.DB.GetHistoryDrop(ctx, chainID)
+	if err != nil {
+		return errors.Wrap(err, "Failed to get history drop configuration")
+	}
+
+	historyDropDays := (float64(historyDrop) * float64(time.Second)) / float64(24*time.Hour)
+	if cfg.DB.HistoryDrop == nil {
+		logger.Info("Using default history drop value of %.1f days", historyDropDays)
+	} else {
+		logger.Info("Using configured history drop value of %.1f days", historyDropDays)
+	}
+
+	if historyDrop > 0 {
 		// Run an initial iteration of the history drop. This could take some
 		// time if it has not been run in a while after an outage - running
 		// separately avoids database clashes with the indexer.
@@ -67,7 +95,7 @@ func run(ctx context.Context) error {
 		err = backoff.RetryNotify(
 			func() (err error) {
 				firstBlockNumber, err = database.DropHistoryIteration(
-					ctx, db, cfg.DB.HistoryDrop, ethClient, cfg.Indexer.StartIndex,
+					ctx, db, historyDrop, ethClient, cfg.Indexer.StartIndex,
 				)
 
 				return err
@@ -89,10 +117,16 @@ func run(ctx context.Context) error {
 		}
 	}
 
-	return runIndexer(ctx, cfg, db, ethClient)
+	return runIndexer(ctx, cfg, db, ethClient, historyDrop)
 }
 
-func runIndexer(ctx context.Context, cfg *config.Config, db *gorm.DB, ethClient *chain.Client) error {
+func runIndexer(
+	ctx context.Context,
+	cfg *config.Config,
+	db *gorm.DB,
+	ethClient *chain.Client,
+	historyDrop uint64,
+) error {
 	cIndexer, err := indexer.CreateBlockIndexer(cfg, db, ethClient)
 	if err != nil {
 		return err
@@ -113,11 +147,11 @@ func runIndexer(ctx context.Context, cfg *config.Config, db *gorm.DB, ethClient 
 		return errors.Wrap(err, "Index history fatal error")
 	}
 
-	if cfg.DB.HistoryDrop > 0 {
+	if historyDrop > 0 {
 		go database.DropHistory(
 			ctx,
 			db,
-			cfg.DB.HistoryDrop,
+			historyDrop,
 			database.HistoryDropIntervalCheck,
 			ethClient,
 			cfg.Indexer.StartIndex,

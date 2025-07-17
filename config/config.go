@@ -1,8 +1,12 @@
 package config
 
 import (
+	"context"
 	"flag"
+	"flare-ftso-indexer/chain"
+	"flare-ftso-indexer/logger"
 	"fmt"
+	"math/big"
 	"net/url"
 	"os"
 	"time"
@@ -11,15 +15,27 @@ import (
 	"github.com/pkg/errors"
 )
 
-var (
-	BackoffMaxElapsedTime time.Duration                = 5 * time.Minute
-	Timeout               time.Duration                = 1000 * time.Millisecond
-	GlobalConfigCallback  ConfigCallback[GlobalConfig] = ConfigCallback[GlobalConfig]{}
-	CfgFlag                                            = flag.String("config", "config.toml", "Configuration file (toml format)")
+const (
+	day                  time.Duration   = 24 * time.Hour
+	defaultConfirmations                 = 1
+	defaultChainType     chain.ChainType = chain.ChainTypeAvax
 )
 
-const defaultConfirmations = 1
-const defaultChainType = 1
+var (
+	GlobalConfigCallback         ConfigCallback[GlobalConfig]
+	CfgFlag                                    = flag.String("config", "config.toml", "Configuration file (toml format)")
+	BackoffMaxElapsedTime        time.Duration = 5 * time.Minute
+	Timeout                      time.Duration = time.Second
+	mainnetMinHistoryDropSeconds               = uint64((10 * day).Seconds())
+	testnetMinHistoryDropSeconds               = uint64((2 * day).Seconds())
+)
+
+var minHistoryDropSecondsByChain = map[chain.ChainID]uint64{
+	chain.ChainIDFlare:    mainnetMinHistoryDropSeconds,
+	chain.ChainIDSongbird: mainnetMinHistoryDropSeconds,
+	chain.ChainIDCoston:   testnetMinHistoryDropSeconds,
+	chain.ChainIDCoston2:  testnetMinHistoryDropSeconds,
+}
 
 func init() {
 	GlobalConfigCallback.AddCallback(func(config GlobalConfig) {
@@ -32,6 +48,14 @@ func init() {
 		if tCfg.TimeoutMillis > 0 {
 			Timeout = time.Duration(tCfg.TimeoutMillis) * time.Millisecond
 		}
+
+		loggerCfg := config.LoggerConfig()
+		logger.InitializeLogger(
+			loggerCfg.Console,
+			loggerCfg.File,
+			loggerCfg.Level,
+			loggerCfg.MaxFileSize,
+		)
 	})
 }
 
@@ -56,20 +80,46 @@ type LoggerConfig struct {
 }
 
 type DBConfig struct {
-	Host             string `toml:"host"`
-	Port             int    `toml:"port"`
-	Database         string `toml:"database"`
-	Username         string `toml:"username"`
-	Password         string `toml:"password"`
-	LogQueries       bool   `toml:"log_queries"`
-	HistoryDrop      uint64 `toml:"history_drop"`
-	DropTableAtStart bool   `toml:"drop_table_at_start"`
+	Host       string `toml:"host"`
+	Port       int    `toml:"port"`
+	Database   string `toml:"database"`
+	Username   string `toml:"username"`
+	Password   string `toml:"password"`
+	LogQueries bool   `toml:"log_queries"`
+
+	// Using a pointer to distinguish between unset and zero value - the latter
+	// disables history drop.
+	HistoryDrop      *uint64 `toml:"history_drop"`
+	DropTableAtStart bool    `toml:"drop_table_at_start"`
+}
+
+func (db *DBConfig) GetHistoryDrop(ctx context.Context, chainIDBig *big.Int) (uint64, error) {
+	chainID := chain.ChainIDFromBigInt(chainIDBig)
+
+	minHistoryDropSeconds, ok := minHistoryDropSecondsByChain[chainID]
+	if !ok {
+		minHistoryDropSeconds = mainnetMinHistoryDropSeconds // Default to mainnet if chain not recognized
+	}
+
+	if db.HistoryDrop == nil {
+		return minHistoryDropSeconds, nil // Use default if not set
+	}
+
+	if *db.HistoryDrop < minHistoryDropSeconds {
+		return 0, errors.Errorf(
+			"history drop must be at least %d seconds, got %d seconds",
+			minHistoryDropSeconds,
+			db.HistoryDrop,
+		)
+	}
+
+	return *db.HistoryDrop, nil
 }
 
 type ChainConfig struct {
-	NodeURL   string `toml:"node_url"`
-	APIKey    string `toml:"api_key"`
-	ChainType int    `toml:"chain_type"`
+	NodeURL   string          `toml:"node_url"`
+	APIKey    string          `toml:"api_key"`
+	ChainType chain.ChainType `toml:"chain_type"`
 }
 
 type IndexerConfig struct {
@@ -106,7 +156,12 @@ type LogInfo struct {
 func BuildConfig() (*Config, error) {
 	cfgFileName := *CfgFlag
 
-	cfg := &Config{Indexer: IndexerConfig{Confirmations: defaultConfirmations}, Chain: ChainConfig{ChainType: defaultChainType}}
+	// Set default values for the config
+	cfg := &Config{
+		Indexer: IndexerConfig{Confirmations: defaultConfirmations},
+		Chain:   ChainConfig{ChainType: defaultChainType},
+	}
+
 	err := parseConfigFile(cfg, cfgFileName)
 	if err != nil {
 		return nil, err

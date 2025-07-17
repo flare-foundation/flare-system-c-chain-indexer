@@ -17,7 +17,7 @@ Below is the list of configuration parameters, most are self-explanatory. Note t
 
 ```toml
 [indexer]
-start_index = 0 # the number of the block that the indexer will start with
+start_index = 0 # the number of the block that the indexer will start with; will default to the appropriate block number according to the history drop configuration. Does not usually need to be set unless disabling history drop.
 stop_index = 0 # the number of the block that the indexer will stop with; set 0 or skip to index indefinitely
 num_parallel_req = 100 # the number of threads doing requests to the chain in parallel
 batch_size = 1000 # the number of blocks that will be pushed to a database in a batch (should be divisible by num_parallel_req)
@@ -49,7 +49,7 @@ username = "root"
 password = "root"
 log_queries = false
 drop_table_at_start = true
-history_drop = 604800 # Enable deleting the transactions and logs in DB that are older (timestamp of the block) than history_drop (in seconds); set 0 or skip to turn off
+history_drop = 604800 # Enable deleting the transactions and logs in DB that are older (timestamp of the block) than history_drop (in seconds); set 0 or skip to turn off; defaults to 7 days for Flare/Songbird and 2 days for Coston*
 
 [logger]
 level = "INFO"
