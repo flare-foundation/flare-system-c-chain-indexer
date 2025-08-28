@@ -3,18 +3,16 @@ package indexer
 import (
 	"context"
 	"encoding/hex"
+	"flare-ftso-indexer/boff"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
-	"flare-ftso-indexer/logger"
 	"fmt"
 	"math/big"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/ava-labs/coreth/core/types"
 	"github.com/ava-labs/coreth/interfaces"
-	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 )
@@ -68,30 +66,16 @@ func (ci *BlockIndexer) fetchLogsChunk(
 		Topics:    topic,
 	}
 
-	bOff := backoff.NewExponentialBackOff()
-	bOff.MaxElapsedTime = config.BackoffMaxElapsedTime
-
-	var logs []types.Log
-
-	err := backoff.RetryNotify(
-		func() error {
+	return boff.RetryWithMaxElapsed(
+		ctx,
+		func() ([]types.Log, error) {
 			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
 			defer cancelFunc()
 
-			var err error
-			logs, err = ci.client.FilterLogs(ctx, query)
-			return err
+			return ci.client.FilterLogs(ctx, query)
 		},
-		bOff,
-		func(err error, d time.Duration) {
-			logger.Debug("FilterLogs error: %s. Will retry after %s", err, d)
-		},
+		"fetchLogsChunk",
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	return logs, nil
 }
 
 func (ci *BlockIndexer) processLogs(

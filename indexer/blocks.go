@@ -2,16 +2,14 @@ package indexer
 
 import (
 	"context"
+	"flare-ftso-indexer/boff"
 	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
-	"flare-ftso-indexer/logger"
 	"fmt"
 	"math/big"
 	"sync"
-	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 )
@@ -25,58 +23,34 @@ func newBlockBatch(batchSize uint64) *blockBatch {
 	return &blockBatch{blocks: make([]*chain.Block, batchSize)}
 }
 
-func (ci *BlockIndexer) fetchBlock(ctx context.Context, index *uint64) (block *chain.Block, err error) {
+func (ci *BlockIndexer) fetchBlock(ctx context.Context, index *uint64) (*chain.Block, error) {
 	indexBigInt := indexToBigInt(index)
 
-	bOff := backoff.NewExponentialBackOff()
-	bOff.MaxElapsedTime = config.BackoffMaxElapsedTime
-
-	err = backoff.RetryNotify(
-		func() error {
+	return boff.RetryWithMaxElapsed(
+		ctx,
+		func() (*chain.Block, error) {
 			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
 			defer cancelFunc()
 
-			block, err = ci.client.BlockByNumber(ctx, indexBigInt)
-			return err
+			return ci.client.BlockByNumber(ctx, indexBigInt)
 		},
-		bOff,
-		func(err error, d time.Duration) {
-			logger.Debug("BlockByNumber error: %s. Will retry after %s", err, d)
-		},
+		"fetchBlock",
 	)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "ci.client.BlockByNumber")
-	}
-
-	return block, nil
 }
 
-func (ci *BlockIndexer) fetchBlockHeader(ctx context.Context, index *uint64) (header *chain.Header, err error) {
+func (ci *BlockIndexer) fetchBlockHeader(ctx context.Context, index *uint64) (*chain.Header, error) {
 	indexBigInt := indexToBigInt(index)
 
-	bOff := backoff.NewExponentialBackOff()
-	bOff.MaxElapsedTime = config.BackoffMaxElapsedTime
-
-	err = backoff.RetryNotify(
-		func() error {
+	return boff.RetryWithMaxElapsed(
+		ctx,
+		func() (*chain.Header, error) {
 			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
 			defer cancelFunc()
 
-			header, err = ci.client.HeaderByNumber(ctx, indexBigInt)
-			return err
+			return ci.client.HeaderByNumber(ctx, indexBigInt)
 		},
-		bOff,
-		func(err error, d time.Duration) {
-			logger.Debug("HeaderByNumber error: %s. Will retry after %s", err, d)
-		},
+		"fetchBlockHeader",
 	)
-
-	if err != nil {
-		return nil, errors.Wrap(err, "ci.client.HeaderByNumber")
-	}
-
-	return header, nil
 }
 
 func indexToBigInt(index *uint64) *big.Int {

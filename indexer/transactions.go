@@ -3,18 +3,16 @@ package indexer
 import (
 	"context"
 	"encoding/hex"
+	"flare-ftso-indexer/boff"
 	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
-	"flare-ftso-indexer/logger"
 	"fmt"
 	"math/big"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/ava-labs/coreth/core/types"
-	"github.com/cenkalti/backoff/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 )
@@ -59,9 +57,6 @@ func countReceipts(txBatch *transactionsBatch) int {
 func (ci *BlockIndexer) getTransactionsReceipt(
 	ctx context.Context, txBatch *transactionsBatch, start, stop int,
 ) error {
-	bOff := backoff.NewExponentialBackOff()
-	bOff.MaxElapsedTime = config.BackoffMaxElapsedTime
-
 	for i := start; i < stop; i++ {
 		txBatch.mu.RLock()
 		tx := *txBatch.transactions[i]
@@ -71,18 +66,17 @@ func (ci *BlockIndexer) getTransactionsReceipt(
 		var receipt *chain.Receipt
 
 		if policy.status || policy.collectEvents {
-			err := backoff.RetryNotify(
-				func() (err error) {
+			var err error
+
+			receipt, err = boff.RetryWithMaxElapsed(
+				ctx,
+				func() (*chain.Receipt, error) {
 					ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
 					defer cancelFunc()
 
-					receipt, err = ci.client.TransactionReceipt(ctx, tx.Hash())
-					return err
+					return ci.client.TransactionReceipt(ctx, tx.Hash())
 				},
-				bOff,
-				func(err error, d time.Duration) {
-					logger.Debug("TransactionReceipt error: %s. Will retry after %s", err, d)
-				},
+				"getTransactionsReceipt",
 			)
 
 			if err != nil {
