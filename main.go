@@ -84,26 +84,20 @@ func run(ctx context.Context) error {
 	}
 
 	if historyDrop > 0 {
-		// Run an initial iteration of the history drop. This could take some
-		// time if it has not been run in a while after an outage - running
-		// separately avoids database clashes with the indexer.
-		logger.Info("running initial DropHistory iteration")
-		startTime := time.Now()
-
 		firstBlockNumber, err := boff.Retry(
 			ctx,
 			func() (uint64, error) {
-				return database.DropHistoryIteration(
+				return database.GetStartBlock(
 					ctx, db, historyDrop, ethClient, cfg.Indexer.StartIndex,
 				)
 			},
-			"DropHistory",
+			"GetStartBlock",
 		)
 		if err != nil {
-			return errors.Wrap(err, "startup DropHistory error")
+			return errors.Wrap(err, "GetStartBlock error")
 		}
 
-		logger.Info("initial DropHistory iteration finished in %s, firstBlockBumber = %d", time.Since(startTime), firstBlockNumber)
+		logger.Info("firstBlockNumber = %d", firstBlockNumber)
 
 		if firstBlockNumber > cfg.Indexer.StartIndex {
 			logger.Info("Setting new startIndex due to history drop: %d", firstBlockNumber)

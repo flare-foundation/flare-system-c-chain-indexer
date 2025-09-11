@@ -14,6 +14,11 @@ import (
 	"gorm.io/gorm"
 )
 
+const (
+	deleteBatchesPauseAfter    = 10
+	deleteBatchesPauseDuration = 2 * time.Second
+)
+
 func DropHistory(
 	ctx context.Context,
 	db *gorm.DB,
@@ -22,18 +27,18 @@ func DropHistory(
 	startBlockNumber uint64,
 ) {
 	for {
-		time.Sleep(time.Duration(checkInterval) * time.Second)
-
 		logger.Info("starting DropHistory iteration")
 
 		startTime := time.Now()
-		_, err := DropHistoryIteration(ctx, db, intervalSeconds, client, startBlockNumber)
+		err := dropHistoryIteration(ctx, db, intervalSeconds, client, startBlockNumber)
 		if err == nil {
 			duration := time.Since(startTime)
 			logger.Info("finished DropHistory iteration in %v", duration)
 		} else {
 			logger.Error("DropHistory error: %s", err)
 		}
+
+		time.Sleep(time.Duration(checkInterval) * time.Second)
 	}
 }
 
@@ -47,12 +52,12 @@ var deleteOrder []interface{} = []interface{}{
 // timeouts.
 const deleteBatchSize = 1000
 
-func DropHistoryIteration(
+func dropHistoryIteration(
 	ctx context.Context, db *gorm.DB, intervalSeconds uint64, client *chain.Client, startBlockNumber uint64,
-) (uint64, error) {
+) error {
 	lastBlockTime, lastBlockNumber, err := getBlockTimestamp(ctx, nil, client)
 	if err != nil {
-		return 0, errors.Wrap(err, "Failed to get the latest time")
+		return errors.Wrap(err, "Failed to get the latest time")
 	}
 
 	db = db.WithContext(ctx)
@@ -62,25 +67,44 @@ func DropHistoryIteration(
 		ctx, deleteStartTime, db, client, startBlockNumber, lastBlockNumber,
 	)
 	if err != nil {
-		return 0, errors.Wrap(err, "Failed to get the nearest block by timestamp")
+		return errors.Wrap(err, "Failed to get the nearest block by timestamp")
 	}
 
 	// Delete in specified order to not break foreign keys.
 	for _, entity := range deleteOrder {
 		if err := deleteInBatches(db, deleteStartTime, entity); err != nil {
-			return 0, err
+			return err
 		}
 	}
 
 	err = globalStates.Update(db, FirstDatabaseIndexState, deleteStartBlock, deleteStartTime)
 	if err != nil {
-		return 0, errors.Wrap(err, "Failed to update state in the DB")
+		return errors.Wrap(err, "Failed to update state in the DB")
 	}
 
-	return deleteStartBlock, nil
+	return nil
+}
+
+// GetStartBlock returns the block number to start indexing from based on the history drop parameter.
+func GetStartBlock(
+	ctx context.Context, db *gorm.DB, historyDropIntervalSeconds uint64, client *chain.Client, configuredStartBlock uint64,
+) (uint64, error) {
+	lastBlockTime, lastBlockNumber, err := getBlockTimestamp(ctx, nil, client)
+	if err != nil {
+		return 0, errors.Wrap(err, "Failed to get the latest block")
+	}
+
+	db = db.WithContext(ctx)
+	deleteStartTime := lastBlockTime - historyDropIntervalSeconds
+
+	return getNearestBlockByTimestamp(
+		ctx, deleteStartTime, db, client, configuredStartBlock, lastBlockNumber,
+	)
 }
 
 func deleteInBatches(db *gorm.DB, deleteStartTime uint64, entity interface{}) error {
+	batchCount := 0
+
 	for {
 		result := db.Limit(deleteBatchSize).Where("timestamp < ?", deleteStartTime).Delete(&entity)
 
@@ -90,6 +114,13 @@ func deleteInBatches(db *gorm.DB, deleteStartTime uint64, entity interface{}) er
 
 		if result.RowsAffected == 0 {
 			return nil
+		}
+
+		// Take a rest every so often to avoid locking up the database too much
+		batchCount++
+		if batchCount%deleteBatchesPauseAfter == 0 {
+			logger.Info("Deleted %d rows of %T so far", batchCount*deleteBatchSize, entity)
+			time.Sleep(deleteBatchesPauseDuration)
 		}
 	}
 }
