@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"flare-ftso-indexer/boff"
 	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/logger"
@@ -9,7 +10,6 @@ import (
 	"sort"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -95,22 +95,15 @@ func deleteInBatches(db *gorm.DB, deleteStartTime uint64, entity interface{}) er
 }
 
 func getBlockTimestamp(ctx context.Context, index *big.Int, client *chain.Client) (uint64, uint64, error) {
-	bOff := backoff.NewExponentialBackOff()
-	bOff.MaxElapsedTime = config.BackoffMaxElapsedTime
-
-	var block *chain.Block
-	err := backoff.RetryNotify(
-		func() (err error) {
+	block, err := boff.RetryWithMaxElapsed(
+		ctx,
+		func() (*chain.Block, error) {
 			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
 			defer cancelFunc()
 
-			block, err = client.BlockByNumber(ctx, index)
-			return err
+			return client.BlockByNumber(ctx, index)
 		},
-		bOff,
-		func(err error, d time.Duration) {
-			logger.Debug("getBlockTimestamp error: %s - retrying after %v", err, d)
-		},
+		"getBlockTimestamp",
 	)
 
 	if err != nil {
@@ -146,30 +139,25 @@ func getNearestBlockByTimestamp(
 const maxBlockTimeDiff = time.Minute
 
 func getNearestBlockByTimestampFromDB(ctx context.Context, timestamp uint64, db *gorm.DB) (uint64, error) {
-	bOff := backoff.NewExponentialBackOff()
-	bOff.MaxElapsedTime = config.BackoffMaxElapsedTime
-
 	// First try to find a block in the DB with a similar timestamp.
-	var block Block
-	err := backoff.RetryNotify(
-		func() error {
+	block, err := boff.RetryWithMaxElapsed(
+		ctx,
+		func() (*Block, error) {
 			// First try to find a block in the DB with a similar timestamp.
-			err := db.Where("timestamp >= ?", timestamp).Order("timestamp ASC").First(&block).Error
+			block := new(Block)
+			err := db.Where("timestamp >= ?", timestamp).Order("timestamp ASC").First(block).Error
 
 			if err == nil {
-				return nil
+				return block, nil
 			}
 
 			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil
+				return nil, nil
 			}
 
-			return err
+			return nil, err
 		},
-		bOff,
-		func(err error, d time.Duration) {
-			logger.Debug("getNearestBlockByTimestampFromDB error: %s - retrying after %v", err, d)
-		},
+		"getNearestBlockByTimestampFromDB",
 	)
 	if err != nil {
 		return 0, errors.Wrap(err, "getNearestBlockByTimestampFromDB")

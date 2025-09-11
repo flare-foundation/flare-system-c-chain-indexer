@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"flare-ftso-indexer/boff"
 	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/database"
@@ -14,7 +15,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/cenkalti/backoff/v4"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -90,20 +90,14 @@ func run(ctx context.Context) error {
 		logger.Info("running initial DropHistory iteration")
 		startTime := time.Now()
 
-		var firstBlockNumber uint64
-
-		err = backoff.RetryNotify(
-			func() (err error) {
-				firstBlockNumber, err = database.DropHistoryIteration(
+		firstBlockNumber, err := boff.Retry(
+			ctx,
+			func() (uint64, error) {
+				return database.DropHistoryIteration(
 					ctx, db, historyDrop, ethClient, cfg.Indexer.StartIndex,
 				)
-
-				return err
 			},
-			backoff.NewExponentialBackOff(),
-			func(err error, d time.Duration) {
-				logger.Error("DropHistory error: %s. Will retry after %s", err, d)
-			},
+			"DropHistory",
 		)
 		if err != nil {
 			return errors.Wrap(err, "startup DropHistory error")
@@ -132,16 +126,12 @@ func runIndexer(
 		return err
 	}
 
-	bOff := backoff.NewExponentialBackOff()
-
-	err = backoff.RetryNotify(
+	err = boff.RetryNoReturn(
+		ctx,
 		func() error {
 			return cIndexer.IndexHistory(ctx)
 		},
-		bOff,
-		func(err error, d time.Duration) {
-			logger.Error("Index history error: %s. Will retry after %s", err, d)
-		},
+		"IndexHistory",
 	)
 	if err != nil {
 		return errors.Wrap(err, "Index history fatal error")
@@ -158,14 +148,12 @@ func runIndexer(
 		)
 	}
 
-	err = backoff.RetryNotify(
+	err = boff.RetryNoReturn(
+		ctx,
 		func() error {
 			return cIndexer.IndexContinuous(ctx)
 		},
-		bOff,
-		func(err error, d time.Duration) {
-			logger.Error("Index continuous error: %s. Will retry after %s", err, d)
-		},
+		"IndexContinuous",
 	)
 	if err != nil {
 		return errors.Wrap(err, "Index continuous fatal error")
