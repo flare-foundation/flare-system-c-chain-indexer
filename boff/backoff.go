@@ -12,30 +12,11 @@ import (
 )
 
 func RetryWithMaxElapsed[T any](ctx context.Context, operation func() (T, error), name string) (T, error) {
-	return backoff.Retry(
-		ctx,
-		operation,
-		backoff.WithBackOff(backoff.NewExponentialBackOff()),
-		backoff.WithMaxElapsedTime(config.BackoffMaxElapsedTime),
-		backoff.WithNotify(
-			func(err error, d time.Duration) {
-				logger.Debug("%s error: %s - retrying after %v", name, err, d)
-			},
-		),
-	)
+	return retry(ctx, operation, name, config.BackoffMaxElapsedTime)
 }
 
 func Retry[T any](ctx context.Context, operation func() (T, error), name string) (T, error) {
-	return backoff.Retry(
-		ctx,
-		operation,
-		backoff.WithBackOff(backoff.NewExponentialBackOff()),
-		backoff.WithNotify(
-			func(err error, d time.Duration) {
-				logger.Debug("%s error: %s - retrying after %v", name, err, d)
-			},
-		),
-	)
+	return retry(ctx, operation, name, 0) // 0 means no max elapsed time
 }
 
 func RetryNoReturn(ctx context.Context, operation func() error, name string) error {
@@ -48,4 +29,18 @@ func RetryNoReturn(ctx context.Context, operation func() error, name string) err
 	)
 
 	return err
+}
+
+func retry[T any](ctx context.Context, operation func() (T, error), name string, maxElapsedTime time.Duration) (T, error) {
+	return backoff.Retry(
+		ctx,
+		operation,
+		backoff.WithBackOff(backoff.NewExponentialBackOff()),
+		backoff.WithMaxElapsedTime(maxElapsedTime),
+		backoff.WithNotify(
+			func(err error, d time.Duration) {
+				logger.Debug("%s error: %s - retrying after %v", name, err, d)
+			},
+		),
+	)
 }
