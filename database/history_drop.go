@@ -119,7 +119,7 @@ func deleteInBatches(db *gorm.DB, deleteStartTime uint64, entity interface{}) er
 		// Take a rest every so often to avoid locking up the database too much
 		batchCount++
 		if batchCount%deleteBatchesPauseAfter == 0 {
-			logger.Info("Deleted %d rows of %T so far", batchCount*deleteBatchSize, entity)
+			logger.Debug("Deleted %d rows of %T so far", batchCount*deleteBatchSize, entity)
 			time.Sleep(deleteBatchesPauseDuration)
 		}
 	}
