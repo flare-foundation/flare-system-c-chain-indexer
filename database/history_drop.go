@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	deleteBatchesPauseAfter    = 10
-	deleteBatchesPauseDuration = 2 * time.Second
+	deleteBatchesPauseAfter    = 100
+	deleteBatchesPauseDuration = 1 * time.Second
 )
 
 func DropHistory(
