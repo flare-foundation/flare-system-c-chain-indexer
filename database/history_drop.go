@@ -163,7 +163,8 @@ func getNearestBlockByTimestampFromDB(ctx context.Context, timestamp uint64, db 
 		return 0, errors.Wrap(err, "getNearestBlockByTimestampFromDB")
 	}
 
-	if block.Number == 0 {
+	// Block not found in the DB.
+	if block == nil || block.Number == 0 {
 		return 0, nil
 	}
 
