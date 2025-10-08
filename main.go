@@ -80,7 +80,11 @@ func run(ctx context.Context) error {
 	if cfg.DB.HistoryDrop == nil {
 		logger.Info("Using default history drop value of %.1f days", historyDropDays)
 	} else {
-		logger.Info("Using configured history drop value of %.1f days", historyDropDays)
+		if *cfg.DB.HistoryDrop == 0 {
+			logger.Info("History drop disabled")
+		} else {
+			logger.Info("Using configured history drop value of %.1f days", historyDropDays)
+		}
 	}
 
 	if historyDrop > 0 {

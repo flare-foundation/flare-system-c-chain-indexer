@@ -49,7 +49,7 @@ username = "root"
 password = "root"
 log_queries = false
 drop_table_at_start = true
-history_drop = 604800 # Enable deleting the transactions and logs in DB that are older (timestamp of the block) than history_drop (in seconds); set 0 or skip to turn off; defaults to 7 days for Flare/Songbird and 2 days for Coston*
+history_drop = 604800 # Enable deleting the transactions and logs in DB that are older (timestamp of the block) than history_drop (in seconds); set 0 to turn off; defaults to 7 days for Flare/Songbird and 2 days for Coston*
 
 [logger]
 level = "INFO"
