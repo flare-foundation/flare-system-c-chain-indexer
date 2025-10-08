@@ -105,7 +105,8 @@ func (db *DBConfig) GetHistoryDrop(ctx context.Context, chainIDBig *big.Int) (ui
 		return minHistoryDropSeconds, nil // Use default if not set
 	}
 
-	if *db.HistoryDrop < minHistoryDropSeconds {
+	historyDrop := *db.HistoryDrop
+	if historyDrop != 0 && historyDrop < minHistoryDropSeconds {
 		return 0, errors.Errorf(
 			"history drop must be at least %d seconds, got %d seconds",
 			minHistoryDropSeconds,
@@ -113,7 +114,7 @@ func (db *DBConfig) GetHistoryDrop(ctx context.Context, chainIDBig *big.Int) (ui
 		)
 	}
 
-	return *db.HistoryDrop, nil
+	return historyDrop, nil
 }
 
 type ChainConfig struct {
