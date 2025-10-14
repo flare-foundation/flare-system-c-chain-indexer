@@ -26,7 +26,7 @@ var (
 	CfgFlag                                    = flag.String("config", "config.toml", "Configuration file (toml format)")
 	BackoffMaxElapsedTime        time.Duration = 5 * time.Minute
 	Timeout                      time.Duration = time.Second
-	mainnetMinHistoryDropSeconds               = uint64((10 * day).Seconds())
+	mainnetMinHistoryDropSeconds               = uint64((14 * day).Seconds())
 	testnetMinHistoryDropSeconds               = uint64((2 * day).Seconds())
 )
 
