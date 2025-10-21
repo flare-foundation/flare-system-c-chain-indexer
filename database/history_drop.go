@@ -156,7 +156,7 @@ func getNearestBlockByTimestamp(
 	// If that fails, we fall back to doing a binary search on the chain.
 	blockNumber, err := getNearestBlockByTimestampFromDB(ctx, timestamp, db)
 	if err != nil {
-		logger.Warn("failed to get the nearest block by timestamp from DB: %s", err)
+		logger.Debug("failed to get the nearest block by timestamp from DB, will fall back to RPC binary search. err: %s", err)
 	}
 
 	// A blocknumber of 0 means that no block was found in the DB.
