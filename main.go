@@ -87,15 +87,12 @@ func run(ctx context.Context) error {
 		}
 	}
 
-	newStartIndex, err := getStartIndex(ctx, db, ethClient, cfg, historyDrop)
+	startIndex, err := getStartIndex(ctx, db, ethClient, cfg, historyDrop)
 	if err != nil {
 		return errors.Wrap(err, "getStartIndex error")
 	}
 
-	if newStartIndex > cfg.Indexer.StartIndex {
-		logger.Info("Setting new startIndex to: %d", newStartIndex)
-		cfg.Indexer.StartIndex = newStartIndex
-	}
+	cfg.Indexer.StartIndex = startIndex
 
 	return runIndexer(ctx, cfg, db, ethClient, historyDrop)
 }
@@ -112,7 +109,7 @@ func getStartIndex(
 
 	// If a latest indexed block is found, return the next block number
 	if err == nil {
-		logger.Info("Latest indexed block from DB: %d", latestIndexedBlock.Number)
+		logger.Info("Starting after latest indexed block from DB: %d", latestIndexedBlock.Number)
 		return latestIndexedBlock.Number + 1, nil
 	}
 
@@ -124,6 +121,7 @@ func getStartIndex(
 	// No blocks are indexed yet
 	// If history drop is disabled, return the configured start index
 	if historyDrop == 0 {
+		logger.Info("No indexed blocks found in DB, starting from configured start index: %d", cfg.Indexer.StartIndex)
 		return cfg.Indexer.StartIndex, nil
 	}
 
@@ -141,6 +139,7 @@ func getStartIndex(
 		return 0, errors.Wrap(err, "GetStartBlock error")
 	}
 
+	logger.Info("No indexed blocks found in DB, starting from calculated start index based on history drop: %d", firstBlockNumber)
 	return firstBlockNumber, nil
 }
 
