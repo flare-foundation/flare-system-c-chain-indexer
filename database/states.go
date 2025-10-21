@@ -64,7 +64,13 @@ func (s *DBStates) updateStates(newStates map[string]*State) {
 
 func (s *DBStates) updateIndex(name string, newIndex, blockTimestamp uint64) {
 	s.mu.Lock()
-	s.States[name].updateIndex(newIndex, blockTimestamp)
+	state := s.States[name]
+	if state == nil {
+		state = &State{Name: name}
+		s.States[name] = state
+	}
+
+	state.updateIndex(newIndex, blockTimestamp)
 	s.mu.Unlock()
 }
 
@@ -76,14 +82,6 @@ func (s *DBStates) updateDB(db *gorm.DB, name string) error {
 }
 
 func (s *DBStates) Update(db *gorm.DB, name string, newIndex, blockTimestamp uint64) error {
-	s.mu.RLock()
-	state := s.States[name]
-	s.mu.RUnlock()
-
-	if state == nil {
-		return errors.Errorf("state %s not found", name)
-	}
-
 	s.updateIndex(name, newIndex, blockTimestamp)
 	return s.updateDB(db, name)
 }
@@ -93,21 +91,39 @@ func (s *DBStates) UpdateAtStart(
 ) (uint64, uint64, error) {
 	var err error
 
+	var firstIndex *uint64
+	var lastIndex *uint64
+
 	s.mu.RLock()
-	firstIndex := s.States[FirstDatabaseIndexState].Index
-	lastIndex := s.States[LastDatabaseIndexState].Index
+	firstIndexState := s.States[FirstDatabaseIndexState]
+	lastIndexState := s.States[LastDatabaseIndexState]
+
+	if firstIndexState != nil {
+		firstIndexValue := firstIndexState.Index
+		firstIndex = &firstIndexValue
+	}
+
+	if lastIndexState != nil {
+		lastIndexValue := lastIndexState.Index
+		lastIndex = &lastIndexValue
+	}
 	s.mu.RUnlock()
 
-	if startIndex >= firstIndex && startIndex <= lastIndex {
-		logger.Info("Data from blocks %d to %d already in the database", startIndex, lastIndex)
-		startIndex = lastIndex + 1
+	if firstIndex == nil || lastIndex == nil {
+		logger.Info("No existing DB states found, starting from block %d", startIndex)
+
+		if err := s.Update(db, FirstDatabaseIndexState, startIndex, startBlockTimestamp); err != nil {
+			return 0, 0, errors.Wrap(err, "states.Update")
+		}
+	} else if startIndex >= *firstIndex && startIndex <= *lastIndex {
+		logger.Info("Data from blocks %d to %d already in the database", startIndex, *lastIndex)
+		startIndex = *lastIndex + 1
 	} else {
-		logger.Warn("Data from blocks %d to %d not in the database, starting from %d", startIndex, lastIndex, firstIndex)
+		logger.Warn("Data from blocks %d to %d not in the database,  starting from %d", startIndex, *lastIndex, *firstIndex)
 
 		// if startIndex is set before existing data in the DB or a break among saved blocks
 		// in the DB is created, then we change the guaranties about the starting block
-		err = s.Update(db, FirstDatabaseIndexState, startIndex, startBlockTimestamp)
-		if err != nil {
+		if err := s.Update(db, FirstDatabaseIndexState, startIndex, startBlockTimestamp); err != nil {
 			return 0, 0, errors.Wrap(err, "states.Update")
 		}
 	}
@@ -117,9 +133,9 @@ func (s *DBStates) UpdateAtStart(
 		return 0, 0, errors.Wrap(err, "states.Update")
 	}
 
-	lastIndex = min(stopIndex, lastChainIndex)
+	endIndex := min(stopIndex, lastChainIndex)
 
-	return startIndex, lastIndex, nil
+	return startIndex, endIndex, nil
 }
 
 func UpdateDBStates(ctx context.Context, db *gorm.DB) (*DBStates, error) {
@@ -148,12 +164,7 @@ func getDBStates(ctx context.Context, db *gorm.DB) (map[string]*State, error) {
 					return errors.Wrap(err, "db.Where")
 				}
 
-				// If the state is not found, create a new one.
-				state = &State{Name: name, Updated: time.Now()}
-				err := db.Create(state).Error
-				if err != nil {
-					return errors.Wrap(err, "db.Create")
-				}
+				return nil
 			}
 
 			mu.Lock()
