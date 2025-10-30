@@ -6,7 +6,7 @@ test_port = 3306
 test_database_indexer = "flare_ftso_indexer_indexer_test"
 test_database_main = "flare_ftso_indexer_main_test"
 test_username = "root"
-test_password = "password"
+test_password = "root"
 # Node
 test_node_url = "http://coston2.test.aflabs.net:9650/ext/bc/C/rpc"
 test_api_key = ""
