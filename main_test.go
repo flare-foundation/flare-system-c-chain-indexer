@@ -74,13 +74,14 @@ func TestIntegrationIndexHistory(t *testing.T) {
 }
 
 func (suite *IntegrationIndexContinuousSuite) SetupSuite() {
-	err := suite.indexer.IndexContinuous(suite.ctx)
+	err := suite.indexer.IndexContinuous(suite.ctx, startBlock)
 	require.NoError(suite.T(), err, "Could not run the indexer")
 }
 
 func (suite *IntegrationIndexHistorySuite) SetupSuite() {
-	err := suite.indexer.IndexHistory(suite.ctx)
+	lastIndex, err := suite.indexer.IndexHistory(suite.ctx)
 	require.NoError(suite.T(), err, "Could not run the indexer")
+	require.Equal(suite.T(), uint64(endBlockHistory), lastIndex, "Last indexed block does not match expected value")
 }
 
 func (suite *IntegrationIndex) TestCheckBlocks() {

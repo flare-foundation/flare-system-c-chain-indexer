@@ -185,7 +185,7 @@ func runIndexer(ctx context.Context, mockChain *indexer_testing.MockChain, db *g
 	}
 
 	// index history with parallel processing
-	err = cIndexer.IndexHistory(ctx)
+	historyLastIndex, err := cIndexer.IndexHistory(ctx)
 	if err != nil {
 		logger.Fatal("History run error: %s", err)
 	}
@@ -197,7 +197,7 @@ func runIndexer(ctx context.Context, mockChain *indexer_testing.MockChain, db *g
 	)
 
 	// run indexer
-	err = cIndexer.IndexContinuous(ctx)
+	err = cIndexer.IndexContinuous(ctx, historyLastIndex)
 	if err != nil {
 		logger.Fatal("Continuous run error: %s", err)
 	}

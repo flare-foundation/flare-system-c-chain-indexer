@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"flare-ftso-indexer/logger"
 	"sync"
 	"time"
 
@@ -87,55 +86,27 @@ func (s *DBStates) Update(db *gorm.DB, name string, newIndex, blockTimestamp uin
 }
 
 func (s *DBStates) UpdateAtStart(
-	db *gorm.DB, startIndex, startBlockTimestamp, lastChainIndex, lastBlockTimestamp, stopIndex uint64,
-) (uint64, uint64, error) {
-	var err error
-
-	var firstIndex *uint64
-	var lastIndex *uint64
-
+	db *gorm.DB, startIndex, startBlockTimestamp, lastChainIndex, lastBlockTimestamp uint64,
+) error {
 	s.mu.RLock()
-	firstIndexState := s.States[FirstDatabaseIndexState]
-	lastIndexState := s.States[LastDatabaseIndexState]
-
-	if firstIndexState != nil {
-		firstIndexValue := firstIndexState.Index
-		firstIndex = &firstIndexValue
-	}
-
-	if lastIndexState != nil {
-		lastIndexValue := lastIndexState.Index
-		lastIndex = &lastIndexValue
-	}
+	_, firstDatabaseIndexSet := s.States[FirstDatabaseIndexState]
 	s.mu.RUnlock()
 
-	if firstIndex == nil || lastIndex == nil {
-		logger.Info("No existing DB states found, starting from block %d", startIndex)
-
-		if err := s.Update(db, FirstDatabaseIndexState, startIndex, startBlockTimestamp); err != nil {
-			return 0, 0, errors.Wrap(err, "states.Update")
-		}
-	} else if startIndex >= *firstIndex && startIndex <= *lastIndex {
-		logger.Info("Data from blocks %d to %d already in the database", startIndex, *lastIndex)
-		startIndex = *lastIndex + 1
-	} else {
-		logger.Warn("Data from blocks %d to %d not in the database,  starting from %d", startIndex, *lastIndex, *firstIndex)
-
-		// if startIndex is set before existing data in the DB or a break among saved blocks
-		// in the DB is created, then we change the guaranties about the starting block
-		if err := s.Update(db, FirstDatabaseIndexState, startIndex, startBlockTimestamp); err != nil {
-			return 0, 0, errors.Wrap(err, "states.Update")
+	// Set the first database index state only if it does not exist yet
+	if !firstDatabaseIndexSet {
+		err := s.Update(db, FirstDatabaseIndexState, startIndex, startBlockTimestamp)
+		if err != nil {
+			return errors.Wrap(err, "states.Update(FirstDatabaseIndexState)")
 		}
 	}
 
-	err = s.Update(db, LastChainIndexState, lastChainIndex, lastBlockTimestamp)
+	// Set the state for the current latest chain index
+	err := s.Update(db, LastChainIndexState, lastChainIndex, lastBlockTimestamp)
 	if err != nil {
-		return 0, 0, errors.Wrap(err, "states.Update")
+		return errors.Wrap(err, "states.Update(LastChainIndexState)")
 	}
 
-	endIndex := min(stopIndex, lastChainIndex)
-
-	return startIndex, endIndex, nil
+	return nil
 }
 
 func UpdateDBStates(ctx context.Context, db *gorm.DB) (*DBStates, error) {

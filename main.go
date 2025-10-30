@@ -155,9 +155,9 @@ func runIndexer(
 		return err
 	}
 
-	err = boff.RetryNoReturn(
+	historyLastIndex, err := boff.Retry(
 		ctx,
-		func() error {
+		func() (uint64, error) {
 			return cIndexer.IndexHistory(ctx)
 		},
 		"IndexHistory",
@@ -180,7 +180,7 @@ func runIndexer(
 	err = boff.RetryNoReturn(
 		ctx,
 		func() error {
-			return cIndexer.IndexContinuous(ctx)
+			return cIndexer.IndexContinuous(ctx, historyLastIndex+1)
 		},
 		"IndexContinuous",
 	)
