@@ -9,6 +9,7 @@ import (
 	"math/big"
 	"net/url"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -210,6 +211,17 @@ func (cc ChainConfig) FullNodeURL() (*url.URL, error) {
 }
 
 var envOverrides = map[string]func(*Config, string){
+	"DB_HOST": func(c *Config, v string) { c.DB.Host = v },
+	"DB_PORT": func(c *Config, v string) {
+		port, err := strconv.Atoi(v)
+		if err == nil {
+			c.DB.Port = port
+		} else {
+			// The logger is not yet initialized here, so we use fmt.Printf
+			fmt.Printf("ERROR: Invalid DB_PORT value: %s\n", v)
+		}
+	},
+	"DB_DATABASE":  func(c *Config, v string) { c.DB.Database = v },
 	"DB_USERNAME":  func(c *Config, v string) { c.DB.Username = v },
 	"DB_PASSWORD":  func(c *Config, v string) { c.DB.Password = v },
 	"NODE_URL":     func(c *Config, v string) { c.Chain.NodeURL = v },
