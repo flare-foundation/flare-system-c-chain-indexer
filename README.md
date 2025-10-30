@@ -48,8 +48,8 @@ database = "flare_ftso_indexer"
 username = "root"
 password = "root"
 log_queries = false
-drop_table_at_start = true
-history_drop = 604800 # Enable deleting the transactions and logs in DB that are older (timestamp of the block) than history_drop (in seconds); set 0 to turn off; defaults to 7 days for Flare/Songbird and 2 days for Coston*
+drop_table_at_start = false  # set to true to drop existing tables at the start of the indexing - useful to force re-indexing
+history_drop = 604800  # Enable deleting the transactions and logs in DB that are older (timestamp of the block) than history_drop (in seconds); set 0 to turn off; defaults to 7 days for Flare/Songbird and 2 days for Coston*
 
 [logger]
 level = "INFO"
@@ -65,6 +65,21 @@ node_url = "http://127.0.0.1:8545/"  # or NODE_URL environment variable
 backoff_max_elapsed_time_seconds = 300 # optional, defaults to 300s = 5 minutes. Affects how long the indexer will keep retrying in case of a complete outage of the node provider. Set to 0 to retry indefinitely.
 timeout_milis = 1000  # optional, defaults to 1000ms = 1s. Try increasing if you see timeout errors often.
 ```
+
+If the C chain indexer has been previously run and there is existing data in the database,
+subsequent runs will resume indexing from after the last indexed block. Only when starting with an
+empty database will the indexer have to decide where to start. Normally this will be based on the
+history drop configuration parameter - if the history drop is 14 days for example then the indexer
+will start indexing from the block that was mined 14 days ago. If the history drop is disabled (set
+to 0) then the indexer will start from the configured `start_index` block or from block 0 if not
+set.
+
+In case the indexer has been previously run and you need more historical data, you can increase
+the history drop parameter or disable history drop and set the start_index to the desired
+starting block. You can manually delete all existing data from the database in order to trigger
+re-indexing from the new starting block. You can also set the `drop_table_at_start` parameter to
+true to have the indexer drop existing tables at startup and force re-indexing - though remember to
+set it back to false afterwards to avoid losing data on subsequent runs.
 
 ### Database
 

@@ -87,18 +87,19 @@ func dropHistoryIteration(
 
 // GetStartBlock returns the block number to start indexing from based on the history drop parameter.
 func GetStartBlock(
-	ctx context.Context, db *gorm.DB, historyDropIntervalSeconds uint64, client *chain.Client, configuredStartBlock uint64,
+	ctx context.Context, historyDropIntervalSeconds uint64, client *chain.Client, configuredStartBlock uint64,
 ) (uint64, error) {
 	lastBlockTime, lastBlockNumber, err := getBlockTimestamp(ctx, nil, client)
 	if err != nil {
 		return 0, errors.Wrap(err, "Failed to get the latest block")
 	}
 
-	db = db.WithContext(ctx)
 	deleteStartTime := lastBlockTime - historyDropIntervalSeconds
 
-	return getNearestBlockByTimestamp(
-		ctx, deleteStartTime, db, client, configuredStartBlock, lastBlockNumber,
+	// This function is only ever called when starting with an empty DB state
+	// so we can skip the DB check and jump straight to the chain search.
+	return getNearestBlockByTimestampFromChain(
+		ctx, deleteStartTime, client, configuredStartBlock, lastBlockNumber,
 	)
 }
 

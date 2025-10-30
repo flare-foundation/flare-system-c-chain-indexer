@@ -87,29 +87,60 @@ func run(ctx context.Context) error {
 		}
 	}
 
-	if historyDrop > 0 {
-		firstBlockNumber, err := boff.Retry(
-			ctx,
-			func() (uint64, error) {
-				return database.GetStartBlock(
-					ctx, db, historyDrop, ethClient, cfg.Indexer.StartIndex,
-				)
-			},
-			"GetStartBlock",
-		)
-		if err != nil {
-			return errors.Wrap(err, "GetStartBlock error")
-		}
-
-		logger.Info("firstBlockNumber = %d", firstBlockNumber)
-
-		if firstBlockNumber > cfg.Indexer.StartIndex {
-			logger.Info("Setting new startIndex due to history drop: %d", firstBlockNumber)
-			cfg.Indexer.StartIndex = firstBlockNumber
-		}
+	startIndex, err := getStartIndex(ctx, db, ethClient, cfg, historyDrop)
+	if err != nil {
+		return errors.Wrap(err, "getStartIndex error")
 	}
 
+	cfg.Indexer.StartIndex = startIndex
+
 	return runIndexer(ctx, cfg, db, ethClient, historyDrop)
+}
+
+func getStartIndex(
+	ctx context.Context,
+	db *gorm.DB,
+	ethClient *chain.Client,
+	cfg *config.Config,
+	historyDrop uint64,
+) (uint64, error) {
+	var latestIndexedBlock database.Block
+	err := db.Last(&database.Block{}).Select("number").Scan(&latestIndexedBlock).Error
+
+	// If a latest indexed block is found, return the next block number
+	if err == nil {
+		logger.Info("Starting after latest indexed block from DB: %d", latestIndexedBlock.Number)
+		return latestIndexedBlock.Number + 1, nil
+	}
+
+	// In case of an unexpected error, return it
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, errors.Wrap(err, "DB query error")
+	}
+
+	// No blocks are indexed yet
+	// If history drop is disabled, return the configured start index
+	if historyDrop == 0 {
+		logger.Info("No indexed blocks found in DB, starting from configured start index: %d", cfg.Indexer.StartIndex)
+		return cfg.Indexer.StartIndex, nil
+	}
+
+	// History drop is enabled so calculate start index based on it.
+	firstBlockNumber, err := boff.Retry(
+		ctx,
+		func() (uint64, error) {
+			return database.GetStartBlock(
+				ctx, historyDrop, ethClient, cfg.Indexer.StartIndex,
+			)
+		},
+		"GetStartBlock",
+	)
+	if err != nil {
+		return 0, errors.Wrap(err, "GetStartBlock error")
+	}
+
+	logger.Info("No indexed blocks found in DB, starting from calculated start index based on history drop: %d", firstBlockNumber)
+	return firstBlockNumber, nil
 }
 
 func runIndexer(
