@@ -143,22 +143,22 @@ func parseTransactionAddress(address string) common.Address {
 	return common.HexToAddress(address)
 }
 
-func (ci *BlockIndexer) IndexHistory(ctx context.Context) error {
+func (ci *BlockIndexer) IndexHistory(ctx context.Context) (uint64, error) {
 	states, err := database.UpdateDBStates(ctx, ci.db)
 	if err != nil {
-		return errors.Wrap(err, "database.UpdateDBStates")
+		return 0, errors.Wrap(err, "database.UpdateDBStates")
 	}
 
-	ixRange, err := ci.getIndexRange(ctx, states)
+	ixRange, err := ci.getIndexRange(ctx, states, ci.params.StartIndex)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	logger.Info("Starting to index blocks from %d to %d", ixRange.start, ixRange.end)
 
 	for i := ixRange.start; i <= ixRange.end; i = i + ci.params.BatchSize {
 		if err := ci.indexBatch(ctx, states, i, ixRange); err != nil {
-			return err
+			return 0, err
 		}
 
 		// in the second to last run of the loop update lastIndex to get the blocks
@@ -166,12 +166,12 @@ func (ci *BlockIndexer) IndexHistory(ctx context.Context) error {
 		if ci.shouldUpdateLastIndex(ixRange, i) {
 			ixRange, err = ci.updateLastIndexHistory(ctx, states, ixRange)
 			if err != nil {
-				return err
+				return 0, err
 			}
 		}
 	}
 
-	return nil
+	return ixRange.end, nil
 }
 
 func (ci *BlockIndexer) indexBatch(
@@ -340,23 +340,26 @@ type indexRange struct {
 }
 
 func (ci *BlockIndexer) getIndexRange(
-	ctx context.Context, states *database.DBStates,
+	ctx context.Context, states *database.DBStates, startIndex uint64,
 ) (*indexRange, error) {
 	lastChainIndex, lastChainTimestamp, err := ci.fetchLastBlockIndex(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "ci.fetchLastBlockIndex")
 	}
 
-	startTimestamp, err := ci.fetchBlockTimestamp(ctx, ci.params.StartIndex)
+	startTimestamp, err := ci.fetchBlockTimestamp(ctx, startIndex)
 	if err != nil {
 		return nil, errors.Wrap(err, "ci.fetchBlockTimestamp")
 	}
 
-	startIndex, lastIndex, err := states.UpdateAtStart(ci.db, ci.params.StartIndex,
-		startTimestamp, lastChainIndex, lastChainTimestamp, ci.params.StopIndex)
+	err = states.UpdateAtStart(
+		ci.db, startIndex, startTimestamp, lastChainIndex, lastChainTimestamp,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "states.UpdateAtStart")
 	}
+
+	lastIndex := min(lastChainIndex, ci.params.StopIndex)
 
 	return &indexRange{start: startIndex, end: lastIndex}, nil
 }
@@ -448,13 +451,13 @@ func (ci *BlockIndexer) updateLastIndexHistory(
 	return ixRange, nil
 }
 
-func (ci *BlockIndexer) IndexContinuous(ctx context.Context) error {
+func (ci *BlockIndexer) IndexContinuous(ctx context.Context, startIndex uint64) error {
 	states, err := database.UpdateDBStates(ctx, ci.db)
 	if err != nil {
 		return errors.Wrap(err, "database.UpdateDBStates")
 	}
 
-	ixRange, err := ci.getIndexRange(ctx, states)
+	ixRange, err := ci.getIndexRange(ctx, states, startIndex)
 	if err != nil {
 		return errors.Wrap(err, "ci.getIndexRange")
 	}
@@ -493,7 +496,7 @@ func (ci *BlockIndexer) IndexContinuous(ctx context.Context) error {
 		blockNum++
 	}
 
-	logger.Debug("Stopping the indexer at block %d", states.States[database.LastDatabaseIndexState].Index)
+	logger.Debug("Stopping the indexer at block %d", blockNum)
 
 	return nil
 }

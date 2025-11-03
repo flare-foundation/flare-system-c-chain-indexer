@@ -2,7 +2,6 @@ package database
 
 import (
 	"context"
-	"flare-ftso-indexer/logger"
 	"sync"
 	"time"
 
@@ -64,7 +63,13 @@ func (s *DBStates) updateStates(newStates map[string]*State) {
 
 func (s *DBStates) updateIndex(name string, newIndex, blockTimestamp uint64) {
 	s.mu.Lock()
-	s.States[name].updateIndex(newIndex, blockTimestamp)
+	state := s.States[name]
+	if state == nil {
+		state = &State{Name: name}
+		s.States[name] = state
+	}
+
+	state.updateIndex(newIndex, blockTimestamp)
 	s.mu.Unlock()
 }
 
@@ -76,50 +81,32 @@ func (s *DBStates) updateDB(db *gorm.DB, name string) error {
 }
 
 func (s *DBStates) Update(db *gorm.DB, name string, newIndex, blockTimestamp uint64) error {
-	s.mu.RLock()
-	state := s.States[name]
-	s.mu.RUnlock()
-
-	if state == nil {
-		return errors.Errorf("state %s not found", name)
-	}
-
 	s.updateIndex(name, newIndex, blockTimestamp)
 	return s.updateDB(db, name)
 }
 
 func (s *DBStates) UpdateAtStart(
-	db *gorm.DB, startIndex, startBlockTimestamp, lastChainIndex, lastBlockTimestamp, stopIndex uint64,
-) (uint64, uint64, error) {
-	var err error
-
+	db *gorm.DB, startIndex, startBlockTimestamp, lastChainIndex, lastBlockTimestamp uint64,
+) error {
 	s.mu.RLock()
-	firstIndex := s.States[FirstDatabaseIndexState].Index
-	lastIndex := s.States[LastDatabaseIndexState].Index
+	_, firstDatabaseIndexSet := s.States[FirstDatabaseIndexState]
 	s.mu.RUnlock()
 
-	if startIndex >= firstIndex && startIndex <= lastIndex {
-		logger.Info("Data from blocks %d to %d already in the database", startIndex, lastIndex)
-		startIndex = lastIndex + 1
-	} else {
-		logger.Warn("Data from blocks %d to %d not in the database, starting from %d", startIndex, lastIndex, firstIndex)
-
-		// if startIndex is set before existing data in the DB or a break among saved blocks
-		// in the DB is created, then we change the guaranties about the starting block
-		err = s.Update(db, FirstDatabaseIndexState, startIndex, startBlockTimestamp)
+	// Set the first database index state only if it does not exist yet
+	if !firstDatabaseIndexSet {
+		err := s.Update(db, FirstDatabaseIndexState, startIndex, startBlockTimestamp)
 		if err != nil {
-			return 0, 0, errors.Wrap(err, "states.Update")
+			return errors.Wrap(err, "states.Update(FirstDatabaseIndexState)")
 		}
 	}
 
-	err = s.Update(db, LastChainIndexState, lastChainIndex, lastBlockTimestamp)
+	// Set the state for the current latest chain index
+	err := s.Update(db, LastChainIndexState, lastChainIndex, lastBlockTimestamp)
 	if err != nil {
-		return 0, 0, errors.Wrap(err, "states.Update")
+		return errors.Wrap(err, "states.Update(LastChainIndexState)")
 	}
 
-	lastIndex = min(stopIndex, lastChainIndex)
-
-	return startIndex, lastIndex, nil
+	return nil
 }
 
 func UpdateDBStates(ctx context.Context, db *gorm.DB) (*DBStates, error) {
@@ -148,12 +135,7 @@ func getDBStates(ctx context.Context, db *gorm.DB) (map[string]*State, error) {
 					return errors.Wrap(err, "db.Where")
 				}
 
-				// If the state is not found, create a new one.
-				state = &State{Name: name, Updated: time.Now()}
-				err := db.Create(state).Error
-				if err != nil {
-					return errors.Wrap(err, "db.Create")
-				}
+				return nil
 			}
 
 			mu.Lock()

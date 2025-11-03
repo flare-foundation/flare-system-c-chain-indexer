@@ -165,9 +165,6 @@ func runIndexer(ctx context.Context, mockChain *indexer_testing.MockChain, db *g
 
 	time.Sleep(3 * time.Second)
 
-	// set a new starting index based on the history drop interval
-	historyDropIntervalSeconds := uint64(10000)
-
 	nodeURL, err := cfg.Chain.FullNodeURL()
 	if err != nil {
 		logger.Fatal("Invalid node URL in config: %s", err)
@@ -185,21 +182,16 @@ func runIndexer(ctx context.Context, mockChain *indexer_testing.MockChain, db *g
 	}
 
 	// index history with parallel processing
-	err = cIndexer.IndexHistory(ctx)
+	historyLastIndex, err := cIndexer.IndexHistory(ctx)
 	if err != nil {
 		logger.Fatal("History run error: %s", err)
 	}
 
-	// turn on the function to delete in the database everything that
-	// is older than the historyDrop interval
-	go database.DropHistory(
-		ctx, db, historyDropIntervalSeconds, database.HistoryDropIntervalCheck, ethClient, 0,
-	)
-
-	// run indexer
-	err = cIndexer.IndexContinuous(ctx)
-	if err != nil {
-		logger.Fatal("Continuous run error: %s", err)
+	if historyLastIndex != cfg.Indexer.StopIndex {
+		logger.Fatal(
+			"History indexing did not reach the stop index: last %d, stop %d",
+			historyLastIndex, cfg.Indexer.StopIndex,
+		)
 	}
 
 	return nil
