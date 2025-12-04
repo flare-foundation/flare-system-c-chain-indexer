@@ -41,7 +41,6 @@ type testConfig struct {
 
 type IntegrationIndex struct {
 	suite.Suite
-	ctx     context.Context
 	cfg     config.Config
 	indexer *indexer.BlockIndexer
 	db      *gorm.DB
@@ -73,20 +72,20 @@ func TestIntegrationIndexHistory(t *testing.T) {
 	suite.Run(t, testSuite)
 }
 
-func (suite *IntegrationIndexContinuousSuite) SetupSuite() {
-	err := suite.indexer.IndexContinuous(suite.ctx, startBlock)
+func (suite *IntegrationIndexContinuousSuite) SetupSuite(ctx context.Context) {
+	err := suite.indexer.IndexContinuous(ctx, startBlock)
 	require.NoError(suite.T(), err, "Could not run the indexer")
 }
 
-func (suite *IntegrationIndexHistorySuite) SetupSuite() {
-	lastIndex, err := suite.indexer.IndexHistory(suite.ctx)
+func (suite *IntegrationIndexHistorySuite) SetupSuite(ctx context.Context) {
+	lastIndex, err := suite.indexer.IndexHistory(ctx)
 	require.NoError(suite.T(), err, "Could not run the indexer")
 	require.Equal(suite.T(), uint64(endBlockHistory), lastIndex, "Last indexed block does not match expected value")
 }
 
-func (suite *IntegrationIndex) TestCheckBlocks() {
+func (suite *IntegrationIndex) TestCheckBlocks(ctx context.Context) {
 	var blocks []database.Block
-	result := suite.db.WithContext(suite.ctx).Order("hash ASC").Find(&blocks)
+	result := suite.db.WithContext(ctx).Order("hash ASC").Find(&blocks)
 	require.NoError(suite.T(), result.Error, "Could not find blocks")
 
 	suite.T().Logf("Found %d blocks", len(blocks))
@@ -97,9 +96,9 @@ func (suite *IntegrationIndex) TestCheckBlocks() {
 	cupaloy.SnapshotT(suite.T(), blocks)
 }
 
-func (suite *IntegrationIndex) TestCheckTransactions() {
+func (suite *IntegrationIndex) TestCheckTransactions(ctx context.Context) {
 	var transactions []database.Transaction
-	result := suite.db.WithContext(suite.ctx).Order("hash ASC").Find(&transactions)
+	result := suite.db.WithContext(ctx).Order("hash ASC").Find(&transactions)
 	require.NoError(suite.T(), result.Error, "Could not find transactions")
 
 	suite.T().Logf("Found %d transactions", len(transactions))
@@ -110,9 +109,9 @@ func (suite *IntegrationIndex) TestCheckTransactions() {
 	cupaloy.SnapshotT(suite.T(), transactions)
 }
 
-func (suite *IntegrationIndex) TestCheckLogs() {
+func (suite *IntegrationIndex) TestCheckLogs(ctx context.Context) {
 	var logs []database.Log
-	result := suite.db.WithContext(suite.ctx).
+	result := suite.db.WithContext(ctx).
 		Preload("Transaction").
 		Order("transaction_hash ASC, log_index ASC").
 		Find(&logs)
@@ -127,7 +126,7 @@ func (suite *IntegrationIndex) TestCheckLogs() {
 }
 
 func (suite *IntegrationIndex) prepareSuite(isHistory bool) error {
-	suite.ctx = context.Background()
+	ctx := context.Background()
 	tCfg := testConfig{}
 
 	_, err := toml.DecodeFile("testing/config_test.toml", &tCfg)
@@ -139,7 +138,7 @@ func (suite *IntegrationIndex) prepareSuite(isHistory bool) error {
 
 	suite.cfg = initConfig(tCfg, isHistory)
 
-	suite.db, err = database.ConnectAndInitialize(suite.ctx, &suite.cfg.DB)
+	suite.db, err = database.ConnectAndInitialize(ctx, &suite.cfg.DB)
 	if err != nil {
 		return errors.Wrap(err, "Could not connect to the database")
 	}
@@ -263,8 +262,8 @@ func checkBlocks(t *testing.T, blocks []database.Block, cfg *config.Config) {
 
 func checkBlock(t *testing.T, block *database.Block, cfg *config.Config) {
 	require.NotEmpty(t, block.Hash, "Block hash should not be empty")
-	require.GreaterOrEqual(t, block.Number, uint64(cfg.Indexer.StartIndex))
-	require.LessOrEqual(t, block.Number, uint64(cfg.Indexer.StopIndex))
+	require.GreaterOrEqual(t, block.Number, cfg.Indexer.StartIndex)
+	require.LessOrEqual(t, block.Number, cfg.Indexer.StopIndex)
 	require.NotZero(t, block.Timestamp, "Timestamp should not be zero")
 }
 
@@ -279,8 +278,8 @@ func checkTransaction(t *testing.T, tx *database.Transaction, cfg *config.Config
 	require.NotEmpty(t, tx.Hash, "Transaction hash should not be empty")
 	require.NotEmpty(t, tx.FunctionSig, "Function signature should not be empty")
 	require.NotEmpty(t, tx.Input, "Input should not be empty")
-	require.GreaterOrEqual(t, tx.BlockNumber, uint64(cfg.Indexer.StartIndex))
-	require.LessOrEqual(t, tx.BlockNumber, uint64(cfg.Indexer.StopIndex))
+	require.GreaterOrEqual(t, tx.BlockNumber, cfg.Indexer.StartIndex)
+	require.LessOrEqual(t, tx.BlockNumber, cfg.Indexer.StopIndex)
 	require.NotEmpty(t, tx.BlockHash, "Block hash should not be empty")
 	require.NotEmpty(t, tx.FromAddress, "From address should not be empty")
 	require.True(t, compareAddrStrs(tx.ToAddress, contractAddress), "To address should be the contract address")

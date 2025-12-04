@@ -1,3 +1,21 @@
+<!-- LOGO -->
+
+<div align="center">
+  <a href="https://flare.network/" target="blank">
+    <img src="https://content.flare.network/Flare-2.svg" width="300" alt="Flare Logo" />
+  </a>
+  <br />
+  Flare C-Chain Indexer
+  <br />
+  <a href="#PROJECT_NAME">About</a>
+  ·
+  <a href="CONTRIBUTING.md">Contributing</a>
+  ·
+  <a href="SECURITY.md">Security</a>
+  ·
+  <a href="CHANGELOG.md">Changelog</a>
+</div>
+
 # Flare FTSO indexer
 
 This code implements a fast and parallelized indexer of C-chain that fetches data needed for
@@ -5,7 +23,7 @@ various Flare protocols. It saves the data in a MySQL database.
 
 ### Prerequisites
 
-The indexer is implemented in Go (tested with version 1.21). A running MySQL database to save the data is needed (we provide a
+The indexer is implemented in Go (tested with version 1.24). A running MySQL database to save the data is needed (we provide a
 docker-compose.yaml file for automatic deployment of a database).
 
 ### Configuration
