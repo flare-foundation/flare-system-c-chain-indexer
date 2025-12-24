@@ -2,18 +2,21 @@ package main_test
 
 import (
 	"context"
-	"flare-ftso-indexer/chain"
-	"flare-ftso-indexer/config"
-	"flare-ftso-indexer/database"
-	"flare-ftso-indexer/indexer"
 	"os"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
+
+	"flare-ftso-indexer/chain"
+	"flare-ftso-indexer/config"
+	"flare-ftso-indexer/database"
+	"flare-ftso-indexer/indexer"
 
 	"github.com/BurntSushi/toml"
 	"github.com/bradleyjkemp/cupaloy/v2"
 	"github.com/ethereum/go-ethereum/common"
+	_ "github.com/joho/godotenv/autoload"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -25,6 +28,7 @@ const (
 	startBlock         = 6446256
 	endBlockHistory    = 6447813
 	endBlockContinuous = 6446306
+	testTimeout        = 10 * time.Second
 )
 
 type testConfig struct {
@@ -55,8 +59,9 @@ type IntegrationIndexHistorySuite struct {
 }
 
 func TestIntegrationIndexContinuous(t *testing.T) {
+	ctx := context.Background()
 	testSuite := new(IntegrationIndexContinuousSuite)
-	err := testSuite.prepareSuite(false)
+	err := testSuite.prepareSuite(ctx, false)
 	if err != nil {
 		t.Fatal("Could not prepare the test suite:", err)
 	}
@@ -64,26 +69,34 @@ func TestIntegrationIndexContinuous(t *testing.T) {
 }
 
 func TestIntegrationIndexHistory(t *testing.T) {
+	ctx := context.Background()
 	testSuite := new(IntegrationIndexHistorySuite)
-	err := testSuite.prepareSuite(true)
+	err := testSuite.prepareSuite(ctx, true)
 	if err != nil {
 		t.Fatal("Could not prepare the test suite")
 	}
 	suite.Run(t, testSuite)
 }
 
-func (suite *IntegrationIndexContinuousSuite) SetupSuite(ctx context.Context) {
+func (suite *IntegrationIndexContinuousSuite) SetupSuite() {
+	ctx := context.Background()
+
 	err := suite.indexer.IndexContinuous(ctx, startBlock)
 	require.NoError(suite.T(), err, "Could not run the indexer")
 }
 
-func (suite *IntegrationIndexHistorySuite) SetupSuite(ctx context.Context) {
+func (suite *IntegrationIndexHistorySuite) SetupSuite() {
+	ctx := context.Background()
+
 	lastIndex, err := suite.indexer.IndexHistory(ctx)
 	require.NoError(suite.T(), err, "Could not run the indexer")
 	require.Equal(suite.T(), uint64(endBlockHistory), lastIndex, "Last indexed block does not match expected value")
 }
 
-func (suite *IntegrationIndex) TestCheckBlocks(ctx context.Context) {
+func (suite *IntegrationIndex) TestCheckBlocks() {
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
 	var blocks []database.Block
 	result := suite.db.WithContext(ctx).Order("hash ASC").Find(&blocks)
 	require.NoError(suite.T(), result.Error, "Could not find blocks")
@@ -96,7 +109,10 @@ func (suite *IntegrationIndex) TestCheckBlocks(ctx context.Context) {
 	cupaloy.SnapshotT(suite.T(), blocks)
 }
 
-func (suite *IntegrationIndex) TestCheckTransactions(ctx context.Context) {
+func (suite *IntegrationIndex) TestCheckTransactions() {
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
 	var transactions []database.Transaction
 	result := suite.db.WithContext(ctx).Order("hash ASC").Find(&transactions)
 	require.NoError(suite.T(), result.Error, "Could not find transactions")
@@ -109,7 +125,10 @@ func (suite *IntegrationIndex) TestCheckTransactions(ctx context.Context) {
 	cupaloy.SnapshotT(suite.T(), transactions)
 }
 
-func (suite *IntegrationIndex) TestCheckLogs(ctx context.Context) {
+func (suite *IntegrationIndex) TestCheckLogs() {
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout)
+	defer cancel()
+
 	var logs []database.Log
 	result := suite.db.WithContext(ctx).
 		Preload("Transaction").
@@ -125,8 +144,7 @@ func (suite *IntegrationIndex) TestCheckLogs(ctx context.Context) {
 	cupaloy.SnapshotT(suite.T(), logs)
 }
 
-func (suite *IntegrationIndex) prepareSuite(isHistory bool) error {
-	ctx := context.Background()
+func (suite *IntegrationIndex) prepareSuite(ctx context.Context, isHistory bool) error {
 	tCfg := testConfig{}
 
 	_, err := toml.DecodeFile("testing/config_test.toml", &tCfg)
