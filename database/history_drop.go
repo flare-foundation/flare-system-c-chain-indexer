@@ -6,8 +6,8 @@ import (
 	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/logger"
+	"math"
 	"math/big"
-	"sort"
 	"time"
 
 	"github.com/pkg/errors"
@@ -17,6 +17,7 @@ import (
 const (
 	deleteBatchesPauseAfter    = 10
 	deleteBatchesPauseDuration = 100 * time.Millisecond
+	searchWindowBlocks         = uint64(5 * 24 * 3600) // Heuristic: 5 days of blocks, assuming 1 sec per block
 )
 
 func DropHistory(
@@ -226,42 +227,66 @@ func getNearestBlockByTimestampFromChain(
 	startBlockNumber uint64,
 	endBlockNumber uint64,
 ) (uint64, error) {
-	// We search over the entire range of blocks from the configured
-	// startBlockNumber to the most recent block number.
-	//
-	// This could potentially be optimized further using some estimate
-	// of the block time to reduce the search range, but for now this should
-	// be good enough.
-	//
-	// Once the indexer is running for a while it should be possible to
-	// read the required block number from the database instead of using
-	// this search process.
+	logger.Debug("Getting nearest block by timestamp from chain: search timestamp: %d, start block: %d, end block: %d", searchTimestamp, startBlockNumber, endBlockNumber)
 
-	var err error
-	i := sort.Search(int(endBlockNumber-startBlockNumber+1), func(i int) bool {
-		// The err variable comes from the enclosing function. If it has been
-		// set to a non-nil value by a previous iteration of the binary search,
-		// we should not overwrite it. Ideally we would exit the binary search
-		// early, but the sort.Search function does not provide a way to do
-		// that. So instead, we just return false for all future iterations.
-		// The results of the search are meaningless in this case.
-		if err != nil {
-			return false
+	var searchStartBlockNumber = startBlockNumber
+	var searchEndBlockNumber = endBlockNumber
+
+	if startBlockNumber == 0 {
+		// If start block was not specified in config, try to reduce the search space by going back in steps of 5 days
+		// until we find a block earlier than searchTimestamp.
+		// This is to avoid querying for very old blocks during binary search - the RPC node might not have full block history.
+		startCandidate := endBlockNumber
+		candidateBlockTime := uint64(math.MaxUint64)
+
+		var err error
+		for candidateBlockTime > searchTimestamp {
+			startCandidate = startCandidate - searchWindowBlocks
+			candidateBlockTime, _, err = getBlockTimestamp(ctx, big.NewInt(int64(startCandidate)), client)
+			if err != nil {
+				return 0, errors.Wrap(err, "getNearestBlockByTimestampFromChain")
+			}
 		}
+		searchStartBlockNumber = startCandidate
+		searchEndBlockNumber = startCandidate + searchWindowBlocks
+		logger.Debug("Search block window narrowed down to: %d-%d", searchStartBlockNumber, searchEndBlockNumber)
+	}
 
-		blockNumber := startBlockNumber + uint64(i)
-
-		var blockTime uint64
-		blockTime, _, err = getBlockTimestamp(ctx, big.NewInt(int64(blockNumber)), client)
-		if err != nil {
-			return false
-		}
-
-		return blockTime >= searchTimestamp
-	})
+	blockNumber, err := binarySearchBlockByTimestamp(
+		ctx, searchTimestamp, client, searchStartBlockNumber, searchEndBlockNumber,
+	)
 	if err != nil {
 		return 0, errors.Wrap(err, "getNearestBlockByTimestampFromChain")
 	}
 
-	return startBlockNumber + uint64(i), nil
+	logger.Debug("Found nearest block by timestamp from chain: block number: %d", blockNumber)
+	return blockNumber, nil
+}
+
+func binarySearchBlockByTimestamp(
+	ctx context.Context,
+	searchTimestamp uint64,
+	client *chain.Client,
+	startBlockNumber uint64,
+	endBlockNumber uint64,
+) (uint64, error) {
+	low := startBlockNumber
+	high := endBlockNumber
+
+	for low < high {
+		mid := low + (high-low)/2
+
+		blockTime, _, err := getBlockTimestamp(ctx, big.NewInt(int64(mid)), client)
+		if err != nil {
+			return 0, err
+		}
+
+		if blockTime >= searchTimestamp {
+			high = mid
+		} else {
+			low = mid + 1
+		}
+	}
+
+	return low, nil
 }
