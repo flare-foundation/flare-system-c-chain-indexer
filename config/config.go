@@ -144,6 +144,7 @@ type TimeoutConfig struct {
 
 type TransactionInfo struct {
 	ContractAddress string `toml:"contract_address"`
+	ContractName    string `toml:"contract_name"`
 	FuncSig         string `toml:"func_sig"`
 	Status          bool   `toml:"status"`
 	CollectEvents   bool   `toml:"collect_events"`
@@ -152,6 +153,7 @@ type TransactionInfo struct {
 
 type LogInfo struct {
 	ContractAddress string `toml:"contract_address"`
+	ContractName    string `toml:"contract_name"`
 	Topic           string `toml:"topic"`
 }
 

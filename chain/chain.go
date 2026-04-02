@@ -165,6 +165,50 @@ func (c *Client) FilterLogs(ctx context.Context, q interfaces.FilterQuery) ([]av
 	}
 }
 
+func (c *Client) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
+	switch c.chain {
+	case ChainTypeAvax:
+		return c.avx.CodeAt(ctx, contract, blockNumber)
+	case ChainTypeEth:
+		return c.eth.CodeAt(ctx, contract, blockNumber)
+	default:
+		return nil, errors.New("invalid chain")
+	}
+}
+
+func (c *Client) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	switch c.chain {
+	case ChainTypeAvax:
+		return c.avx.CallContract(ctx, toAvaxCallMsg(msg), blockNumber)
+	case ChainTypeEth:
+		return c.eth.CallContract(ctx, msg, blockNumber)
+	default:
+		return nil, errors.New("invalid chain")
+	}
+}
+
+func toAvaxCallMsg(msg ethereum.CallMsg) interfaces.CallMsg {
+	accessList := make(avxTypes.AccessList, len(msg.AccessList))
+	for i, tuple := range msg.AccessList {
+		accessList[i] = avxTypes.AccessTuple{
+			Address:     tuple.Address,
+			StorageKeys: tuple.StorageKeys,
+		}
+	}
+
+	return interfaces.CallMsg{
+		From:       msg.From,
+		To:         msg.To,
+		Gas:        msg.Gas,
+		GasPrice:   msg.GasPrice,
+		GasFeeCap:  msg.GasFeeCap,
+		GasTipCap:  msg.GasTipCap,
+		Value:      msg.Value,
+		Data:       msg.Data,
+		AccessList: accessList,
+	}
+}
+
 func (b *Header) Number() *big.Int {
 	switch b.chain {
 	case ChainTypeAvax:

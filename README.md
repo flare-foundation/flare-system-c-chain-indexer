@@ -43,7 +43,8 @@ log_range = 10 # the size of the interval of blocks used to request logs in each
 new_block_check_millis = 1000 # interval for checking for new blocks
 
 [[indexer.collect_transactions]]
-contract_address = "22474d350ec2da53d717e30b96e9a2b7628ede5b" # address of the contract (can be "undefined")
+contract_address = "22474d350ec2da53d717e30b96e9a2b7628ede5b" # address of the contract
+contract_name = "Submission" # optional: can skip setting contract_address, and it will be resolved by name from ContractRegistry
 func_sig = "f14fcbc8" # signature of the function on the contract  (can be "undefined")
 status=true # boolean indicating if it should be checked if the transaction succeeded
 collect_events=true # boolean indicating if the logs of the emitted events should be saved to the database
@@ -57,6 +58,7 @@ collect_events = true
 
 [[indexer.collect_logs]]
 contract_address = "b682deef4f8e298d86bfc3e21f50c675151fb974" # address of the contract calling the log (can be "undefined")
+contract_name = "Relay" # optional: can skip setting contract_address, and it will be resolved by name from ContractRegistry
 topic = "undefined" # topic0 of the log  (can be "undefined")
 
 [db]

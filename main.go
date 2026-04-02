@@ -59,6 +59,10 @@ func run(ctx context.Context) error {
 		return errors.Wrap(err, "Could not connect to the RPC nodes")
 	}
 
+	if err := config.ResolveContractAddresses(ctx, cfg, ethClient); err != nil {
+		return errors.Wrap(err, "Failed to resolve configured contract addresses")
+	}
+
 	db, err := database.ConnectAndInitialize(ctx, &cfg.DB)
 	if err != nil {
 		return errors.Wrap(err, "Database connect and initialize errors")
