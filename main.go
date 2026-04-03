@@ -104,18 +104,40 @@ func getStartIndex(
 	cfg *config.Config,
 	historyDrop uint64,
 ) (uint64, error) {
-	var latestIndexedBlock database.Block
-	err := db.Last(&database.Block{}).Select("number").Scan(&latestIndexedBlock).Error
+	var minBlockNumber, maxBlockNumber *uint64
+	var blockCount int64
 
-	// If a latest indexed block is found, return the next block number
-	if err == nil {
-		logger.Info("Starting after latest indexed block from DB: %d", latestIndexedBlock.Number)
-		return latestIndexedBlock.Number + 1, nil
-	}
+	db.Model(&database.Block{}).Select("MIN(number)").Scan(&minBlockNumber)
+	db.Model(&database.Block{}).Select("MAX(number)").Scan(&maxBlockNumber)
+	db.Model(&database.Block{}).Count(&blockCount)
 
-	// In case of an unexpected error, return it
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		return 0, errors.Wrap(err, "DB query error")
+	// If blocks exist in DB, check for gaps
+	if maxBlockNumber != nil && minBlockNumber != nil && blockCount > 0 {
+		expectedCount := int64(*maxBlockNumber - *minBlockNumber + 1)
+
+		if blockCount < expectedCount {
+			// Gap detected - find the first missing block
+			var firstGap *uint64
+			err := db.Raw(`
+				SELECT t.number + 1 AS gap_start
+				FROM blocks t
+				WHERE NOT EXISTS (
+					SELECT 1 FROM blocks t2 WHERE t2.number = t.number + 1
+				)
+				AND t.number < ?
+				ORDER BY t.number
+				LIMIT 1
+			`, *maxBlockNumber).Scan(&firstGap).Error
+
+			if err == nil && firstGap != nil {
+				logger.Warn("Gap detected in block history: expected %d blocks, found %d. Resuming from block %d to fill gaps",
+					expectedCount, blockCount, *firstGap)
+				return *firstGap, nil
+			}
+		}
+
+		logger.Info("Starting after latest indexed block from DB: %d", *maxBlockNumber)
+		return *maxBlockNumber + 1, nil
 	}
 
 	// No blocks are indexed yet
