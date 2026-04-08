@@ -6,7 +6,6 @@ import (
 	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/logger"
-	"math"
 	"math/big"
 	"time"
 
@@ -17,7 +16,6 @@ import (
 const (
 	deleteBatchesPauseAfter    = 10
 	deleteBatchesPauseDuration = 100 * time.Millisecond
-	searchWindowBlocks         = uint64(5 * 24 * 3600) // Heuristic: 5 days of blocks, assuming 1 sec per block
 )
 
 func DropHistory(
@@ -43,7 +41,7 @@ func DropHistory(
 	}
 }
 
-var deleteOrder []interface{} = []interface{}{
+var deleteOrder = []interface{}{
 	Log{},
 	Transaction{},
 	Block{},
@@ -73,7 +71,7 @@ func dropHistoryIteration(
 
 	// Delete in specified order to not break foreign keys.
 	for _, entity := range deleteOrder {
-		if err := deleteInBatches(db, deleteStartTime, entity); err != nil {
+		if err := DeleteInBatches(db, deleteStartTime, entity); err != nil {
 			return err
 		}
 	}
@@ -99,12 +97,12 @@ func GetStartBlock(
 
 	// This function is only ever called when starting with an empty DB state
 	// so we can skip the DB check and jump straight to the chain search.
-	return getNearestBlockByTimestampFromChain(
+	return chain.GetNearestBlockByTimestampFromChain(
 		ctx, deleteStartTime, client, configuredStartBlock, lastBlockNumber,
 	)
 }
 
-func deleteInBatches(db *gorm.DB, deleteStartTime uint64, entity interface{}) error {
+func DeleteInBatches(db *gorm.DB, deleteStartTime uint64, entity interface{}) error {
 	batchCount := 0
 
 	for {
@@ -166,7 +164,7 @@ func getNearestBlockByTimestamp(
 		return blockNumber, nil
 	}
 
-	return getNearestBlockByTimestampFromChain(ctx, timestamp, client, startBlockNumber, lastBlockNumber)
+	return chain.GetNearestBlockByTimestampFromChain(ctx, timestamp, client, startBlockNumber, lastBlockNumber)
 }
 
 const maxBlockTimeDiff = time.Minute
@@ -218,75 +216,4 @@ func getNearestBlockByTimestampFromDB(ctx context.Context, timestamp uint64, db 
 	}
 
 	return block.Number, nil
-}
-
-func getNearestBlockByTimestampFromChain(
-	ctx context.Context,
-	searchTimestamp uint64,
-	client *chain.Client,
-	startBlockNumber uint64,
-	endBlockNumber uint64,
-) (uint64, error) {
-	logger.Debug("Getting nearest block by timestamp from chain: search timestamp: %d, start block: %d, end block: %d", searchTimestamp, startBlockNumber, endBlockNumber)
-
-	var searchStartBlockNumber = startBlockNumber
-	var searchEndBlockNumber = endBlockNumber
-
-	if startBlockNumber == 0 {
-		// If start block was not specified in config, try to reduce the search space by going back in steps of 5 days
-		// until we find a block earlier than searchTimestamp.
-		// This is to avoid querying for very old blocks during binary search - the RPC node might not have full block history.
-		startCandidate := endBlockNumber
-		candidateBlockTime := uint64(math.MaxUint64)
-
-		var err error
-		for candidateBlockTime > searchTimestamp {
-			startCandidate = startCandidate - searchWindowBlocks
-			candidateBlockTime, _, err = getBlockTimestamp(ctx, big.NewInt(int64(startCandidate)), client)
-			if err != nil {
-				return 0, errors.Wrap(err, "getNearestBlockByTimestampFromChain")
-			}
-		}
-		searchStartBlockNumber = startCandidate
-		searchEndBlockNumber = startCandidate + searchWindowBlocks
-		logger.Debug("Search block window narrowed down to: %d-%d", searchStartBlockNumber, searchEndBlockNumber)
-	}
-
-	blockNumber, err := binarySearchBlockByTimestamp(
-		ctx, searchTimestamp, client, searchStartBlockNumber, searchEndBlockNumber,
-	)
-	if err != nil {
-		return 0, errors.Wrap(err, "getNearestBlockByTimestampFromChain")
-	}
-
-	logger.Debug("Found nearest block by timestamp from chain: block number: %d", blockNumber)
-	return blockNumber, nil
-}
-
-func binarySearchBlockByTimestamp(
-	ctx context.Context,
-	searchTimestamp uint64,
-	client *chain.Client,
-	startBlockNumber uint64,
-	endBlockNumber uint64,
-) (uint64, error) {
-	low := startBlockNumber
-	high := endBlockNumber
-
-	for low < high {
-		mid := low + (high-low)/2
-
-		blockTime, _, err := getBlockTimestamp(ctx, big.NewInt(int64(mid)), client)
-		if err != nil {
-			return 0, err
-		}
-
-		if blockTime >= searchTimestamp {
-			high = mid
-		} else {
-			low = mid + 1
-		}
-	}
-
-	return low, nil
 }

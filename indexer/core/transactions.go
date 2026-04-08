@@ -1,4 +1,4 @@
-package indexer
+package core
 
 import (
 	"context"
@@ -54,7 +54,7 @@ func countReceipts(txBatch *transactionsBatch) int {
 	return i
 }
 
-func (ci *BlockIndexer) getTransactionsReceipt(
+func (ci *Engine) getTransactionsReceipt(
 	ctx context.Context, txBatch *transactionsBatch, start, stop int,
 ) error {
 	for i := start; i < stop; i++ {
@@ -92,7 +92,7 @@ func (ci *BlockIndexer) getTransactionsReceipt(
 	return nil
 }
 
-func (ci *BlockIndexer) processTransactions(txBatch *transactionsBatch, data *databaseStructData) error {
+func (ci *Engine) processTransactions(txBatch *transactionsBatch, data *databaseStructData) error {
 	txBatch.mu.RLock()
 	defer txBatch.mu.RUnlock()
 

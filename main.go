@@ -6,8 +6,10 @@ import (
 	"flare-ftso-indexer/boff"
 	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
+	"flare-ftso-indexer/contracts"
 	"flare-ftso-indexer/database"
-	"flare-ftso-indexer/indexer"
+	"flare-ftso-indexer/indexer/core"
+	"flare-ftso-indexer/indexer/fsp"
 	"flare-ftso-indexer/logger"
 	"fmt"
 	"os"
@@ -59,7 +61,12 @@ func run(ctx context.Context) error {
 		return errors.Wrap(err, "Could not connect to the RPC nodes")
 	}
 
-	if err := config.ResolveContractAddresses(ctx, cfg, ethClient); err != nil {
+	resolver, err := contracts.NewContractResolver(ethClient)
+	if err != nil {
+		return errors.Wrap(err, "Failed to initialize contract registry resolver")
+	}
+
+	if err := config.ResolveContractAddresses(ctx, cfg, resolver); err != nil {
 		return errors.Wrap(err, "Failed to resolve configured contract addresses")
 	}
 
@@ -74,6 +81,10 @@ func run(ctx context.Context) error {
 	}
 
 	logger.Info("Connected to chain ID %s", chainID)
+
+	if cfg.Indexer.IsFspMode() {
+		return runFspIndexer(ctx, cfg, db, ethClient, resolver)
+	}
 
 	historyDrop, err := cfg.DB.GetHistoryDrop(ctx, chainID)
 	if err != nil {
@@ -98,7 +109,7 @@ func run(ctx context.Context) error {
 
 	cfg.Indexer.StartIndex = startIndex
 
-	return runIndexer(ctx, cfg, db, ethClient, historyDrop)
+	return runIndexer(ctx, cfg, db, ethClient, resolver, historyDrop)
 }
 
 func getStartIndex(
@@ -152,9 +163,10 @@ func runIndexer(
 	cfg *config.Config,
 	db *gorm.DB,
 	ethClient *chain.Client,
+	resolver *contracts.ContractResolver,
 	historyDrop uint64,
 ) error {
-	cIndexer, err := indexer.CreateBlockIndexer(cfg, db, ethClient)
+	cIndexer, err := core.NewEngine(cfg, db, ethClient, resolver)
 	if err != nil {
 		return err
 	}
@@ -194,5 +206,49 @@ func runIndexer(
 
 	logger.Info("Finished indexing")
 
+	return nil
+}
+
+func runFspIndexer(
+	ctx context.Context,
+	cfg *config.Config,
+	db *gorm.DB,
+	ethClient *chain.Client,
+	resolver *contracts.ContractResolver,
+) error {
+	cIndexer, err := core.NewEngine(cfg, db, ethClient, resolver)
+	if err != nil {
+		return err
+	}
+
+	historyLastIndex, err := boff.Retry(
+		ctx,
+		func() (uint64, error) {
+			return fsp.IndexStartup(ctx, cIndexer)
+		},
+		"IndexFspStartup",
+	)
+	if err != nil {
+		return errors.Wrap(err, "FSP startup backfill fatal error")
+	}
+
+	go fsp.DropHistory(
+		ctx,
+		cIndexer,
+		database.HistoryDropIntervalCheck,
+	)
+
+	err = boff.RetryNoReturn(
+		ctx,
+		func() error {
+			return cIndexer.IndexContinuous(ctx, historyLastIndex+1)
+		},
+		"IndexContinuous",
+	)
+	if err != nil {
+		return errors.Wrap(err, "FSP Index continuous fatal error")
+	}
+
+	logger.Info("Finished FSP indexing")
 	return nil
 }

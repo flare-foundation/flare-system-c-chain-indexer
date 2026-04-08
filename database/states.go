@@ -14,12 +14,14 @@ const (
 	LastChainIndexState     string = "last_chain_block"
 	LastDatabaseIndexState  string = "last_database_block"
 	FirstDatabaseIndexState string = "first_database_block"
+	FirstFullIndexState     string = "first_full_index_block"
 )
 
 var (
 	stateNames = []string{
 		FirstDatabaseIndexState,
 		LastDatabaseIndexState,
+		FirstFullIndexState,
 		LastChainIndexState,
 	}
 
@@ -28,14 +30,6 @@ var (
 	// the indexer as well as the history drop functionality.
 	globalStates = NewStates()
 )
-
-type State struct {
-	BaseEntity
-	Name           string `gorm:"type:varchar(50);index"`
-	Index          uint64
-	BlockTimestamp uint64
-	Updated        time.Time
-}
 
 func (s *State) updateIndex(newIndex, blockTimestamp uint64) {
 	s.Index = newIndex
@@ -109,7 +103,7 @@ func (s *DBStates) UpdateAtStart(
 	return nil
 }
 
-func UpdateDBStates(ctx context.Context, db *gorm.DB) (*DBStates, error) {
+func LoadDBStates(ctx context.Context, db *gorm.DB) (*DBStates, error) {
 	newStates, err := getDBStates(ctx, db)
 	if err != nil {
 		return nil, err

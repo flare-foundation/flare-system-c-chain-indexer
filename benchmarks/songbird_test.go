@@ -4,8 +4,9 @@ import (
 	"context"
 	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
+	"flare-ftso-indexer/contracts"
 	"flare-ftso-indexer/database"
-	"flare-ftso-indexer/indexer"
+	"flare-ftso-indexer/indexer/core"
 	"flare-ftso-indexer/logger"
 	"testing"
 
@@ -48,7 +49,12 @@ func BenchmarkBlockRequests(b *testing.B) {
 			logger.Fatal("Eth client error: %s", err)
 		}
 
-		cIndexer, err := indexer.CreateBlockIndexer(&cfg, db, ethClient)
+		resolver, err := contracts.NewContractResolver(ethClient)
+		if err != nil {
+			logger.Fatal("Registry resolver error: %s", err)
+		}
+
+		cIndexer, err := core.NewEngine(&cfg, db, ethClient, resolver)
 		if err != nil {
 			logger.Fatal("Indexer create error: %s", err)
 		}

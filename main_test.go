@@ -10,8 +10,9 @@ import (
 
 	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
+	"flare-ftso-indexer/contracts"
 	"flare-ftso-indexer/database"
-	"flare-ftso-indexer/indexer"
+	"flare-ftso-indexer/indexer/core"
 
 	"github.com/BurntSushi/toml"
 	"github.com/bradleyjkemp/cupaloy/v2"
@@ -46,7 +47,7 @@ type testConfig struct {
 type IntegrationIndex struct {
 	suite.Suite
 	cfg     config.Config
-	indexer *indexer.BlockIndexer
+	indexer *core.Engine
 	db      *gorm.DB
 }
 
@@ -257,7 +258,7 @@ func initConfig(tCfg testConfig, history bool) config.Config {
 	return cfg
 }
 
-func createIndexer(cfg *config.Config, db *gorm.DB) (*indexer.BlockIndexer, error) {
+func createIndexer(cfg *config.Config, db *gorm.DB) (*core.Engine, error) {
 	nodeURL, err := cfg.Chain.FullNodeURL()
 	if err != nil {
 		return nil, errors.Wrap(err, "Invalid node URL in config")
@@ -268,7 +269,12 @@ func createIndexer(cfg *config.Config, db *gorm.DB) (*indexer.BlockIndexer, erro
 		return nil, errors.Wrap(err, "Could not connect to the RPC nodes")
 	}
 
-	return indexer.CreateBlockIndexer(cfg, db, ethClient)
+	resolver, err := contracts.NewContractResolver(ethClient)
+	if err != nil {
+		return nil, errors.Wrap(err, "Could not initialize contract registry resolver")
+	}
+
+	return core.NewEngine(cfg, db, ethClient, resolver)
 }
 
 func checkBlocks(t *testing.T, blocks []database.Block, cfg *config.Config) {

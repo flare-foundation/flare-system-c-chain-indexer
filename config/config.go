@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
@@ -17,9 +18,12 @@ import (
 )
 
 const (
-	day                  time.Duration   = 24 * time.Hour
-	defaultConfirmations                 = 1
-	defaultChainType     chain.ChainType = chain.ChainTypeAvax
+	day                         time.Duration   = 24 * time.Hour
+	defaultConfirmations                        = 1
+	defaultChainType            chain.ChainType = chain.ChainTypeAvax
+	defaultIndexerMode                          = IndexerModeFull
+	defaultFspTxLookbackSeconds                 = uint64(1 * time.Hour / time.Second)
+	defaultFspLogFilterRange                    = uint64(1024)
 )
 
 var (
@@ -128,6 +132,8 @@ type IndexerConfig struct {
 	BatchSize               uint64            `toml:"batch_size"`
 	StartIndex              uint64            `toml:"start_index"`
 	StopIndex               uint64            `toml:"stop_index"`
+	Mode                    string            `toml:"mode"`
+	HistoryEpochs           uint64            `toml:"history_epochs"`
 	NumParallelReq          int               `toml:"num_parallel_req"`
 	LogRange                uint64            `toml:"log_range"`
 	NewBlockCheckMillis     int               `toml:"new_block_check_millis"`
@@ -135,6 +141,17 @@ type IndexerConfig struct {
 	CollectLogs             []LogInfo         `toml:"collect_logs"`
 	Confirmations           uint64            `toml:"confirmations"`
 	NoNewBlocksDelayWarning float64           `toml:"no_new_blocks_delay_warning"`
+	FspTxLookbackSeconds    uint64            `toml:"fsp_tx_lookback_seconds"`
+	FspLogFilterRange       uint64            `toml:"fsp_log_filter_range"`
+}
+
+const (
+	IndexerModeFull = "full"
+	IndexerModeFsp  = "fsp"
+)
+
+func (c IndexerConfig) IsFspMode() bool {
+	return c.Mode == IndexerModeFsp
 }
 
 type TimeoutConfig struct {
@@ -162,8 +179,13 @@ func BuildConfig() (*Config, error) {
 
 	// Set default values for the config
 	cfg := &Config{
-		Indexer: IndexerConfig{Confirmations: defaultConfirmations},
-		Chain:   ChainConfig{ChainType: defaultChainType},
+		Indexer: IndexerConfig{
+			Confirmations:        defaultConfirmations,
+			Mode:                 defaultIndexerMode,
+			FspTxLookbackSeconds: defaultFspTxLookbackSeconds,
+			FspLogFilterRange:    defaultFspLogFilterRange,
+		},
+		Chain: ChainConfig{ChainType: defaultChainType},
 	}
 
 	err := parseConfigFile(cfg, cfgFileName)
@@ -172,8 +194,35 @@ func BuildConfig() (*Config, error) {
 	}
 
 	applyEnvOverrides(cfg)
+	normalizeIndexerConfig(&cfg.Indexer)
 
 	return cfg, nil
+}
+
+func normalizeIndexerConfig(cfg *IndexerConfig) {
+	cfg.Mode = strings.ToLower(strings.TrimSpace(cfg.Mode))
+	if cfg.Mode == "" {
+		cfg.Mode = defaultIndexerMode
+	}
+
+	if cfg.Mode == IndexerModeFsp {
+		cfg.CollectTransactions, cfg.CollectLogs = mergeFspCollectors(
+			cfg.CollectTransactions,
+			cfg.CollectLogs,
+		)
+		fmt.Printf(
+			"Merged FSP collectors: tx=%+v logs=%+v",
+			cfg.CollectTransactions,
+			cfg.CollectLogs,
+		)
+	}
+
+	if cfg.FspTxLookbackSeconds == 0 {
+		cfg.FspTxLookbackSeconds = defaultFspTxLookbackSeconds
+	}
+	if cfg.FspLogFilterRange == 0 {
+		cfg.FspLogFilterRange = defaultFspLogFilterRange
+	}
 }
 
 func parseConfigFile(cfg *Config, fileName string) error {

@@ -4,4 +4,7 @@ tmp/
 config.toml
 .vscode/
 coverage.out
+.gocache
+.gitlab
+.github
 

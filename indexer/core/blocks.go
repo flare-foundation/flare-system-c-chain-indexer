@@ -1,4 +1,4 @@
-package indexer
+package core
 
 import (
 	"context"
@@ -23,7 +23,7 @@ func newBlockBatch(batchSize uint64) *blockBatch {
 	return &blockBatch{blocks: make([]*chain.Block, batchSize)}
 }
 
-func (ci *BlockIndexer) fetchBlock(ctx context.Context, index *uint64) (*chain.Block, error) {
+func (ci *Engine) fetchBlock(ctx context.Context, index *uint64) (*chain.Block, error) {
 	indexBigInt := indexToBigInt(index)
 
 	return boff.RetryWithMaxElapsed(
@@ -38,7 +38,7 @@ func (ci *BlockIndexer) fetchBlock(ctx context.Context, index *uint64) (*chain.B
 	)
 }
 
-func (ci *BlockIndexer) fetchBlockHeader(ctx context.Context, index *uint64) (*chain.Header, error) {
+func (ci *Engine) fetchBlockHeader(ctx context.Context, index *uint64) (*chain.Header, error) {
 	indexBigInt := indexToBigInt(index)
 
 	return boff.RetryWithMaxElapsed(
@@ -61,7 +61,7 @@ func indexToBigInt(index *uint64) *big.Int {
 	return new(big.Int).SetUint64(*index)
 }
 
-func (ci *BlockIndexer) fetchLastBlockIndex(ctx context.Context) (uint64, uint64, error) {
+func (ci *Engine) fetchLastBlockIndex(ctx context.Context) (uint64, uint64, error) {
 	lastBlock, err := ci.fetchBlockHeader(ctx, nil)
 	if err != nil {
 		return 0, 0, errors.Wrap(err, "fetchBlockHeader last")
@@ -81,7 +81,7 @@ func (ci *BlockIndexer) fetchLastBlockIndex(ctx context.Context) (uint64, uint64
 	return latestConfirmedNumber, latestConfirmedHeader.Time(), nil
 }
 
-func (ci *BlockIndexer) fetchBlockTimestamp(ctx context.Context, index uint64) (uint64, error) {
+func (ci *Engine) fetchBlockTimestamp(ctx context.Context, index uint64) (uint64, error) {
 	lastBlock, err := ci.fetchBlockHeader(ctx, &index)
 	if err != nil {
 		return 0, errors.Wrap(err, "fetchBlockHeader")
@@ -90,7 +90,7 @@ func (ci *BlockIndexer) fetchBlockTimestamp(ctx context.Context, index uint64) (
 	return lastBlock.Time(), nil
 }
 
-func (ci *BlockIndexer) processBlocks(
+func (ci *Engine) processBlocks(
 	bBatch *blockBatch, txBatch *transactionsBatch,
 ) {
 	for i := range bBatch.blocks {
@@ -98,7 +98,7 @@ func (ci *BlockIndexer) processBlocks(
 	}
 }
 
-func (ci *BlockIndexer) processBlockBatch(
+func (ci *Engine) processBlockBatch(
 	bBatch *blockBatch, txBatch *transactionsBatch, i uint64,
 ) {
 	bBatch.mu.RLock()
@@ -142,7 +142,7 @@ func (ci *BlockIndexer) processBlockBatch(
 	}
 }
 
-func (ci *BlockIndexer) convertBlocksToDB(bBatch *blockBatch) []*database.Block {
+func (ci *Engine) convertBlocksToDB(bBatch *blockBatch) []*database.Block {
 	blocks := make([]*database.Block, len(bBatch.blocks))
 
 	for i := range blocks {

@@ -1,10 +1,11 @@
-package indexer
+package core
 
 import (
 	"context"
 	"encoding/hex"
 	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
+	"flare-ftso-indexer/contracts"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/logger"
 	"fmt"
@@ -28,11 +29,12 @@ var (
 	undefinedFuncSig = functionSignature{}
 )
 
-type BlockIndexer struct {
-	db           *gorm.DB
-	params       config.IndexerConfig
-	transactions map[common.Address]map[functionSignature]transactionsPolicy
-	client       *chain.Client
+type Engine struct {
+	db               *gorm.DB
+	params           config.IndexerConfig
+	transactions     map[common.Address]map[functionSignature]transactionsPolicy
+	client           *chain.Client
+	contractResolver *contracts.ContractResolver
 }
 
 type transactionsPolicy struct {
@@ -43,17 +45,26 @@ type transactionsPolicy struct {
 
 type functionSignature [4]byte
 
-func CreateBlockIndexer(cfg *config.Config, db *gorm.DB, client *chain.Client) (*BlockIndexer, error) {
+func NewEngine(
+	cfg *config.Config,
+	db *gorm.DB,
+	client *chain.Client,
+	contractResolver *contracts.ContractResolver,
+) (*Engine, error) {
 	txs, err := makeTransactions(cfg.Indexer.CollectTransactions)
 	if err != nil {
 		return nil, err
 	}
+	if contractResolver == nil {
+		return nil, errors.New("contract resolver is required")
+	}
 
-	return &BlockIndexer{
-		db:           db,
-		params:       updateParams(cfg.Indexer),
-		transactions: txs,
-		client:       client,
+	return &Engine{
+		db:               db,
+		params:           updateParams(cfg.Indexer),
+		transactions:     txs,
+		client:           client,
+		contractResolver: contractResolver,
 	}, nil
 }
 
@@ -143,10 +154,10 @@ func parseTransactionAddress(address string) common.Address {
 	return common.HexToAddress(address)
 }
 
-func (ci *BlockIndexer) IndexHistory(ctx context.Context) (uint64, error) {
-	states, err := database.UpdateDBStates(ctx, ci.db)
+func (ci *Engine) IndexHistory(ctx context.Context) (uint64, error) {
+	states, err := database.LoadDBStates(ctx, ci.db)
 	if err != nil {
-		return 0, errors.Wrap(err, "database.UpdateDBStates")
+		return 0, errors.Wrap(err, "database.LoadDBStates")
 	}
 
 	ixRange, err := ci.getIndexRange(ctx, states, ci.params.StartIndex)
@@ -174,7 +185,7 @@ func (ci *BlockIndexer) IndexHistory(ctx context.Context) (uint64, error) {
 	return ixRange.end, nil
 }
 
-func (ci *BlockIndexer) indexBatch(
+func (ci *Engine) indexBatch(
 	ctx context.Context, states *database.DBStates, batchIx uint64, ixRange *indexRange,
 ) error {
 	lastBlockNumInRound := min(batchIx+ci.params.BatchSize-1, ixRange.end)
@@ -207,7 +218,7 @@ func (ci *BlockIndexer) indexBatch(
 	)
 }
 
-func (ci *BlockIndexer) obtainBlocksBatch(
+func (ci *Engine) obtainBlocksBatch(
 	ctx context.Context, firstBlockNumber uint64, ixRange *indexRange, lastBlockNumInRound uint64,
 ) (*blockBatch, error) {
 	startTime := time.Now()
@@ -252,7 +263,7 @@ func (ci *BlockIndexer) obtainBlocksBatch(
 	return bBatch, nil
 }
 
-func (ci *BlockIndexer) processBlocksBatch(bBatch *blockBatch) *transactionsBatch {
+func (ci *Engine) processBlocksBatch(bBatch *blockBatch) *transactionsBatch {
 	startTime := time.Now()
 	txBatch := new(transactionsBatch)
 
@@ -265,7 +276,7 @@ func (ci *BlockIndexer) processBlocksBatch(bBatch *blockBatch) *transactionsBatc
 	return txBatch
 }
 
-func (ci *BlockIndexer) processTransactionsBatch(
+func (ci *Engine) processTransactionsBatch(
 	ctx context.Context, txBatch *transactionsBatch,
 ) error {
 	startTime := time.Now()
@@ -294,7 +305,7 @@ func (ci *BlockIndexer) processTransactionsBatch(
 	return nil
 }
 
-func (ci *BlockIndexer) obtainLogsBatch(
+func (ci *Engine) obtainLogsBatch(
 	ctx context.Context, batchIx, lastBlockNumInRound uint64,
 ) (*logsBatch, error) {
 	lgBatch := new(logsBatch)
@@ -339,7 +350,7 @@ type indexRange struct {
 	end   uint64
 }
 
-func (ci *BlockIndexer) getIndexRange(
+func (ci *Engine) getIndexRange(
 	ctx context.Context, states *database.DBStates, startIndex uint64,
 ) (*indexRange, error) {
 	lastChainIndex, lastChainTimestamp, err := ci.fetchLastBlockIndex(ctx)
@@ -364,7 +375,7 @@ func (ci *BlockIndexer) getIndexRange(
 	return &indexRange{start: startIndex, end: lastIndex}, nil
 }
 
-func (ci *BlockIndexer) updateLastIndexContinuous(
+func (ci *Engine) updateLastIndexContinuous(
 	ctx context.Context, states *database.DBStates, ixRange *indexRange,
 ) (*indexRange, error) {
 	lastIndex, lastChainTimestamp, err := ci.fetchLastBlockIndex(ctx)
@@ -380,7 +391,7 @@ func (ci *BlockIndexer) updateLastIndexContinuous(
 	return &indexRange{start: ixRange.start, end: lastIndex}, nil
 }
 
-func (ci *BlockIndexer) processAndSave(
+func (ci *Engine) processAndSave(
 	bBatch *blockBatch,
 	txBatch *transactionsBatch,
 	lgBatch *logsBatch,
@@ -426,11 +437,11 @@ func (ci *BlockIndexer) processAndSave(
 	return nil
 }
 
-func (ci *BlockIndexer) shouldUpdateLastIndex(ixRange *indexRange, batchIx uint64) bool {
+func (ci *Engine) shouldUpdateLastIndex(ixRange *indexRange, batchIx uint64) bool {
 	return batchIx+ci.params.BatchSize <= ixRange.end && batchIx+2*ci.params.BatchSize > ixRange.end
 }
 
-func (ci *BlockIndexer) updateLastIndexHistory(
+func (ci *Engine) updateLastIndexHistory(
 	ctx context.Context, states *database.DBStates, ixRange *indexRange,
 ) (*indexRange, error) {
 	lastChainIndex, lastChainTimestamp, err := ci.fetchLastBlockIndex(ctx)
@@ -451,10 +462,10 @@ func (ci *BlockIndexer) updateLastIndexHistory(
 	return ixRange, nil
 }
 
-func (ci *BlockIndexer) IndexContinuous(ctx context.Context, startIndex uint64) error {
-	states, err := database.UpdateDBStates(ctx, ci.db)
+func (ci *Engine) IndexContinuous(ctx context.Context, startIndex uint64) error {
+	states, err := database.LoadDBStates(ctx, ci.db)
 	if err != nil {
-		return errors.Wrap(err, "database.UpdateDBStates")
+		return errors.Wrap(err, "database.LoadDBStates")
 	}
 
 	ixRange, err := ci.getIndexRange(ctx, states, startIndex)
@@ -487,7 +498,7 @@ func (ci *BlockIndexer) IndexContinuous(ctx context.Context, startIndex uint64) 
 			continue
 		}
 
-		err = ci.indexContinuousIteration(ctx, states, ixRange, blockNum)
+		err = ci.indexContinuousIteration(ctx, states, blockNum)
 		if err != nil {
 			return err
 		}
@@ -501,12 +512,7 @@ func (ci *BlockIndexer) IndexContinuous(ctx context.Context, startIndex uint64) 
 	return nil
 }
 
-func (ci *BlockIndexer) indexContinuousIteration(
-	ctx context.Context,
-	states *database.DBStates,
-	ixRange *indexRange,
-	index uint64,
-) error {
+func (ci *Engine) indexContinuousIteration(ctx context.Context, states *database.DBStates, index uint64) error {
 	block, err := ci.fetchBlock(ctx, &index)
 	if err != nil {
 		return errors.Wrap(err, "ci.fetchBlock")
@@ -550,6 +556,35 @@ func (ci *BlockIndexer) indexContinuousIteration(
 
 	if index%1000 == 0 {
 		logger.Info("Indexer at block %d", index)
+	}
+
+	return nil
+}
+
+func (ci *Engine) backFillBlocks(
+	ctx context.Context,
+	states *database.DBStates,
+	fromBlock uint64,
+	toBlock uint64,
+) error {
+	if fromBlock > toBlock {
+		return nil
+	}
+
+	rangeInfo := &indexRange{start: fromBlock, end: toBlock}
+	totalBlocks := toBlock - fromBlock + 1
+	for batchStart := fromBlock; batchStart <= toBlock; batchStart += ci.params.BatchSize {
+		if err := ci.indexBatch(ctx, states, batchStart, rangeInfo); err != nil {
+			return err
+		}
+
+		batchEnd := min(batchStart+ci.params.BatchSize-1, toBlock)
+		logger.Info(
+			"Backfill progress for %d to %d: %.2f%% complete",
+			fromBlock,
+			toBlock,
+			(float64(batchEnd-fromBlock+1)*100)/float64(totalBlocks),
+		)
 	}
 
 	return nil

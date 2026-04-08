@@ -35,12 +35,16 @@ Below is the list of configuration parameters, most are self-explanatory. Note t
 
 ```toml
 [indexer]
+mode = "full" # "full" (default) or "fsp"
 start_index = 0 # the number of the block that the indexer will start with; will default to the appropriate block number according to the history drop configuration. Does not usually need to be set unless disabling history drop.
 stop_index = 0 # the number of the block that the indexer will stop with; set 0 or skip to index indefinitely
+history_epochs = 0 # FSP mode only: 0=last-hour catchup, >0=number of reward epochs to keep/index from
 num_parallel_req = 100 # the number of threads doing requests to the chain in parallel
 batch_size = 1000 # the number of blocks that will be pushed to a database in a batch (should be divisible by num_parallel_req)
 log_range = 10 # the size of the interval of blocks used to request logs in each request; suggested value is log_range = batch_size / num_parallel_req; note that a blockchain node might have an upper bound on this
 new_block_check_millis = 1000 # interval for checking for new blocks
+fsp_tx_lookback_seconds = 3600 # FSP mode when history_epochs=0
+fsp_log_filter_range = 1024 # FSP mode: block range per FilterLogs request while backfilling metadata windows
 
 [[indexer.collect_transactions]]
 contract_address = "22474d350ec2da53d717e30b96e9a2b7628ede5b" # address of the contract

@@ -1,5 +1,7 @@
 package database
 
+import "time"
+
 // BaseEntity is an abstract entity, all other entities should be derived from it
 type BaseEntity struct {
 	ID uint64 `gorm:"primaryKey;unique"`
@@ -44,4 +46,12 @@ type Block struct {
 	Hash      string `gorm:"type:varchar(64);index;unique"`
 	Number    uint64 `gorm:"index"`
 	Timestamp uint64 `gorm:"index"`
+}
+
+type State struct {
+	BaseEntity
+	Name           string `gorm:"type:varchar(50);index"`
+	Index          uint64
+	BlockTimestamp uint64
+	Updated        time.Time
 }

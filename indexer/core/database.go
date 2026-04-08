@@ -1,4 +1,4 @@
-package indexer
+package core
 
 import (
 	"flare-ftso-indexer/database"
@@ -21,7 +21,7 @@ func newDatabaseStructData() *databaseStructData {
 	}
 }
 
-func (ci *BlockIndexer) saveData(
+func (ci *Engine) saveData(
 	data *databaseStructData, states *database.DBStates, lastDBIndex, lastDBTimestamp uint64,
 ) error {
 	return ci.db.Transaction(func(tx *gorm.DB) error {

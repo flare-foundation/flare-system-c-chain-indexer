@@ -50,9 +50,9 @@ func ConnectAndInitialize(ctx context.Context, cfg *config.DBConfig) (*gorm.DB, 
 	}
 
 	// If the state info is not in the DB, create it
-	_, err = UpdateDBStates(ctx, db)
+	_, err = LoadDBStates(ctx, db)
 	if err != nil {
-		return nil, errors.Wrap(err, "ConnectAndInitialize: UpdateDBStates")
+		return nil, errors.Wrap(err, "ConnectAndInitialize: LoadDBStates")
 	}
 
 	if err := storeTransactionID(db); err != nil {

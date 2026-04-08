@@ -1,4 +1,4 @@
-package indexer
+package core
 
 import (
 	"context"
@@ -22,7 +22,7 @@ type logsBatch struct {
 	mu   sync.RWMutex
 }
 
-func (ci *BlockIndexer) requestLogs(
+func (ci *Engine) requestLogs(
 	ctx context.Context,
 	lgBatch *logsBatch,
 	logInfo config.LogInfo,
@@ -44,19 +44,24 @@ func (ci *BlockIndexer) requestLogs(
 	return nil
 }
 
-func (ci *BlockIndexer) fetchLogsChunk(
+func (ci *Engine) fetchLogsChunk(
 	ctx context.Context, logInfo config.LogInfo, fromBlock, toBlock uint64,
 ) ([]types.Log, error) {
 	var addresses []common.Address
-	if logInfo.ContractAddress != undefined {
+	contractAddress := strings.TrimSpace(logInfo.ContractAddress)
+	if contractAddress != "" && !strings.EqualFold(contractAddress, undefined) {
 		addresses = []common.Address{
-			common.HexToAddress(strings.ToLower(logInfo.ContractAddress)),
+			common.HexToAddress(strings.ToLower(contractAddress)),
 		}
 	}
 
 	var topic [][]common.Hash
-	if logInfo.Topic != undefined {
-		topic = [][]common.Hash{{common.HexToHash(strings.ToLower(logInfo.Topic))}}
+	topic0 := strings.TrimSpace(logInfo.Topic)
+	if topic0 != "" && !strings.EqualFold(topic0, undefined) {
+		if !strings.HasPrefix(topic0, "0x") {
+			topic0 = "0x" + topic0
+		}
+		topic = [][]common.Hash{{common.HexToHash(strings.ToLower(topic0))}}
 	}
 
 	query := interfaces.FilterQuery{
@@ -78,7 +83,7 @@ func (ci *BlockIndexer) fetchLogsChunk(
 	)
 }
 
-func (ci *BlockIndexer) processLogs(
+func (ci *Engine) processLogs(
 	lgBatch *logsBatch, bBatch *blockBatch, firstBlockNum uint64, data *databaseStructData,
 ) error {
 	lgBatch.mu.RLock()
@@ -87,32 +92,12 @@ func (ci *BlockIndexer) processLogs(
 	for i := range lgBatch.logs {
 		log := &lgBatch.logs[i]
 
-		var topics [numTopics]string
-		for j := 0; j < numTopics; j++ {
-			if len(log.Topics) > j {
-				topics[j] = log.Topics[j].Hex()[2:]
-			} else {
-				topics[j] = nullTopic
-			}
-		}
-
 		block := bBatch.blocks[log.BlockNumber-firstBlockNum]
 		if blockNum := block.Number(); blockNum.Cmp(new(big.Int).SetUint64(log.BlockNumber)) != 0 {
 			return errors.Errorf("block number mismatch: %s != %d", blockNum, log.BlockNumber)
 		}
 
-		dbLog := &database.Log{
-			Address:         strings.ToLower(log.Address.Hex()[2:]),
-			Data:            hex.EncodeToString(log.Data),
-			Topic0:          topics[0],
-			Topic1:          topics[1],
-			Topic2:          topics[2],
-			Topic3:          topics[3],
-			TransactionHash: log.TxHash.Hex()[2:],
-			LogIndex:        uint64(log.Index),
-			Timestamp:       block.Time(),
-			BlockNumber:     log.BlockNumber,
-		}
+		dbLog := BuildDBLogFromRequestedLog(log, block.Time(), false)
 
 		// check if the log was not obtained from transactions already
 		key := fmt.Sprintf("%s%d", dbLog.TransactionHash, dbLog.LogIndex)
@@ -122,4 +107,38 @@ func (ci *BlockIndexer) processLogs(
 	}
 
 	return nil
+}
+
+func BuildDBLogFromRequestedLog(log *types.Log, timestamp uint64, lowercaseTxHash bool) *database.Log {
+	topics := extractLogTopics(log)
+
+	transactionHash := log.TxHash.Hex()[2:]
+	if lowercaseTxHash {
+		transactionHash = strings.ToLower(transactionHash)
+	}
+
+	return &database.Log{
+		Address:         strings.ToLower(log.Address.Hex()[2:]),
+		Data:            hex.EncodeToString(log.Data),
+		Topic0:          topics[0],
+		Topic1:          topics[1],
+		Topic2:          topics[2],
+		Topic3:          topics[3],
+		TransactionHash: transactionHash,
+		LogIndex:        uint64(log.Index),
+		Timestamp:       timestamp,
+		BlockNumber:     log.BlockNumber,
+	}
+}
+
+func extractLogTopics(log *types.Log) [numTopics]string {
+	var topics [numTopics]string
+	for j := 0; j < numTopics; j++ {
+		if len(log.Topics) > j {
+			topics[j] = log.Topics[j].Hex()[2:]
+		} else {
+			topics[j] = nullTopic
+		}
+	}
+	return topics
 }

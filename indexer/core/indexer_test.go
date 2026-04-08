@@ -1,9 +1,10 @@
-package indexer
+package core
 
 import (
 	"context"
 	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
+	"flare-ftso-indexer/contracts"
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/logger"
 	indexer_testing "flare-ftso-indexer/testing"
@@ -36,9 +37,9 @@ func TestIndexer(t *testing.T) {
 	defer cancel()
 
 	tCfg := testConfig{}
-	tCfg.ResponsesFile = "../testing/chain_copy/responses.json"
+	tCfg.ResponsesFile = "../../testing/chain_copy/responses.json"
 
-	_, err := toml.DecodeFile("../testing/config_test.toml", &tCfg)
+	_, err := toml.DecodeFile("../../testing/config_test.toml", &tCfg)
 	require.NoError(t, err, "Could not parse config file")
 
 	applyEnvOverrides(&tCfg)
@@ -85,7 +86,7 @@ func TestIndexer(t *testing.T) {
 		StartIndex: 1112, StopIndex: 2400, BatchSize: 500, NumParallelReq: 4,
 		NewBlockCheckMillis: 200, CollectTransactions: collectTransactions,
 	}
-	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logger/logs/flare-ftso-indexer_test.log"}
+	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../../logger/logs/flare-ftso-indexer_test.log"}
 	cfgDB := config.DBConfig{
 		Host: tCfg.DBHost, Port: tCfg.DBPort, Database: tCfg.DBName,
 		Username: tCfg.DBUsername, Password: tCfg.DBPassword, DropTableAtStart: true,
@@ -111,7 +112,7 @@ func TestIndexer(t *testing.T) {
 	require.NoError(t, err)
 
 	// correctness check
-	states, err := database.UpdateDBStates(ctx, db)
+	states, err := database.LoadDBStates(ctx, db)
 	require.NoError(t, err)
 
 	// Set the update timestamps to zero for the snapshot as these will
@@ -175,8 +176,13 @@ func runIndexer(ctx context.Context, mockChain *indexer_testing.MockChain, db *g
 		logger.Fatal("Could not connect to the Ethereum node: %s", err)
 	}
 
+	resolver, err := contracts.NewContractResolver(ethClient)
+	if err != nil {
+		logger.Fatal("Could not initialize contract registry resolver: %s", err)
+	}
+
 	// create the indexer
-	cIndexer, err := CreateBlockIndexer(cfg, db, ethClient)
+	cIndexer, err := NewEngine(cfg, db, ethClient, resolver)
 	if err != nil {
 		logger.Fatal("Create indexer error: %s", err)
 	}
