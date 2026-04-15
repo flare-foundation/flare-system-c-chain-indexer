@@ -18,12 +18,12 @@ import (
 )
 
 const (
-	day                         time.Duration   = 24 * time.Hour
-	defaultConfirmations                        = 1
-	defaultChainType            chain.ChainType = chain.ChainTypeAvax
-	defaultIndexerMode                          = IndexerModeFull
-	defaultFspTxLookbackSeconds                 = uint64(1 * time.Hour / time.Second)
-	defaultFspLogFilterRange                    = uint64(1024)
+	day                            time.Duration   = 24 * time.Hour
+	defaultConfirmations                           = 1
+	defaultChainType               chain.ChainType = chain.ChainTypeAvax
+	defaultIndexerMode                             = IndexerModeFull
+	defaultFspIndexLookbackSeconds                 = uint64(2 * time.Hour / time.Second)
+	defaultFspLogFilterRange                       = uint64(1024)
 )
 
 var (
@@ -182,7 +182,7 @@ func BuildConfig() (*Config, error) {
 		Indexer: IndexerConfig{
 			Confirmations:        defaultConfirmations,
 			Mode:                 defaultIndexerMode,
-			FspTxLookbackSeconds: defaultFspTxLookbackSeconds,
+			FspTxLookbackSeconds: defaultFspIndexLookbackSeconds,
 			FspLogFilterRange:    defaultFspLogFilterRange,
 		},
 		Chain: ChainConfig{ChainType: defaultChainType},
@@ -218,7 +218,7 @@ func normalizeIndexerConfig(cfg *IndexerConfig) {
 	}
 
 	if cfg.FspTxLookbackSeconds == 0 {
-		cfg.FspTxLookbackSeconds = defaultFspTxLookbackSeconds
+		cfg.FspTxLookbackSeconds = defaultFspIndexLookbackSeconds
 	}
 	if cfg.FspLogFilterRange == 0 {
 		cfg.FspLogFilterRange = defaultFspLogFilterRange
