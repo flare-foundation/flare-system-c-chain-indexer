@@ -251,6 +251,10 @@ func runFspIndexer(
 		0,
 	)
 
+	if err := setSyncedState(ctx, db, true); err != nil {
+		return errors.Wrap(err, "set synced=true")
+	}
+
 	err = boff.RetryNoReturn(
 		ctx,
 		func() error {
@@ -263,10 +267,6 @@ func runFspIndexer(
 	}
 
 	logger.Info("Finished FSP indexing")
-
-	if err := setSyncedState(ctx, db, true); err != nil {
-		return errors.Wrap(err, "set synced=true")
-	}
 
 	return nil
 }
