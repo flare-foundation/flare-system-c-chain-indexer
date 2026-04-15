@@ -210,11 +210,6 @@ func normalizeIndexerConfig(cfg *IndexerConfig) {
 			cfg.CollectTransactions,
 			cfg.CollectLogs,
 		)
-		fmt.Printf(
-			"Merged FSP collectors: tx=%+v logs=%+v",
-			cfg.CollectTransactions,
-			cfg.CollectLogs,
-		)
 	}
 
 	if cfg.FspTxLookbackSeconds == 0 {
