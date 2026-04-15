@@ -221,6 +221,10 @@ func runFspIndexer(
 		return err
 	}
 
+	if err := setSyncedState(ctx, db, false); err != nil {
+		return errors.Wrap(err, "set synced=false")
+	}
+
 	historyLastIndex, err := boff.Retry(
 		ctx,
 		func() (uint64, error) {
@@ -259,6 +263,11 @@ func runFspIndexer(
 	}
 
 	logger.Info("Finished FSP indexing")
+
+	if err := setSyncedState(ctx, db, true); err != nil {
+		return errors.Wrap(err, "set synced=true")
+	}
+
 	return nil
 }
 
@@ -270,4 +279,18 @@ func fspHistoryDropHeuristicSeconds(historyEpochs uint64) uint64 {
 	)
 
 	return baseRetentionSeconds + historyEpochs*retentionPerEpochSeconds
+}
+
+func setSyncedState(ctx context.Context, db *gorm.DB, synced bool) error {
+	states, err := database.LoadDBStates(ctx, db)
+	if err != nil {
+		return errors.Wrap(err, "database.LoadDBStates")
+	}
+
+	index := uint64(0)
+	if synced {
+		index = 1
+	}
+
+	return states.Update(db, database.SyncedState, index, 0)
 }
