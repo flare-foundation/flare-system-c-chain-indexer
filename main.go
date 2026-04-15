@@ -174,7 +174,7 @@ func runIndexer(
 	historyLastIndex, err := boff.Retry(
 		ctx,
 		func() (uint64, error) {
-			return cIndexer.IndexHistory(ctx)
+			return cIndexer.IndexHistory(ctx, cfg.Indexer.StartIndex)
 		},
 		"IndexHistory",
 	)
@@ -232,10 +232,19 @@ func runFspIndexer(
 		return errors.Wrap(err, "FSP startup backfill fatal error")
 	}
 
-	go fsp.DropHistory(
+	historyDropSeconds := fspHistoryDropHeuristicSeconds(cfg.Indexer.HistoryEpochs)
+	logger.Info(
+		"Using FSP history drop: history_epochs=%d, derived retention days=%.2f",
+		cfg.Indexer.HistoryEpochs,
+		float64(historyDropSeconds)/(24*60*60),
+	)
+	go database.DropHistory(
 		ctx,
-		cIndexer,
+		db,
+		historyDropSeconds,
 		database.HistoryDropIntervalCheck,
+		ethClient,
+		0,
 	)
 
 	err = boff.RetryNoReturn(
@@ -251,4 +260,14 @@ func runFspIndexer(
 
 	logger.Info("Finished FSP indexing")
 	return nil
+}
+
+func fspHistoryDropHeuristicSeconds(historyEpochs uint64) uint64 {
+	// Over-estimation heuristic: history_epochs * 3.5 days + 14 days.
+	const (
+		baseRetentionSeconds     = uint64((14 * 24 * time.Hour) / time.Second)
+		retentionPerEpochSeconds = uint64((84 * time.Hour) / time.Second)
+	)
+
+	return baseRetentionSeconds + historyEpochs*retentionPerEpochSeconds
 }

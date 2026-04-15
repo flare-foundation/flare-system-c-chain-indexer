@@ -59,7 +59,7 @@ func BenchmarkBlockRequests(b *testing.B) {
 			logger.Fatal("Indexer create error: %s", err)
 		}
 
-		_, err = cIndexer.IndexHistory(ctx)
+		_, err = cIndexer.IndexHistory(ctx, cfg.Indexer.StartIndex)
 		if err != nil {
 			logger.Fatal("History run error: %s", err)
 		}

@@ -11,17 +11,17 @@ import (
 )
 
 const (
-	LastChainIndexState     string = "last_chain_block"
-	LastDatabaseIndexState  string = "last_database_block"
-	FirstDatabaseIndexState string = "first_database_block"
-	FirstFullIndexState     string = "first_full_index_block"
+	LastChainIndexState             string = "last_chain_block"
+	LastDatabaseIndexState          string = "last_database_block"
+	FirstDatabaseIndexState         string = "first_database_block"
+	FirstDatabaseFSPEventIndexState string = "first_database_fsp_event_block"
 )
 
 var (
 	stateNames = []string{
 		FirstDatabaseIndexState,
+		FirstDatabaseFSPEventIndexState,
 		LastDatabaseIndexState,
-		FirstFullIndexState,
 		LastChainIndexState,
 	}
 

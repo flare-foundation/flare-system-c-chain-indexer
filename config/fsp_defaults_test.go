@@ -59,10 +59,10 @@ func TestNormalizeIndexerConfig_FspMergesDefaultAndUserCollectors(t *testing.T) 
 	if !containsLog(cfg.CollectLogs, "FastUpdater", "") {
 		t.Fatalf("round log collector missing after merge")
 	}
-	if !containsLog(cfg.CollectLogs, "FastUpdateIncentiveManager", mustEventTopic(fumanager.FUManagerMetaData, "InflationRewardsOffered")) {
+	if !containsLog(cfg.CollectLogs, "FastUpdateIncentiveManager", getTopic(fumanager.FUManagerMetaData, "InflationRewardsOffered")) {
 		t.Fatalf("fast update incentive manager reward epoch log collector missing after merge")
 	}
-	if !containsLog(cfg.CollectLogs, "FlareSystemsManager", mustEventTopic(system.FlareSystemsManagerMetaData, "RewardEpochStarted")) {
+	if !containsLog(cfg.CollectLogs, "FlareSystemsManager", getTopic(system.FlareSystemsManagerMetaData, "RewardEpochStarted")) {
 		t.Fatalf("reward epoch log collector missing after merge")
 	}
 }

@@ -154,13 +154,13 @@ func parseTransactionAddress(address string) common.Address {
 	return common.HexToAddress(address)
 }
 
-func (ci *Engine) IndexHistory(ctx context.Context) (uint64, error) {
+func (ci *Engine) IndexHistory(ctx context.Context, startIndex uint64) (uint64, error) {
 	states, err := database.LoadDBStates(ctx, ci.db)
 	if err != nil {
 		return 0, errors.Wrap(err, "database.LoadDBStates")
 	}
 
-	ixRange, err := ci.getIndexRange(ctx, states, ci.params.StartIndex)
+	ixRange, err := ci.getIndexRange(ctx, states, startIndex)
 	if err != nil {
 		return 0, err
 	}
@@ -190,7 +190,7 @@ func (ci *Engine) indexBatch(
 ) error {
 	lastBlockNumInRound := min(batchIx+ci.params.BatchSize-1, ixRange.end)
 
-	bBatch, err := ci.obtainBlocksBatch(ctx, batchIx, ixRange, lastBlockNumInRound)
+	bBatch, err := ci.obtainBlocksBatch(ctx, batchIx, lastBlockNumInRound)
 	if err != nil {
 		return err
 	}
@@ -218,9 +218,7 @@ func (ci *Engine) indexBatch(
 	)
 }
 
-func (ci *Engine) obtainBlocksBatch(
-	ctx context.Context, firstBlockNumber uint64, ixRange *indexRange, lastBlockNumInRound uint64,
-) (*blockBatch, error) {
+func (ci *Engine) obtainBlocksBatch(ctx context.Context, firstBlockNumber uint64, lastBlockNumInRound uint64) (*blockBatch, error) {
 	startTime := time.Now()
 
 	// Use a semaphore to limit concurrent requests.
@@ -556,35 +554,6 @@ func (ci *Engine) indexContinuousIteration(ctx context.Context, states *database
 
 	if index%1000 == 0 {
 		logger.Info("Indexer at block %d", index)
-	}
-
-	return nil
-}
-
-func (ci *Engine) backFillBlocks(
-	ctx context.Context,
-	states *database.DBStates,
-	fromBlock uint64,
-	toBlock uint64,
-) error {
-	if fromBlock > toBlock {
-		return nil
-	}
-
-	rangeInfo := &indexRange{start: fromBlock, end: toBlock}
-	totalBlocks := toBlock - fromBlock + 1
-	for batchStart := fromBlock; batchStart <= toBlock; batchStart += ci.params.BatchSize {
-		if err := ci.indexBatch(ctx, states, batchStart, rangeInfo); err != nil {
-			return err
-		}
-
-		batchEnd := min(batchStart+ci.params.BatchSize-1, toBlock)
-		logger.Info(
-			"Backfill progress for %d to %d: %.2f%% complete",
-			fromBlock,
-			toBlock,
-			(float64(batchEnd-fromBlock+1)*100)/float64(totalBlocks),
-		)
 	}
 
 	return nil

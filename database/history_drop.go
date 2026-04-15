@@ -80,6 +80,10 @@ func dropHistoryIteration(
 	if err != nil {
 		return errors.Wrap(err, "Failed to update state in the DB")
 	}
+	err = globalStates.Update(db, FirstDatabaseFSPEventIndexState, deleteStartBlock, deleteStartTime)
+	if err != nil {
+		return errors.Wrap(err, "Failed to update FSP event state in the DB")
+	}
 
 	return nil
 }

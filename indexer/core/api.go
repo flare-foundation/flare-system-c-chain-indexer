@@ -5,7 +5,6 @@ import (
 	"flare-ftso-indexer/chain"
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/contracts"
-	"flare-ftso-indexer/database"
 
 	"gorm.io/gorm"
 )
@@ -32,13 +31,4 @@ func (ci *Engine) FetchLastBlockIndex(ctx context.Context) (uint64, uint64, erro
 
 func (ci *Engine) FetchBlockTimestamp(ctx context.Context, block uint64) (uint64, error) {
 	return ci.fetchBlockTimestamp(ctx, block)
-}
-
-func (ci *Engine) BackFillBlocks(
-	ctx context.Context,
-	states *database.DBStates,
-	fromBlock uint64,
-	toBlock uint64,
-) error {
-	return ci.backFillBlocks(ctx, states, fromBlock, toBlock)
 }

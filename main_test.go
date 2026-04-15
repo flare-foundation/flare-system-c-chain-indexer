@@ -89,7 +89,7 @@ func (suite *IntegrationIndexContinuousSuite) SetupSuite() {
 func (suite *IntegrationIndexHistorySuite) SetupSuite() {
 	ctx := context.Background()
 
-	lastIndex, err := suite.indexer.IndexHistory(ctx)
+	lastIndex, err := suite.indexer.IndexHistory(ctx, startBlock)
 	require.NoError(suite.T(), err, "Could not run the indexer")
 	require.Equal(suite.T(), uint64(endBlockHistory), lastIndex, "Last indexed block does not match expected value")
 }

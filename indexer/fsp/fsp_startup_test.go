@@ -7,9 +7,9 @@ import (
 )
 
 func TestResolveCatchupBlock(t *testing.T) {
-	plan := &fspStartupPlan{
-		fullIndexStartBlock: 100,
-		keepFromBlock:       80,
+	plan := &fspStartupTargets{
+		fullStartBlock:  100,
+		eventStartBlock: 80,
 	}
 
 	testCases := []struct {
@@ -124,8 +124,8 @@ func TestResolveCatchupBlock(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			catchupFrom, backfillEvents := resolveCatchupBlock(
 				tc.firstEventRange,
-				tc.lastDB,
 				tc.firstFullIndex,
+				tc.lastDB,
 				plan,
 			)
 

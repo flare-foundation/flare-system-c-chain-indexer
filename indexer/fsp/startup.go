@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	systemcontract "github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 	"github.com/pkg/errors"
-	"gorm.io/gorm"
 )
 
 func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
@@ -24,18 +23,12 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 	if err != nil {
 		return 0, err
 	}
-
-	logAddresses, logTopics, err := resolveFspContractAddresses(ctx, ci.ContractResolver())
-	if err != nil {
-		return 0, err
-	}
-
 	fsmCaller, err := systemcontract.NewFlareSystemsManagerCaller(fsmAddress, ci.Client())
 	if err != nil {
 		return 0, errors.Wrap(err, "bind FlareSystemsManager caller")
 	}
 
-	plan, err := computeStartupPlan(ctx, ci, fsmCaller, latestConfirmedNumber, latestConfirmedTimestamp)
+	targets, err := buildStartupTargets(ctx, ci, fsmCaller, latestConfirmedNumber, latestConfirmedTimestamp)
 	if err != nil {
 		return 0, err
 	}
@@ -45,79 +38,60 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 		return 0, errors.Wrap(err, "database.LoadDBStates")
 	}
 
-	firstFspEventRangeBlock := states.States[database.FirstDatabaseIndexState]
-	lastDBBlock := states.States[database.LastDatabaseIndexState]
-	firstFullIndexBlock := states.States[database.FirstFullIndexState]
 	catchupFromBlock, backfillEventRanges := resolveCatchupBlock(
-		firstFspEventRangeBlock,
-		lastDBBlock,
-		firstFullIndexBlock,
-		plan,
+		states.States[database.FirstDatabaseFSPEventIndexState],
+		states.States[database.FirstDatabaseIndexState],
+		states.States[database.LastDatabaseIndexState],
+		targets,
 	)
 
-	// Mark startup as incomplete until all startup backfill data is saved.
-	if err := states.Update(ci.DB(), database.FirstDatabaseIndexState, 0, 0); err != nil {
-		return 0, errors.Wrap(err, "reset first database state")
-	}
-	if err := states.Update(ci.DB(), database.LastDatabaseIndexState, 0, 0); err != nil {
-		return 0, errors.Wrap(err, "reset last database state")
-	}
-	if err := states.Update(ci.DB(), database.LastChainIndexState, latestConfirmedNumber, latestConfirmedTimestamp); err != nil {
-		return 0, errors.Wrap(err, "update last chain state")
-	}
-
 	logger.Info(
-		"Startup backfill: backfillFspEventRanges=%t, index blocks: %d to %d, index FSP events for ranges: %+v",
+		"Startup backfill: backfillFspEventRanges=%t, index blocks from=%d, current latest confirmed=%d, index FSP events for ranges: %+v",
 		backfillEventRanges,
 		catchupFromBlock,
 		latestConfirmedNumber,
-		plan.fspEventRanges,
+		targets.eventRanges,
 	)
 
 	if backfillEventRanges {
-		if err := backfillEventRangesLogs(ctx, ci, plan.fspEventRanges, logAddresses, logTopics); err != nil {
+		logAddresses, logTopics, err := resolveFspContractAddresses(ctx, ci.ContractResolver())
+		if err != nil {
+			return 0, err
+		}
+
+		if err := backfillEventRangesLogs(ctx, ci, targets.eventRanges, logAddresses, logTopics); err != nil {
 			return 0, errors.Wrap(err, "backfill FSP event ranges")
+		}
+
+		if err := states.Update(ci.DB(), database.FirstDatabaseFSPEventIndexState, targets.eventStartBlock, targets.eventStartTimestamp); err != nil {
+			return 0, errors.Wrap(err, "set first FSP event index state")
 		}
 	} else {
 		logger.Info("Skipping FSP event backfill, already indexed")
 	}
 
-	if err := ci.BackFillBlocks(
-		ctx,
-		states,
-		catchupFromBlock,
-		latestConfirmedNumber,
-	); err != nil {
-		return 0, errors.Wrap(err, "backfill FSP catchup range")
-	}
-
-	firstIndex := plan.keepFromBlock
-	firstTimestamp := plan.keepFromTimestamp
-	if err := ci.DB().Transaction(func(tx *gorm.DB) error {
-		if err := states.Update(tx, database.FirstDatabaseIndexState, firstIndex, firstTimestamp); err != nil {
-			return errors.Wrap(err, "update first database state")
+	lastIndexed := latestConfirmedNumber
+	if catchupFromBlock <= latestConfirmedNumber {
+		lastIndexed, err = ci.IndexHistory(ctx, catchupFromBlock)
+		if err != nil {
+			return 0, errors.Wrap(err, "backfill FSP catchup range")
 		}
-		if err := states.Update(tx, database.FirstFullIndexState, plan.fullIndexStartBlock, plan.fullIndexStartTimestamp); err != nil {
-			return errors.Wrap(err, "update first full index state")
-		}
-		if err := states.Update(tx, database.LastDatabaseIndexState, latestConfirmedNumber, latestConfirmedTimestamp); err != nil {
-			return errors.Wrap(err, "update last database state")
-		}
-		if err := states.Update(tx, database.LastChainIndexState, latestConfirmedNumber, latestConfirmedTimestamp); err != nil {
-			return errors.Wrap(err, "update last chain state")
-		}
-		return nil
-	}); err != nil {
-		return 0, err
+	} else {
+		logger.Info(
+			"Skipping FSP catchup block backfill: start=%d is above latest confirmed=%d",
+			catchupFromBlock,
+			latestConfirmedNumber,
+		)
 	}
 
 	logger.Info(
-		"FSP startup backfill complete: first=%d last=%d",
-		firstIndex,
-		latestConfirmedNumber,
+		"FSP startup backfill complete: firstFull=%d firstEvents=%d last=%d",
+		targets.fullStartBlock,
+		targets.eventStartBlock,
+		lastIndexed,
 	)
 
-	return latestConfirmedNumber, nil
+	return lastIndexed, nil
 }
 
 // resolveCatchupBlock decides where catchup should start on startup and whether FSP event ranges should be backfilled.
@@ -126,42 +100,57 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 //   - catchupFromBlock: first block for full block catchup backfill
 //   - backfillEventRanges: true when FSP event range backfill must run
 //
-// Full block catchup starts from fullIndexStartBlock when the dedicated full
-// range start state and last DB state do not describe a valid/covering range.
+// Full block catchup starts from fullStartBlock when full index coverage
+// states do not cover that block.
 //
-// FSP event range backfill is decided independently from FirstDatabaseIndexState
-// and runs when that coverage starts after keepFromBlock (or state is missing).
+// FSP event range backfill is decided independently from
+// FirstDatabaseFSPEventIndexState and runs when that coverage starts after
+// eventStartBlock (or state is missing).
 func resolveCatchupBlock(
 	firstFspEventRangeState *database.State,
-	lastDBState *database.State,
 	firstFullIndexState *database.State,
-	plan *fspStartupPlan,
+	lastDBState *database.State,
+	targets *fspStartupTargets,
 ) (uint64, bool) {
-	catchupFromBlock := plan.fullIndexStartBlock
-	if firstFullIndexState != nil &&
-		lastDBState != nil &&
-		firstFullIndexState.Index <= lastDBState.Index &&
-		firstFullIndexState.Index <= plan.fullIndexStartBlock &&
-		lastDBState.Index >= plan.fullIndexStartBlock {
+	catchupFromBlock := targets.fullStartBlock
+	if fullCoverageReady(firstFullIndexState, lastDBState, targets.fullStartBlock) {
 		catchupFromBlock = lastDBState.Index + 1
 	}
 
-	backfillEventRanges := firstFspEventRangeState == nil ||
-		firstFspEventRangeState.Index == 0 ||
-		firstFspEventRangeState.Index > plan.keepFromBlock
+	backfillEventRanges := !eventCoverageReady(firstFspEventRangeState, targets.eventStartBlock)
 
 	return catchupFromBlock, backfillEventRanges
 }
 
-// computeStartupPlan
-func computeStartupPlan(
+func fullCoverageReady(
+	firstFullIndexState *database.State,
+	lastDBState *database.State,
+	targetFullStart uint64,
+) bool {
+	return firstFullIndexState != nil &&
+		firstFullIndexState.Index != 0 &&
+		firstFullIndexState.Index <= targetFullStart &&
+		lastDBState != nil &&
+		lastDBState.Index >= targetFullStart
+}
+
+func eventCoverageReady(
+	firstFspEventRangeState *database.State,
+	targetEventStart uint64,
+) bool {
+	return firstFspEventRangeState != nil &&
+		firstFspEventRangeState.Index != 0 &&
+		firstFspEventRangeState.Index <= targetEventStart
+}
+
+func buildStartupTargets(
 	ctx context.Context,
 	ci *core.Engine,
 	fsm *systemcontract.FlareSystemsManagerCaller,
 	latestConfirmedNumber uint64,
 	latestConfirmedTimestamp uint64,
-) (*fspStartupPlan, error) {
-	fullIndexStartBlock, startEpochID, err := getFullIndexStartBlock(
+) (*fspStartupTargets, error) {
+	fullStartBlock, startEpochID, err := resolveFullStartBlock(
 		ctx,
 		ci,
 		fsm,
@@ -172,7 +161,7 @@ func computeStartupPlan(
 		return nil, err
 	}
 
-	fullIndexStartTimestamp, err := ci.FetchBlockTimestamp(ctx, fullIndexStartBlock)
+	fullStartTimestamp, err := ci.FetchBlockTimestamp(ctx, fullStartBlock)
 	if err != nil {
 		return nil, errors.Wrap(err, "fetch FSP catchup start timestamp")
 	}
@@ -182,30 +171,30 @@ func computeStartupPlan(
 		return nil, errors.Wrap(err, "compute FSP event ranges")
 	}
 
-	earliestKeepBlock := fullIndexStartBlock
-	earliestKeepTimestamp := fullIndexStartTimestamp
+	eventStartBlock := fullStartBlock
+	eventStartTimestamp := fullStartTimestamp
 	for _, eventRange := range eventRanges {
-		if eventRange.from < earliestKeepBlock {
+		if eventRange.from < eventStartBlock {
 			ts, err := ci.FetchBlockTimestamp(ctx, eventRange.from)
 			if err != nil {
 				return nil, errors.Wrapf(err, "fetch FSP keep-start timestamp for block %d", eventRange.from)
 			}
 
-			earliestKeepBlock = eventRange.from
-			earliestKeepTimestamp = ts
+			eventStartBlock = eventRange.from
+			eventStartTimestamp = ts
 		}
 	}
 
-	return &fspStartupPlan{
-		fullIndexStartBlock:     fullIndexStartBlock,
-		fullIndexStartTimestamp: fullIndexStartTimestamp,
-		keepFromBlock:           earliestKeepBlock,
-		keepFromTimestamp:       earliestKeepTimestamp,
-		fspEventRanges:          eventRanges,
+	return &fspStartupTargets{
+		fullStartBlock:      fullStartBlock,
+		fullStartTimestamp:  fullStartTimestamp,
+		eventStartBlock:     eventStartBlock,
+		eventStartTimestamp: eventStartTimestamp,
+		eventRanges:         eventRanges,
 	}, nil
 }
 
-func getFullIndexStartBlock(
+func resolveFullStartBlock(
 	ctx context.Context,
 	ci *core.Engine,
 	fsm *systemcontract.FlareSystemsManagerCaller,
@@ -219,13 +208,7 @@ func getFullIndexStartBlock(
 
 	params := ci.Params()
 	if params.HistoryEpochs == 0 {
-		startBlock, err := findStartBlockByLookback(
-			ctx,
-			ci,
-			latestConfirmedTimestamp,
-			0,
-			latestConfirmedNumber,
-		)
+		startBlock, err := findStartBlockByLookback(ctx, ci, latestConfirmedTimestamp, latestConfirmedNumber)
 		if err != nil {
 			return 0, 0, errors.Wrap(err, "find FSP catchup start block by timestamp")
 		}
@@ -253,13 +236,7 @@ func getFullIndexStartBlock(
 		return 0, 0, errors.Wrapf(err, "fetch start epoch timestamp for block %d", epochStartBlock)
 	}
 
-	startBlock, err := findStartBlockByLookback(
-		ctx,
-		ci,
-		epochStartTimestamp,
-		1,
-		epochStartBlock,
-	)
+	startBlock, err := findStartBlockByLookback(ctx, ci, epochStartTimestamp, epochStartBlock)
 	if err != nil {
 		return 0, 0, errors.Wrapf(err, "find start block from epoch %d with lookback", startEpochID)
 	}
@@ -267,13 +244,7 @@ func getFullIndexStartBlock(
 	return startBlock, startEpochID, nil
 }
 
-func findStartBlockByLookback(
-	ctx context.Context,
-	ci *core.Engine,
-	baseTimestamp uint64,
-	startBlockNumber uint64,
-	endBlockNumber uint64,
-) (uint64, error) {
+func findStartBlockByLookback(ctx context.Context, ci *core.Engine, baseTimestamp uint64, endBlockNumber uint64) (uint64, error) {
 	if endBlockNumber == 0 {
 		return 0, nil
 	}
@@ -288,7 +259,7 @@ func findStartBlockByLookback(
 		ctx,
 		searchTimestamp,
 		ci.Client(),
-		startBlockNumber,
+		0,
 		endBlockNumber,
 	)
 }

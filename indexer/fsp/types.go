@@ -9,10 +9,10 @@ type fspBlockRange struct {
 	to   uint64
 }
 
-type fspStartupPlan struct {
-	fullIndexStartBlock     uint64
-	fullIndexStartTimestamp uint64
-	keepFromBlock           uint64
-	keepFromTimestamp       uint64
-	fspEventRanges          []fspBlockRange
+type fspStartupTargets struct {
+	fullStartBlock      uint64
+	fullStartTimestamp  uint64
+	eventStartBlock     uint64
+	eventStartTimestamp uint64
+	eventRanges         []fspBlockRange
 }
