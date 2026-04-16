@@ -127,6 +127,19 @@ go build
 ./flare-ftso-indexer --config config.toml
 ```
 
+### Health endpoint
+
+The indexer exposes `GET /health` on port `8080`.
+
+- Returns `503` while startup catchup/backfill is still running.
+- Returns `200` after startup is complete and the indexer has entered continuous indexing mode.
+
+Example:
+
+```bash
+curl -i http://localhost:8080/health
+```
+
 ### Tests
 
 There is an integration test which checks the historical indexing against known transactions and

@@ -15,7 +15,6 @@ const (
 	LastDatabaseIndexState          string = "last_database_block"
 	FirstDatabaseIndexState         string = "first_database_block"
 	FirstDatabaseFSPEventIndexState string = "first_database_fsp_event_block"
-	SyncedState                     string = "synced"
 )
 
 var (
@@ -24,7 +23,6 @@ var (
 		FirstDatabaseFSPEventIndexState,
 		LastDatabaseIndexState,
 		LastChainIndexState,
-		SyncedState,
 	}
 
 	// States captures the state of the DB giving guaranties which

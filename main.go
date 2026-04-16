@@ -8,9 +8,11 @@ import (
 	"flare-ftso-indexer/config"
 	"flare-ftso-indexer/contracts"
 	"flare-ftso-indexer/database"
+	"flare-ftso-indexer/health"
 	"flare-ftso-indexer/indexer/core"
 	"flare-ftso-indexer/indexer/fsp"
 	"flare-ftso-indexer/logger"
+	"flare-ftso-indexer/ready"
 	"fmt"
 	"os"
 	"os/signal"
@@ -74,6 +76,9 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return errors.Wrap(err, "Database connect and initialize errors")
 	}
+
+	ready.SetSynced(false)
+	health.Start()
 
 	chainID, err := ethClient.ChainID(ctx)
 	if err != nil {
@@ -192,6 +197,8 @@ func runIndexer(
 			cfg.Indexer.StartIndex,
 		)
 	}
+
+	ready.SetSynced(true)
 
 	err = boff.RetryNoReturn(
 		ctx,

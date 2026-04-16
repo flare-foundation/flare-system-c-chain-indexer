@@ -9,6 +9,7 @@ import (
 	"flare-ftso-indexer/database"
 	"flare-ftso-indexer/indexer/core"
 	"flare-ftso-indexer/logger"
+	"flare-ftso-indexer/ready"
 	"time"
 
 	"github.com/pkg/errors"
@@ -27,9 +28,7 @@ func RunIndexer(
 		return err
 	}
 
-	if err := setSyncedState(ctx, db, false); err != nil {
-		return errors.Wrap(err, "set synced=false")
-	}
+	ready.SetSynced(false)
 
 	historyLastIndex, err := boff.Retry(
 		ctx,
@@ -57,9 +56,7 @@ func RunIndexer(
 		0,
 	)
 
-	if err := setSyncedState(ctx, db, true); err != nil {
-		return errors.Wrap(err, "set synced=true")
-	}
+	ready.SetSynced(true)
 
 	err = boff.RetryNoReturn(
 		ctx,
@@ -85,18 +82,4 @@ func historyDropHeuristicSeconds(historyEpochs uint64) uint64 {
 	)
 
 	return baseRetentionSeconds + historyEpochs*retentionPerEpochSeconds
-}
-
-func setSyncedState(ctx context.Context, db *gorm.DB, synced bool) error {
-	states, err := database.LoadDBStates(ctx, db)
-	if err != nil {
-		return errors.Wrap(err, "database.LoadDBStates")
-	}
-
-	index := uint64(0)
-	if synced {
-		index = 1
-	}
-
-	return states.Update(db, database.SyncedState, index, 0)
 }
