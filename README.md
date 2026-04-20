@@ -150,10 +150,10 @@ The integration test is configured via `testing/config_test.toml`. You can execu
 $ go test ./main_test.go
 ```
 
-Additionally, a unit test with a mocked chain node is available in `indexer/indexer_test.go`. Like the integration test, it uses `testing/config_test.toml` for configuration. You can run it using:
+Additionally, a unit test with a mocked chain node is available in `indexer/core/engine_test.go`. Like the integration test, it uses `testing/config_test.toml` for configuration. You can run it using:
 
 ```bash
-go test ./indexer
+go test ./indexer/core
 ```
 
 To run tests with coverage analysis across all packages, save the results to `coverage.out`, and convert the report into an interactive HTML file run:
