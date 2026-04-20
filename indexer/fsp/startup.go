@@ -95,52 +95,20 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 }
 
 // resolveCatchupBlock decides where catchup should start on startup and whether FSP event ranges should be backfilled.
-//
-// It returns:
-//   - catchupFromBlock: first block for full block catchup backfill
-//   - backfillEventRanges: true when FSP event range backfill must run
-//
-// Full block catchup starts from fullStartBlock when full index coverage
-// states do not cover that block.
-//
-// FSP event range backfill is decided independently from
-// FirstDatabaseFSPEventIndexState and runs when that coverage starts after
-// eventStartBlock (or state is missing).
 func resolveCatchupBlock(
-	firstFspEventRangeState *database.State,
-	firstFullIndexState *database.State,
-	lastDBState *database.State,
+	firstFspEvent *database.State,
+	firstDbBlock *database.State,
+	lastDbBlock *database.State,
 	targets *fspStartupTargets,
 ) (uint64, bool) {
 	catchupFromBlock := targets.fullStartBlock
-	if fullCoverageReady(firstFullIndexState, lastDBState, targets.fullStartBlock) {
-		catchupFromBlock = lastDBState.Index + 1
+
+	if database.IsSet(firstDbBlock) && firstDbBlock.Index <= targets.fullStartBlock && database.IsSet(lastDbBlock) && lastDbBlock.Index >= targets.fullStartBlock {
+		catchupFromBlock = lastDbBlock.Index + 1
 	}
 
-	backfillEventRanges := !eventCoverageReady(firstFspEventRangeState, targets.eventStartBlock)
-
-	return catchupFromBlock, backfillEventRanges
-}
-
-func fullCoverageReady(
-	firstFullIndexState *database.State,
-	lastDBState *database.State,
-	targetFullStart uint64,
-) bool {
-	return firstFullIndexState != nil &&
-		firstFullIndexState.Index != 0 &&
-		firstFullIndexState.Index <= targetFullStart &&
-		lastDBState != nil &&
-		lastDBState.Index >= targetFullStart
-}
-
-func eventCoverageReady(
-	firstFspEventRangeState *database.State,
-	targetEventStart uint64,
-) bool {
-	return firstFspEventRangeState != nil &&
-		firstFspEventRangeState.Index != 0 &&
-		firstFspEventRangeState.Index <= targetEventStart
+	eventsAlreadyIndexed := database.IsSet(firstFspEvent) && firstFspEvent.Index <= targets.eventStartBlock
+	return catchupFromBlock, !eventsAlreadyIndexed
 }
 
 func buildStartupTargets(

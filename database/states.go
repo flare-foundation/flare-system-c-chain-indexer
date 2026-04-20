@@ -37,6 +37,10 @@ func (s *State) updateIndex(newIndex, blockTimestamp uint64) {
 	s.BlockTimestamp = blockTimestamp
 }
 
+func IsSet(state *State) bool {
+	return state != nil && state.Index != 0
+}
+
 type DBStates struct {
 	States map[string]*State
 	mu     sync.RWMutex
