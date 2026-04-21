@@ -55,8 +55,8 @@ test:
     - name: mysql:latest
       alias: mysql
   script:
-    - sed -i 's/test_host = "localhost"/test_host = "mysql"/' testing/config_test.toml
-    - go test ./indexer/core
+    - sed -i 's/test_host = "localhost"/test_host = "mysql"/' test/config_test.toml
+    - go test ./test
 
 build-container:
   stage: build

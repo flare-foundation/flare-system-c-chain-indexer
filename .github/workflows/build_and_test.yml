@@ -35,9 +35,9 @@ jobs:
           args: --timeout 5m0s
 
       - name: Build
-        run: go build
+        run: go build ./...
 
       - name: Test
         run: |
-          mysql -u root -p'root' -h 127.0.0.1 -P 3306 < database/docker/db_init/flare_ftso_indexer.sql
-          go test -v ./indexer/core
+          mysql -u root -p'root' -h 127.0.0.1 -P 3306 < internal/database/docker/db_init/flare_ftso_indexer.sql
+          go test -v ./test

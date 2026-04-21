@@ -2,12 +2,12 @@ package benchmarks
 
 import (
 	"context"
-	"flare-ftso-indexer/chain"
-	"flare-ftso-indexer/config"
-	"flare-ftso-indexer/contracts"
-	"flare-ftso-indexer/database"
-	"flare-ftso-indexer/indexer/core"
-	"flare-ftso-indexer/logger"
+	"flare-ftso-indexer/internal/chain"
+	"flare-ftso-indexer/internal/config"
+	"flare-ftso-indexer/internal/contracts"
+	"flare-ftso-indexer/internal/core"
+	"flare-ftso-indexer/internal/database"
+	"flare-ftso-indexer/internal/logger"
 	"testing"
 
 	"github.com/BurntSushi/toml"

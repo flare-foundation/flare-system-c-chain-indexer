@@ -1,13 +1,18 @@
-# Example of config.toml file for  coston2
+# Example config.toml for Coston2.
 
 [indexer]
-start_index = 12952779 # the number of the block that the indexer will start with
-stop_index = 0 # the number of the block that the indexer will stop with; set 0 or skip to index indefinitely
-num_parallel_req = 100 # the number of threads doing requests to the chain in parallel
+mode = "full" # "full" (default) or "fsp"
+start_index = 0 # start block. Leave 0 when history_drop is enabled; set only when history_drop = 0.
+stop_index = 0 # stop block; set 0 to index indefinitely
+history_epochs = 0 # FSP mode only: 0=last 2 hours, >0=number of reward epochs to keep/index from
+num_parallel_req = 100 # number of parallel requests to the chain
 batch_size = 1000 # the number of blocks that will be pushed to a database in a batch (should be divisible by num_parallel_req)
 log_range = 10 # the size of the interval of blocks used to request logs in each request; suggested value is log_range = batch_size / num_parallel_req; note that a blockchain node might have an upper bound on this
 new_block_check_millis = 1000 # interval for checking for new blocks
-no_new_blocks_delay_warning = 60 # the maximum allowed time interval (in seconds) between the processing of consecutive blocks before triggering a warning, if 0 no warning will be triggered
+confirmations = 1 # number of confirmations for latest block queries
+no_new_blocks_delay_warning = 60 # max allowed delay between consecutive processed blocks before warning; 0 disables warning
+fsp_tx_lookback_seconds = 7200 # FSP mode startup tx lookback window (default 2h)
+fsp_log_filter_range = 1024 # FSP mode block range per FilterLogs request during metadata backfill
 
 [[indexer.collect_transactions]]
 contract_address = "0x2cA6571Daa15ce734Bbd0Bf27D5C9D16787fc33f" # Submission
@@ -93,17 +98,18 @@ contract_address = "0xc1a22A1d295e829Caf3be61bd1E11E5eEd7f0F15" # Coston: Old Fa
 topic = "undefined"
 
 [[indexer.collect_logs]]
-contract_address = "" # FdcHub
+contract_name = "FdcHub"
 topic = "undefined"
 
 [logger]
 level = "INFO"
-file = "./logger/logs/flare-ftso-indexer.log"
+file = "./internal/logger/logs/flare-ftso-indexer.log"
 console = true
 
 [chain]
-node_url = "http://coston2.test.aflabs.net:9650/ext/bc/C/rpc"
-api_key = ""
+node_url = "http://coston2.test.aflabs.net:9650/ext/bc/C/rpc" # or NODE_URL environment variable
+api_key = "" # or NODE_API_KEY environment variable
+chain_type = 1 # default Avalanche based chain=1, Ethereum based chain=2
 
 # Configuration for DB
 [db] # Configuration for DB
@@ -115,3 +121,7 @@ password = "root"
 log_queries = false
 drop_table_at_start = false
 history_drop = 3628800 # 42 days
+
+[timeout]
+backoff_max_elapsed_time_seconds = 300 # optional, defaults to 300s = 5 minutes. Set to 0 to retry indefinitely.
+timeout_millis = 1000 # optional, defaults to 1000ms = 1s.
