@@ -76,16 +76,28 @@ func dropHistoryIteration(
 		}
 	}
 
-	err = globalStates.Update(db, FirstDatabaseIndexState, deleteStartBlock, deleteStartTime)
+	err = updateStateIfLower(db, FirstDatabaseIndexState, deleteStartBlock, deleteStartTime)
 	if err != nil {
 		return errors.Wrap(err, "Failed to update state in the DB")
 	}
-	err = globalStates.Update(db, FirstDatabaseFSPEventIndexState, deleteStartBlock, deleteStartTime)
+	err = updateStateIfLower(db, FirstDatabaseFSPEventIndexState, deleteStartBlock, deleteStartTime)
 	if err != nil {
 		return errors.Wrap(err, "Failed to update FSP event state in the DB")
 	}
 
 	return nil
+}
+
+func updateStateIfLower(db *gorm.DB, stateName string, index, timestamp uint64) error {
+	globalStates.mu.RLock()
+	state := globalStates.States[stateName]
+	globalStates.mu.RUnlock()
+
+	if state != nil && state.Index >= index {
+		return nil
+	}
+
+	return globalStates.Update(db, stateName, index, timestamp)
 }
 
 // GetStartBlock returns the block number to start indexing from based on the history drop parameter.
