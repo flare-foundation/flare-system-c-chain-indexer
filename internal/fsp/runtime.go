@@ -23,6 +23,14 @@ func RunIndexer(
 	ethClient *chain.Client,
 	resolver *contracts.ContractResolver,
 ) error {
+	logger.Info(
+		"Starting indexer in FSP mode: history_epochs=%d, fsp_tx_lookback_seconds=%d, collect_transactions=%d, collect_logs=%d",
+		cfg.Indexer.HistoryEpochs,
+		cfg.Indexer.FspTxLookbackSeconds,
+		len(cfg.Indexer.CollectTransactions),
+		len(cfg.Indexer.CollectLogs),
+	)
+
 	cIndexer, err := core.NewEngine(cfg, db, ethClient, resolver)
 	if err != nil {
 		return err
@@ -43,8 +51,9 @@ func RunIndexer(
 
 	historyDropSeconds := historyDropHeuristicSeconds(cfg.Indexer.HistoryEpochs)
 	logger.Info(
-		"Using FSP history drop: history_epochs=%d, derived retention days=%.2f",
+		"Using FSP history drop: history_epochs=%d, derived retention=%ds (%.2f days)",
 		cfg.Indexer.HistoryEpochs,
+		historyDropSeconds,
 		float64(historyDropSeconds)/(24*60*60),
 	)
 	go database.DropHistory(

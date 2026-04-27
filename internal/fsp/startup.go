@@ -46,10 +46,10 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 	)
 
 	logger.Info(
-		"Startup backfill: backfillFspEventRanges=%t, index blocks from=%d, current latest confirmed=%d, index FSP events for ranges: %+v",
-		backfillEventRanges,
+		"FSP startup plan: catchup blocks from=%d, latest confirmed=%d, backfill FSP event ranges=%t, ranges=%+v",
 		catchupFromBlock,
 		latestConfirmedNumber,
+		backfillEventRanges,
 		targets.eventRanges,
 	)
 
@@ -85,7 +85,7 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 	}
 
 	logger.Info(
-		"FSP startup backfill complete: firstFull=%d firstEvents=%d last=%d",
+		"FSP startup backfill complete: targetFullStart=%d targetEventStart=%d lastIndexed=%d",
 		targets.fullStartBlock,
 		targets.eventStartBlock,
 		lastIndexed,
@@ -101,9 +101,13 @@ func resolveCatchupBlock(
 	lastDbBlock *database.State,
 	targets *fspStartupTargets,
 ) (uint64, bool) {
+	// If existing fully-indexed data spans the target start, continue from
+	// where we left off; otherwise (re)start from targets.fullStartBlock.
 	catchupFromBlock := targets.fullStartBlock
-
-	if database.IsSet(firstDbBlock) && firstDbBlock.Index <= targets.fullStartBlock && database.IsSet(lastDbBlock) && lastDbBlock.Index >= targets.fullStartBlock {
+	covers := database.IsSet(firstDbBlock) && database.IsSet(lastDbBlock) &&
+		firstDbBlock.Index <= targets.fullStartBlock &&
+		lastDbBlock.Index >= targets.fullStartBlock
+	if covers {
 		catchupFromBlock = lastDbBlock.Index + 1
 	}
 

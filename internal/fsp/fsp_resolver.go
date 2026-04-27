@@ -4,6 +4,7 @@ import (
 	"context"
 	"flare-ftso-indexer/internal/config"
 	"flare-ftso-indexer/internal/contracts"
+	"flare-ftso-indexer/internal/policylog"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -52,6 +53,8 @@ func resolveFspContractAddresses(
 		seenTopics[topicHash] = struct{}{}
 		logTopics = append(logTopics, topicHash)
 	}
+
+	policylog.LogFspEventFilter(defaultFspLogs)
 
 	return logAddresses, logTopics, nil
 }

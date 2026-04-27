@@ -8,6 +8,7 @@ import (
 	"flare-ftso-indexer/internal/contracts"
 	"flare-ftso-indexer/internal/database"
 	"flare-ftso-indexer/internal/logger"
+	"flare-ftso-indexer/internal/policylog"
 	"fmt"
 	"strings"
 	"time"
@@ -59,9 +60,12 @@ func NewEngine(
 		return nil, errors.New("contract resolver is required")
 	}
 
+	params := updateParams(cfg.Indexer)
+	policylog.LogIndexerPolicy(params)
+
 	return &Engine{
 		db:               db,
-		params:           updateParams(cfg.Indexer),
+		params:           params,
 		transactions:     txs,
 		client:           client,
 		contractResolver: contractResolver,
@@ -91,8 +95,6 @@ func updateParams(params config.IndexerConfig) config.IndexerConfig {
 }
 
 func makeTransactions(txInfo []config.TransactionInfo) (map[common.Address]map[functionSignature]transactionsPolicy, error) {
-	logger.Info("Creating transactions policies from config: %+v", txInfo)
-
 	transactions := make(map[common.Address]map[functionSignature]transactionsPolicy)
 
 	for i := range txInfo {
@@ -114,8 +116,6 @@ func makeTransactions(txInfo []config.TransactionInfo) (map[common.Address]map[f
 			collectSignature: transaction.Signature,
 		}
 	}
-
-	logger.Info("Created transactions policies: %+v", transactions)
 
 	return transactions, nil
 }

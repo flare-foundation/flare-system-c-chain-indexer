@@ -9,9 +9,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Window around each reward-epoch start block used to capture FSP reward epoch events.
+// Values are block offsets, sized for ~1s blocks (overestimates on chains with slower blocks).
 const (
-	fspWindowBeforeBlocks = uint64(2 * 60 * 60) // 2 hours before - SigningPolicy protocol start
-	fspWindowAfterBlocks  = uint64(15 * 60)     // 15 minutes after - to capture inflation reward offers
+	fspWindowBeforeBlocks = uint64(2 * 60 * 60) // ~2h before SigningPolicy protocol start
+	fspWindowAfterBlocks  = uint64(15 * 60)     // ~15min after, to capture inflation reward offers
 )
 
 func fspCurrentEpochID(
