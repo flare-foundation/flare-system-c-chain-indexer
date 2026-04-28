@@ -65,7 +65,7 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 	// the lowest event range start.
 	eventStartBlock := lowestRangeFrom(eventRanges, fullStartBlock)
 	firstFspEvent := states.States[database.FirstDatabaseFSPEventIndexState]
-	backfillEventRanges := !(database.IsSet(firstFspEvent) && firstFspEvent.Index <= eventStartBlock)
+	backfillEventRanges := !database.IsSet(firstFspEvent) || firstFspEvent.Index > eventStartBlock
 
 	logger.Infof(
 		"FSP startup plan: catchup blocks from=%d, latest confirmed=%d, backfill FSP event ranges=%t, ranges=%+v",
