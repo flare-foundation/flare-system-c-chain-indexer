@@ -92,15 +92,13 @@ func (s *DBStates) UpdateAtStart(
 
 	// Set the first database index state only if it does not exist yet
 	if !firstDatabaseIndexSet {
-		err := s.Update(db, FirstDatabaseIndexState, startIndex, startBlockTimestamp)
-		if err != nil {
+		if err := s.Update(db, FirstDatabaseIndexState, startIndex, startBlockTimestamp); err != nil {
 			return errors.Wrap(err, "states.Update(FirstDatabaseIndexState)")
 		}
 	}
 
 	// Set the state for the current latest chain index
-	err := s.Update(db, LastChainIndexState, lastChainIndex, lastBlockTimestamp)
-	if err != nil {
+	if err := s.Update(db, LastChainIndexState, lastChainIndex, lastBlockTimestamp); err != nil {
 		return errors.Wrap(err, "states.Update(LastChainIndexState)")
 	}
 

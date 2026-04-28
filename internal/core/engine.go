@@ -361,10 +361,7 @@ func (ci *Engine) getIndexRange(
 		return nil, errors.Wrap(err, "ci.fetchBlockTimestamp")
 	}
 
-	err = states.UpdateAtStart(
-		ci.db, startIndex, startTimestamp, lastChainIndex, lastChainTimestamp,
-	)
-	if err != nil {
+	if err := states.UpdateAtStart(ci.db, startIndex, startTimestamp, lastChainIndex, lastChainTimestamp); err != nil {
 		return nil, errors.Wrap(err, "states.UpdateAtStart")
 	}
 
@@ -381,8 +378,7 @@ func (ci *Engine) updateLastIndexContinuous(
 		return nil, errors.Wrap(err, "ci.fetchLastBlockIndex")
 	}
 
-	err = states.Update(ci.db, database.LastChainIndexState, lastIndex, lastChainTimestamp)
-	if err != nil {
+	if err := states.Update(ci.db, database.LastChainIndexState, lastIndex, lastChainTimestamp); err != nil {
 		return nil, errors.Wrap(err, "states.Update")
 	}
 
@@ -421,8 +417,7 @@ func (ci *Engine) processAndSave(
 
 	// Push transactions and logs in the database
 	startTime = time.Now()
-	err := ci.saveData(data, states, lastDBIndex, lastDBTimestamp)
-	if err != nil {
+	if err := ci.saveData(data, states, lastDBIndex, lastDBTimestamp); err != nil {
 		return errors.Wrap(err, "ci.saveData")
 	}
 
@@ -447,8 +442,7 @@ func (ci *Engine) updateLastIndexHistory(
 		return nil, errors.Wrap(err, "ci.fetchLastBlockIndex")
 	}
 
-	err = states.Update(ci.db, database.LastChainIndexState, lastChainIndex, lastChainTimestamp)
-	if err != nil {
+	if err := states.Update(ci.db, database.LastChainIndexState, lastChainIndex, lastChainTimestamp); err != nil {
 		return nil, errors.Wrap(err, "states.Update")
 	}
 
@@ -547,8 +541,7 @@ func (ci *Engine) indexContinuousIteration(ctx context.Context, states *database
 	}
 
 	indexTimestamp := bBatch.blocks[0].Time()
-	err = ci.saveData(data, states, index, indexTimestamp)
-	if err != nil {
+	if err := ci.saveData(data, states, index, indexTimestamp); err != nil {
 		return fmt.Errorf("IndexContinuous: %w", err)
 	}
 

@@ -54,8 +54,7 @@ func (ci *Engine) saveData(
 			}
 		}
 
-		err := states.Update(tx, database.LastDatabaseIndexState, lastDBIndex, lastDBTimestamp)
-		if err != nil {
+		if err := states.Update(tx, database.LastDatabaseIndexState, lastDBIndex, lastDBTimestamp); err != nil {
 			return errors.Wrap(err, "saveData: Update")
 		}
 

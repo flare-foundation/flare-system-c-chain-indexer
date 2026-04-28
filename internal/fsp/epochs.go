@@ -16,6 +16,11 @@ const (
 	fspWindowAfterBlocks  = uint64(15 * 60)     // ~15min after, to capture inflation reward offers
 )
 
+type fspBlockRange struct {
+	from uint64
+	to   uint64
+}
+
 func fspCurrentEpochID(
 	ctx context.Context,
 	fsm *systemcontract.FlareSystemsManagerCaller,
