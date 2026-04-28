@@ -7,7 +7,6 @@ import (
 	"flare-ftso-indexer/internal/contracts"
 	"flare-ftso-indexer/internal/core"
 	"flare-ftso-indexer/internal/database"
-	"flare-ftso-indexer/internal/logger"
 	"fmt"
 	"os"
 	"strconv"
@@ -16,6 +15,7 @@ import (
 
 	"github.com/BurntSushi/toml"
 	"github.com/bradleyjkemp/cupaloy/v2"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -86,7 +86,7 @@ func TestIndexer(t *testing.T) {
 		StartIndex: 1112, StopIndex: 2400, BatchSize: 500, NumParallelReq: 4,
 		NewBlockCheckMillis: 200, CollectTransactions: collectTransactions,
 	}
-	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../internal/logger/logs/flare-ftso-indexer_test.log"}
+	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logs/flare-ftso-indexer_test.log"}
 	cfgDB := config.DBConfig{
 		Host: tCfg.DBHost, Port: tCfg.DBPort, Database: tCfg.DBName,
 		Username: tCfg.DBUsername, Password: tCfg.DBPassword, DropTableAtStart: true,
@@ -105,7 +105,7 @@ func TestIndexer(t *testing.T) {
 	// connect to the database
 	db, err := database.ConnectAndInitialize(ctx, &cfg.DB)
 	if err != nil {
-		logger.Fatal("Database connect and initialize error: %s", err)
+		logger.Fatalf("Database connect and initialize error: %s", err)
 	}
 
 	err = runIndexer(ctx, mockChain, db, &cfg)
@@ -154,13 +154,13 @@ func applyEnvOverrides(cfg *testConfig) {
 func runIndexer(ctx context.Context, mockChain *MockChain, db *gorm.DB, cfg *config.Config) error {
 	go func() {
 		if err := mockChain.Run(ctx); err != nil {
-			logger.Fatal("Mock chain error: %s", err)
+			logger.Fatalf("Mock chain error: %s", err)
 		}
 	}()
 
 	defer func() {
 		if err := mockChain.Stop(); err != nil {
-			logger.Error("Mock chain stop error: %s", err)
+			logger.Errorf("Mock chain stop error: %s", err)
 		}
 	}()
 
@@ -168,33 +168,33 @@ func runIndexer(ctx context.Context, mockChain *MockChain, db *gorm.DB, cfg *con
 
 	nodeURL, err := cfg.Chain.FullNodeURL()
 	if err != nil {
-		logger.Fatal("Invalid node URL in config: %s", err)
+		logger.Fatalf("Invalid node URL in config: %s", err)
 	}
 
 	ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType)
 	if err != nil {
-		logger.Fatal("Could not connect to the Ethereum node: %s", err)
+		logger.Fatalf("Could not connect to the Ethereum node: %s", err)
 	}
 
 	resolver, err := contracts.NewContractResolver(ethClient)
 	if err != nil {
-		logger.Fatal("Could not initialize contract registry resolver: %s", err)
+		logger.Fatalf("Could not initialize contract registry resolver: %s", err)
 	}
 
 	// create the indexer
 	cIndexer, err := core.NewEngine(cfg, db, ethClient, resolver)
 	if err != nil {
-		logger.Fatal("Create indexer error: %s", err)
+		logger.Fatalf("Create indexer error: %s", err)
 	}
 
 	// index history with parallel processing
 	historyLastIndex, err := cIndexer.IndexHistory(ctx, cfg.Indexer.StartIndex)
 	if err != nil {
-		logger.Fatal("History run error: %s", err)
+		logger.Fatalf("History run error: %s", err)
 	}
 
 	if historyLastIndex != cfg.Indexer.StopIndex {
-		logger.Fatal(
+		logger.Fatalf(
 			"History indexing did not reach the stop index: last %d, stop %d",
 			historyLastIndex, cfg.Indexer.StopIndex,
 		)

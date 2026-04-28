@@ -25,7 +25,7 @@ topic = "undefined" # topic0 filter; use "undefined" to index all events from th
 
 [logger]
 level = "INFO"
-file = "./internal/logger/logs/flare-ftso-indexer.log"
+file = "./logs/flare-ftso-indexer.log"
 console = true
 
 [chain]

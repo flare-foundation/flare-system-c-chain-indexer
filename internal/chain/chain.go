@@ -7,13 +7,12 @@ import (
 	"math/big"
 	"net/url"
 
-	"flare-ftso-indexer/internal/logger"
-
 	avxClient "github.com/ava-labs/coreth/ethclient"
 	"github.com/ava-labs/coreth/interfaces"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	ethClient "github.com/ethereum/go-ethereum/ethclient"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	avxTypes "github.com/ava-labs/coreth/core/types"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -411,7 +410,7 @@ func (t *Transaction) RawSignatureValues() (v, r, s *big.Int) {
 	case ChainTypeEth:
 		return t.eth.RawSignatureValues()
 	default:
-		logger.Error("RawSignatureValues called on unsupported chain type: %d", t.chain)
+		logger.Errorf("RawSignatureValues called on unsupported chain type: %d", t.chain)
 		return nil, nil, nil
 	}
 }

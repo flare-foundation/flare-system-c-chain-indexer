@@ -5,11 +5,11 @@ import (
 	"flare-ftso-indexer/internal/chain"
 	"flare-ftso-indexer/internal/core"
 	"flare-ftso-indexer/internal/database"
-	"flare-ftso-indexer/internal/logger"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	systemcontract "github.com/flare-foundation/go-flare-common/pkg/contracts/system"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"
 )
 
@@ -67,7 +67,7 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 	firstFspEvent := states.States[database.FirstDatabaseFSPEventIndexState]
 	backfillEventRanges := !(database.IsSet(firstFspEvent) && firstFspEvent.Index <= eventStartBlock)
 
-	logger.Info(
+	logger.Infof(
 		"FSP startup plan: catchup blocks from=%d, latest confirmed=%d, backfill FSP event ranges=%t, ranges=%+v",
 		catchupFromBlock,
 		latestConfirmedNumber,
@@ -91,7 +91,7 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 			return 0, errors.Wrap(err, "set first FSP event index state")
 		}
 	} else {
-		logger.Info("Skipping FSP event backfill, already indexed")
+		logger.Infof("Skipping FSP event backfill, already indexed")
 	}
 
 	lastIndexed := latestConfirmedNumber
@@ -101,14 +101,14 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 			return 0, errors.Wrap(err, "backfill FSP catchup range")
 		}
 	} else {
-		logger.Info(
+		logger.Infof(
 			"Skipping FSP catchup block backfill: start=%d is above latest confirmed=%d",
 			catchupFromBlock,
 			latestConfirmedNumber,
 		)
 	}
 
-	logger.Info(
+	logger.Infof(
 		"FSP startup backfill complete: targetFullStart=%d targetEventStart=%d lastIndexed=%d",
 		fullStartBlock,
 		eventStartBlock,

@@ -5,10 +5,10 @@ import (
 	"flare-ftso-indexer/internal/boff"
 	"flare-ftso-indexer/internal/chain"
 	"flare-ftso-indexer/internal/config"
-	"flare-ftso-indexer/internal/logger"
 	"math/big"
 	"time"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -26,15 +26,15 @@ func DropHistory(
 	startBlockNumber uint64,
 ) {
 	for {
-		logger.Info("starting DropHistory iteration")
+		logger.Infof("starting DropHistory iteration")
 
 		startTime := time.Now()
 		err := dropHistoryIteration(ctx, db, intervalSeconds, client, startBlockNumber)
 		if err == nil {
 			duration := time.Since(startTime)
-			logger.Info("finished DropHistory iteration in %v", duration)
+			logger.Infof("finished DropHistory iteration in %v", duration)
 		} else {
-			logger.Error("DropHistory error: %s", err)
+			logger.Errorf("DropHistory error: %s", err)
 		}
 
 		time.Sleep(time.Duration(checkInterval) * time.Second)
@@ -133,7 +133,7 @@ func DeleteInBatches(db *gorm.DB, deleteStartTime uint64, entity interface{}) er
 		// Take a rest every so often to avoid locking up the database too much
 		batchCount++
 		if batchCount%deleteBatchesPauseAfter == 0 {
-			logger.Debug("Deleted %d rows of %T so far", batchCount*deleteBatchSize, entity)
+			logger.Debugf("Deleted %d rows of %T so far", batchCount*deleteBatchSize, entity)
 			time.Sleep(deleteBatchesPauseDuration)
 		}
 	}
@@ -170,7 +170,7 @@ func getNearestBlockByTimestamp(
 	// If that fails, we fall back to doing a binary search on the chain.
 	blockNumber, err := getNearestBlockByTimestampFromDB(ctx, timestamp, db)
 	if err != nil {
-		logger.Debug("failed to get the nearest block by timestamp from DB, will fall back to RPC binary search. err: %s", err)
+		logger.Debugf("failed to get the nearest block by timestamp from DB, will fall back to RPC binary search. err: %s", err)
 	}
 
 	// A blocknumber of 0 means that no block was found in the DB.

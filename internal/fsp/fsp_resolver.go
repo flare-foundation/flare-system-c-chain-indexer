@@ -4,7 +4,7 @@ import (
 	"context"
 	"flare-ftso-indexer/internal/config"
 	"flare-ftso-indexer/internal/contracts"
-	"flare-ftso-indexer/internal/policylog"
+	"flare-ftso-indexer/internal/diagnostics"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -54,7 +54,7 @@ func resolveFspContractAddresses(
 		logTopics = append(logTopics, topicHash)
 	}
 
-	policylog.LogFspEventFilter(defaultFspLogs)
+	diagnostics.LogFspEventFilter(defaultFspLogs)
 
 	return logAddresses, logTopics, nil
 }

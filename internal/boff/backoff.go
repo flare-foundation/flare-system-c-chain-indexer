@@ -5,10 +5,10 @@ package boff
 import (
 	"context"
 	"flare-ftso-indexer/internal/config"
-	"flare-ftso-indexer/internal/logger"
 	"time"
 
 	"github.com/cenkalti/backoff/v5"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
 func RetryWithMaxElapsed[T any](ctx context.Context, operation func() (T, error), name string) (T, error) {
@@ -39,7 +39,7 @@ func retry[T any](ctx context.Context, operation func() (T, error), name string,
 		backoff.WithMaxElapsedTime(maxElapsedTime),
 		backoff.WithNotify(
 			func(err error, d time.Duration) {
-				logger.Debug("%s error: %s - retrying after %v", name, err, d)
+				logger.Debugf("%s error: %s - retrying after %v", name, err, d)
 			},
 		),
 	)

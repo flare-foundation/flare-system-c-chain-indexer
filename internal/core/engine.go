@@ -7,13 +7,13 @@ import (
 	"flare-ftso-indexer/internal/config"
 	"flare-ftso-indexer/internal/contracts"
 	"flare-ftso-indexer/internal/database"
-	"flare-ftso-indexer/internal/logger"
-	"flare-ftso-indexer/internal/policylog"
+	"flare-ftso-indexer/internal/diagnostics"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
@@ -61,7 +61,7 @@ func NewEngine(
 	}
 
 	params := updateParams(cfg.Indexer)
-	policylog.LogIndexerPolicy(params)
+	diagnostics.LogIndexerPolicy(params)
 
 	return &Engine{
 		db:               db,
@@ -165,7 +165,7 @@ func (ci *Engine) IndexHistory(ctx context.Context, startIndex uint64) (uint64, 
 		return 0, err
 	}
 
-	logger.Info("Starting to index blocks from %d to %d", ixRange.start, ixRange.end)
+	logger.Infof("Starting to index blocks from %d to %d", ixRange.start, ixRange.end)
 
 	for i := ixRange.start; i <= ixRange.end; i = i + ci.params.BatchSize {
 		if err := ci.indexBatch(ctx, states, i, ixRange); err != nil {
@@ -253,7 +253,7 @@ func (ci *Engine) obtainBlocksBatch(ctx context.Context, firstBlockNumber uint64
 		return nil, err
 	}
 
-	logger.Info(
+	logger.Infof(
 		"Successfully obtained blocks %d to %d in %d milliseconds",
 		firstBlockNumber, lastBlockNumInRound, time.Since(startTime).Milliseconds(),
 	)
@@ -266,7 +266,7 @@ func (ci *Engine) processBlocksBatch(bBatch *blockBatch) *transactionsBatch {
 	txBatch := new(transactionsBatch)
 
 	ci.processBlocks(bBatch, txBatch)
-	logger.Info(
+	logger.Infof(
 		"Successfully extracted %d transactions in %d milliseconds",
 		len(txBatch.transactions), time.Since(startTime).Milliseconds(),
 	)
@@ -295,7 +295,7 @@ func (ci *Engine) processTransactionsBatch(
 		return err
 	}
 
-	logger.Info(
+	logger.Infof(
 		"Checked receipts of %d transactions in %d milliseconds",
 		countReceipts(txBatch), time.Since(startTime).Milliseconds(),
 	)
@@ -335,7 +335,7 @@ func (ci *Engine) obtainLogsBatch(
 		}
 	}
 
-	logger.Info(
+	logger.Infof(
 		"Obtained %d logs by request in %d milliseconds",
 		len(lgBatch.logs), time.Since(startTime).Milliseconds(),
 	)
@@ -406,7 +406,7 @@ func (ci *Engine) processAndSave(
 		return errors.Wrap(err, "ci.processLogs")
 	}
 
-	logger.Info(
+	logger.Infof(
 		"Processed %d blocks with %d transactions and extracted %d logs from receipts and %d new logs from requests in %d milliseconds",
 		len(data.Blocks),
 		len(txBatch.transactions),
@@ -421,7 +421,7 @@ func (ci *Engine) processAndSave(
 		return errors.Wrap(err, "ci.saveData")
 	}
 
-	logger.Info(
+	logger.Infof(
 		"Saved %d transactions and %d logs in the DB in %d milliseconds",
 		len(data.Transactions), len(data.Logs),
 		time.Since(startTime).Milliseconds(),
@@ -448,7 +448,7 @@ func (ci *Engine) updateLastIndexHistory(
 
 	if lastChainIndex > ixRange.end && ci.params.StopIndex > ixRange.end {
 		ixRange.end = min(lastChainIndex, ci.params.StopIndex)
-		logger.Info("Updating the last block to %d", ixRange.end)
+		logger.Infof("Updating the last block to %d", ixRange.end)
 	}
 
 	return ixRange, nil
@@ -465,14 +465,14 @@ func (ci *Engine) IndexContinuous(ctx context.Context, startIndex uint64) error 
 		return errors.Wrap(err, "ci.getIndexRange")
 	}
 
-	logger.Info("Continuously indexing blocks from %d", ixRange.start)
+	logger.Infof("Continuously indexing blocks from %d", ixRange.start)
 
 	// Request blocks one by one
 	blockNum := ixRange.start
 	lastProcessedBlockTime := [2]time.Time{time.Now(), time.Now()}
 	for blockNum <= ci.params.StopIndex {
 		if blockNum > ixRange.end {
-			logger.Debug("Up to date, last block %d", states.States[database.LastChainIndexState].Index)
+			logger.Debugf("Up to date, last block %d", states.States[database.LastChainIndexState].Index)
 			time.Sleep(time.Millisecond * time.Duration(ci.params.NewBlockCheckMillis))
 
 			ixRange, err = ci.updateLastIndexContinuous(ctx, states, ixRange)
@@ -483,7 +483,7 @@ func (ci *Engine) IndexContinuous(ctx context.Context, startIndex uint64) error 
 			elapsed := time.Since(lastProcessedBlockTime[0]).Seconds()
 			delay := ci.params.NoNewBlocksDelayWarning
 			if delay != 0 && elapsed > delay {
-				logger.Warn("Warning: %.2f seconds have elapsed since the last block was processed.", time.Since(lastProcessedBlockTime[1]).Seconds())
+				logger.Warnf("Warning: %.2f seconds have elapsed since the last block was processed.", time.Since(lastProcessedBlockTime[1]).Seconds())
 				lastProcessedBlockTime[0] = time.Now()
 			}
 
@@ -499,7 +499,7 @@ func (ci *Engine) IndexContinuous(ctx context.Context, startIndex uint64) error 
 		blockNum++
 	}
 
-	logger.Debug("Stopping the indexer at block %d", blockNum)
+	logger.Debugf("Stopping the indexer at block %d", blockNum)
 
 	return nil
 }
@@ -546,7 +546,7 @@ func (ci *Engine) indexContinuousIteration(ctx context.Context, states *database
 	}
 
 	if index%1000 == 0 {
-		logger.Info("Indexer at block %d", index)
+		logger.Infof("Indexer at block %d", index)
 	}
 
 	return nil

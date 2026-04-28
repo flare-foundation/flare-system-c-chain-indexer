@@ -1,5 +1,4 @@
-logger/logs
-internal/logger/logs
+logs/
 tmp/
 *.log
 config.toml

@@ -7,7 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"flare-ftso-indexer/internal/logger"
 	"io"
 	"net/http"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/gorilla/mux"
 )
 
@@ -42,14 +42,14 @@ func NewMockChain(port int, responsesFile string, recorderNodeURL string) (*Mock
 	r := mux.NewRouter()
 
 	if recorderNodeURL == "" {
-		logger.Info("running in test mode")
+		logger.Infof("running in test mode")
 		if err := mock.loadResponses(); err != nil {
 			return nil, err
 		}
 
 		r.HandleFunc("/", mock.ChainMockResponses)
 	} else {
-		logger.Info("running in recorder mode with node %s", recorderNodeURL)
+		logger.Infof("running in recorder mode with node %s", recorderNodeURL)
 		mock.client = new(http.Client)
 		mock.responses = make(map[[sha256.Size]byte][]byte)
 
@@ -62,7 +62,7 @@ func NewMockChain(port int, responsesFile string, recorderNodeURL string) (*Mock
 }
 
 func (m *MockChain) Run(ctx context.Context) error {
-	logger.Info("Mock server starting")
+	logger.Infof("Mock server starting")
 	err := m.server.ListenAndServe()
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil
@@ -81,7 +81,7 @@ func (m *MockChain) Stop() error {
 		return err
 	}
 
-	logger.Info("mock chain server shutdown")
+	logger.Infof("mock chain server shutdown")
 
 	if m.recorderNodeURL != "" {
 		if err := m.writeResponses(); err != nil {
@@ -89,7 +89,7 @@ func (m *MockChain) Stop() error {
 		}
 	}
 
-	logger.Info("written updated responses")
+	logger.Infof("written updated responses")
 
 	return nil
 }
@@ -106,7 +106,7 @@ func (m *MockChain) ChainMockResponses(
 	defer func() {
 		err := request.Body.Close()
 		if err != nil {
-			logger.Error("error closing request body:", err)
+			logger.Errorf("error closing request body: %v", err)
 		}
 	}()
 
@@ -123,7 +123,7 @@ func (m *MockChain) ChainMockResponses(
 	}
 
 	if len(m.responses) == 0 {
-		logger.Fatal("no responses loaded")
+		logger.Fatalf("no responses loaded")
 	}
 
 	m.mu.Lock()
@@ -137,7 +137,7 @@ func (m *MockChain) ChainMockResponses(
 	writer.Header().Add("Content-Type", "application/json")
 	_, err = writer.Write(rspData)
 	if err != nil {
-		logger.Error("error writing response:", err)
+		logger.Errorf("error writing response: %v", err)
 	}
 }
 
@@ -148,7 +148,7 @@ func (m *MockChain) RecordResponses(
 	defer func() {
 		err := request.Body.Close()
 		if err != nil {
-			logger.Error("error closing request body:", err)
+			logger.Errorf("error closing request body: %v", err)
 		}
 	}()
 
@@ -181,7 +181,7 @@ func (m *MockChain) RecordResponses(
 	defer func() {
 		err := rsp.Body.Close()
 		if err != nil {
-			logger.Error("error closing response body:", err)
+			logger.Errorf("error closing response body: %v", err)
 		}
 	}()
 
@@ -203,7 +203,7 @@ func (m *MockChain) RecordResponses(
 	writer.Header().Add("Content-Type", "application/json")
 	_, err = writer.Write(rspBody)
 	if err != nil {
-		logger.Error("error writing rsp body:", err)
+		logger.Errorf("error writing rsp body: %v", err)
 	}
 }
 
@@ -224,7 +224,7 @@ func getRequestHash(reqBody []byte) ([sha256.Size]byte, error) {
 }
 
 func (m *MockChain) loadResponses() error {
-	logger.Info("opening %s", m.responsesFile)
+	logger.Infof("opening %s", m.responsesFile)
 
 	file, err := os.ReadFile(m.responsesFile)
 	if err != nil {

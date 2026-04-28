@@ -6,13 +6,13 @@ import (
 	"flare-ftso-indexer/internal/config"
 	"flare-ftso-indexer/internal/core"
 	"flare-ftso-indexer/internal/database"
-	"flare-ftso-indexer/internal/logger"
 	"math/big"
 	"time"
 
 	avxTypes "github.com/ava-labs/coreth/core/types"
 	"github.com/ava-labs/coreth/interfaces"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -33,7 +33,7 @@ func backfillEventRangesLogs(
 		eventRangeStart := time.Now()
 		eventRangeInserted := 0
 
-		logger.Info(
+		logger.Infof(
 			"FSP event indexing started: %d/%d from=%d to=%d",
 			eventRangeIx+1,
 			len(eventRanges),
@@ -60,7 +60,7 @@ func backfillEventRangesLogs(
 			eventRangeInserted += len(dbLogs)
 		}
 
-		logger.Info(
+		logger.Infof(
 			"FSP event indexing completed: %d/%d from=%d to=%d inserted=%d duration_ms=%d",
 			eventRangeIx+1,
 			len(eventRanges),

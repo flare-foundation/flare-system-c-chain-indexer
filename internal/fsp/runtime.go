@@ -8,10 +8,10 @@ import (
 	"flare-ftso-indexer/internal/contracts"
 	"flare-ftso-indexer/internal/core"
 	"flare-ftso-indexer/internal/database"
-	"flare-ftso-indexer/internal/logger"
 	"flare-ftso-indexer/internal/ready"
 	"time"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -23,7 +23,7 @@ func RunIndexer(
 	ethClient *chain.Client,
 	resolver *contracts.ContractResolver,
 ) error {
-	logger.Info(
+	logger.Infof(
 		"Starting indexer in FSP mode: history_epochs=%d, fsp_tx_lookback_seconds=%d, collect_transactions=%d, collect_logs=%d",
 		cfg.Indexer.HistoryEpochs,
 		cfg.Indexer.FspTxLookbackSeconds,
@@ -50,7 +50,7 @@ func RunIndexer(
 	}
 
 	historyDropSeconds := historyDropHeuristicSeconds(cfg.Indexer.HistoryEpochs)
-	logger.Info(
+	logger.Infof(
 		"Using FSP history drop: history_epochs=%d, derived retention=%ds (%.2f days)",
 		cfg.Indexer.HistoryEpochs,
 		historyDropSeconds,
@@ -78,7 +78,7 @@ func RunIndexer(
 		return errors.Wrap(err, "FSP Index continuous fatal error")
 	}
 
-	logger.Info("Finished FSP indexing")
+	logger.Infof("Finished FSP indexing")
 
 	return nil
 }

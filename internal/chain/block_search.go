@@ -5,8 +5,7 @@ import (
 	"math"
 	"math/big"
 
-	"flare-ftso-indexer/internal/logger"
-
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"
 )
 
@@ -21,7 +20,7 @@ func GetNearestBlockByTimestampFromChain(
 	startBlockNumber uint64,
 	endBlockNumber uint64,
 ) (uint64, error) {
-	logger.Debug(
+	logger.Debugf(
 		"Getting nearest block by timestamp from chain: search timestamp: %d, start block: %d, end block: %d",
 		searchTimestamp, startBlockNumber, endBlockNumber,
 	)
@@ -47,7 +46,7 @@ func GetNearestBlockByTimestampFromChain(
 
 		searchStartBlockNumber = startCandidate
 		searchEndBlockNumber = startCandidate + searchWindowBlocks
-		logger.Debug("Search block window narrowed down to: %d-%d", searchStartBlockNumber, searchEndBlockNumber)
+		logger.Debugf("Search block window narrowed down to: %d-%d", searchStartBlockNumber, searchEndBlockNumber)
 	}
 
 	blockNumber, err := binarySearchBlockByTimestamp(
@@ -57,7 +56,7 @@ func GetNearestBlockByTimestampFromChain(
 		return 0, errors.Wrap(err, "GetNearestBlockByTimestampFromChain")
 	}
 
-	logger.Debug("Found nearest block by timestamp from chain: block number: %d", blockNumber)
+	logger.Debugf("Found nearest block by timestamp from chain: block number: %d", blockNumber)
 	return blockNumber, nil
 }
 

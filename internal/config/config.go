@@ -4,16 +4,17 @@ import (
 	"context"
 	"flag"
 	"flare-ftso-indexer/internal/chain"
-	"flare-ftso-indexer/internal/logger"
 	"fmt"
 	"math/big"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/BurntSushi/toml"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"
 )
 
@@ -55,12 +56,15 @@ func init() {
 		}
 
 		loggerCfg := config.LoggerConfig()
-		logger.InitializeLogger(
-			loggerCfg.Console,
-			loggerCfg.File,
-			loggerCfg.Level,
-			loggerCfg.MaxFileSize,
-		)
+		if loggerCfg.File != "" {
+			_ = os.MkdirAll(filepath.Dir(loggerCfg.File), 0o755)
+		}
+		logger.Set(logger.Config{
+			Level:       loggerCfg.Level,
+			File:        loggerCfg.File,
+			MaxFileSize: loggerCfg.MaxFileSize,
+			Console:     loggerCfg.Console,
+		})
 	})
 }
 

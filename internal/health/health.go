@@ -1,9 +1,10 @@
 package health
 
 import (
-	"flare-ftso-indexer/internal/logger"
 	"flare-ftso-indexer/internal/ready"
 	"net/http"
+
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
 const listenAddress = ":8080"
@@ -16,11 +17,11 @@ func Start() {
 	go func() {
 		err := http.ListenAndServe(listenAddress, handler())
 		if err != nil {
-			logger.Error("Health server error: %s", err)
+			logger.Errorf("Health server error: %s", err)
 		}
 	}()
 
-	logger.Info("Health endpoint available at http://0.0.0.0%s/health", listenAddress)
+	logger.Infof("Health endpoint available at http://0.0.0.0%s/health", listenAddress)
 }
 
 func handler() http.Handler {

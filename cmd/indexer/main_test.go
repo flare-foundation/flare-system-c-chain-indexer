@@ -237,7 +237,7 @@ func initConfig(tCfg testConfig, history bool) config.Config {
 		},
 		Logger: config.LoggerConfig{
 			Level:       "DEBUG",
-			File:        "../../internal/logger/logs/flare-indexer-inttest.log",
+			File:        "../../logs/flare-indexer-inttest.log",
 			MaxFileSize: 10,
 			Console:     true,
 		},

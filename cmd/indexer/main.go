@@ -11,7 +11,6 @@ import (
 	"flare-ftso-indexer/internal/database"
 	"flare-ftso-indexer/internal/fsp"
 	"flare-ftso-indexer/internal/health"
-	"flare-ftso-indexer/internal/logger"
 	"flare-ftso-indexer/internal/ready"
 	"fmt"
 	"os"
@@ -19,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
 )
@@ -27,7 +27,7 @@ func main() {
 	defer logger.SyncFileLogger()
 
 	if err := run(context.Background()); err != nil {
-		logger.Fatal("Fatal error: %s", err)
+		logger.Fatalf("Fatal error: %s", err)
 	}
 }
 
@@ -48,7 +48,7 @@ func run(ctx context.Context) error {
 	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
 		sig := <-signalChan
-		logger.Info("Received signal: %v", sig)
+		logger.Infof("Received signal: %v", sig)
 		logger.SyncFileLogger()
 		os.Exit(0)
 	}()
@@ -85,7 +85,7 @@ func run(ctx context.Context) error {
 		return errors.Wrap(err, "failed to get chain ID")
 	}
 
-	logger.Info("Connected to chain ID %s", chainID)
+	logger.Infof("Connected to chain ID %s", chainID)
 
 	if cfg.Indexer.IsFspMode() {
 		return fsp.RunIndexer(ctx, cfg, db, ethClient, resolver)
@@ -98,12 +98,12 @@ func run(ctx context.Context) error {
 
 	historyDropDays := (float64(historyDrop) * float64(time.Second)) / float64(24*time.Hour)
 	if cfg.DB.HistoryDrop == nil {
-		logger.Info("Using default history drop value of %.1f days", historyDropDays)
+		logger.Infof("Using default history drop value of %.1f days", historyDropDays)
 	} else {
 		if *cfg.DB.HistoryDrop == 0 {
-			logger.Info("History drop disabled")
+			logger.Infof("History drop disabled")
 		} else {
-			logger.Info("Using configured history drop value of %.1f days", historyDropDays)
+			logger.Infof("Using configured history drop value of %.1f days", historyDropDays)
 		}
 	}
 
@@ -129,7 +129,7 @@ func getStartIndex(
 
 	// If a latest indexed block is found, return the next block number
 	if err == nil {
-		logger.Info("Starting after latest indexed block from DB: %d", latestIndexedBlock.Number)
+		logger.Infof("Starting after latest indexed block from DB: %d", latestIndexedBlock.Number)
 		return latestIndexedBlock.Number + 1, nil
 	}
 
@@ -141,7 +141,7 @@ func getStartIndex(
 	// No blocks are indexed yet
 	// If history drop is disabled, return the configured start index
 	if historyDrop == 0 {
-		logger.Info("No indexed blocks found in DB, starting from configured start index: %d", cfg.Indexer.StartIndex)
+		logger.Infof("No indexed blocks found in DB, starting from configured start index: %d", cfg.Indexer.StartIndex)
 		return cfg.Indexer.StartIndex, nil
 	}
 
@@ -159,7 +159,7 @@ func getStartIndex(
 		return 0, errors.Wrap(err, "GetStartBlock error")
 	}
 
-	logger.Info("No indexed blocks found in DB, starting from calculated start index based on history drop: %d", firstBlockNumber)
+	logger.Infof("No indexed blocks found in DB, starting from calculated start index based on history drop: %d", firstBlockNumber)
 	return firstBlockNumber, nil
 }
 
@@ -211,7 +211,7 @@ func runIndexer(
 		return errors.Wrap(err, "Index continuous fatal error")
 	}
 
-	logger.Info("Finished indexing")
+	logger.Infof("Finished indexing")
 
 	return nil
 }
