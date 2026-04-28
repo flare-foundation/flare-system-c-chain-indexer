@@ -183,6 +183,25 @@ func getNearestBlockByTimestamp(
 
 const maxBlockTimeDiff = time.Minute
 
+func validateNearestDBBlockTimestamp(blockTime, timestamp uint64) (bool, error) {
+	if blockTime < timestamp {
+		return false, errors.Errorf(
+			"unexpected block time %d, expected at least %d",
+			blockTime, timestamp,
+		)
+	}
+
+	blockTimeDiff := time.Duration(blockTime-timestamp) * time.Second
+	if blockTimeDiff > maxBlockTimeDiff {
+		// This is expected on initial runs or whenever the DB only contains a
+		// much newer window of blocks than the requested history-drop cutoff.
+		// In that case we should quietly fall back to RPC binary search.
+		return false, nil
+	}
+
+	return true, nil
+}
+
 func getNearestBlockByTimestampFromDB(ctx context.Context, timestamp uint64, db *gorm.DB) (uint64, error) {
 	// First try to find a block in the DB with a similar timestamp.
 	block, err := boff.RetryWithMaxElapsed(
@@ -213,20 +232,12 @@ func getNearestBlockByTimestampFromDB(ctx context.Context, timestamp uint64, db 
 		return 0, nil
 	}
 
-	blockTime := block.Timestamp
-	if blockTime < timestamp {
-		return 0, errors.Errorf(
-			"unexpected block time %d for block %d, expected at least %d",
-			blockTime, block.Number, timestamp,
-		)
+	useBlock, err := validateNearestDBBlockTimestamp(block.Timestamp, timestamp)
+	if err != nil {
+		return 0, errors.Wrapf(err, "invalid DB block %d", block.Number)
 	}
-
-	blockTimeDiff := time.Duration(blockTime-timestamp) * time.Second
-	if blockTimeDiff > maxBlockTimeDiff {
-		return 0, errors.Errorf(
-			"block time %d is too far from the requested timestamp %d, diff: %v",
-			blockTime, timestamp, blockTimeDiff,
-		)
+	if !useBlock {
+		return 0, nil
 	}
 
 	return block.Number, nil
