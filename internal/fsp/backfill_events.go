@@ -133,7 +133,7 @@ func buildDBLogs(
 			blockTimestamps[log.BlockNumber] = ts
 		}
 
-		dbLog := core.BuildDBLogFromRequestedLog(log, ts, true)
+		dbLog := core.BuildDBLogFromRequestedLog(log, ts)
 		dbLogs = append(dbLogs, dbLog)
 	}
 

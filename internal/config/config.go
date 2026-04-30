@@ -200,15 +200,23 @@ func BuildConfig() (*Config, error) {
 	}
 
 	applyEnvOverrides(cfg)
-	normalizeIndexerConfig(&cfg.Indexer)
+	if err := normalizeIndexerConfig(&cfg.Indexer); err != nil {
+		return nil, err
+	}
 
 	return cfg, nil
 }
 
-func normalizeIndexerConfig(cfg *IndexerConfig) {
+func normalizeIndexerConfig(cfg *IndexerConfig) error {
 	cfg.Mode = strings.ToLower(strings.TrimSpace(cfg.Mode))
 	if cfg.Mode == "" {
 		cfg.Mode = defaultIndexerMode
+	}
+	if cfg.Mode != IndexerModeFull && cfg.Mode != IndexerModeFsp {
+		return errors.Errorf(
+			"invalid indexer mode %q: must be %q or %q",
+			cfg.Mode, IndexerModeFull, IndexerModeFsp,
+		)
 	}
 
 	if cfg.Mode == IndexerModeFsp {
@@ -224,6 +232,8 @@ func normalizeIndexerConfig(cfg *IndexerConfig) {
 	if cfg.FspLogFilterRange == 0 {
 		cfg.FspLogFilterRange = defaultFspLogFilterRange
 	}
+
+	return nil
 }
 
 func parseConfigFile(cfg *Config, fileName string) error {

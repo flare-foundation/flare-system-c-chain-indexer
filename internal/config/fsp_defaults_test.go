@@ -34,7 +34,9 @@ func TestNormalizeIndexerConfig_FspMergesDefaultAndUserCollectors(t *testing.T) 
 		},
 	}
 
-	normalizeIndexerConfig(&cfg)
+	if err := normalizeIndexerConfig(&cfg); err != nil {
+		t.Fatalf("normalizeIndexerConfig: %v", err)
+	}
 
 	if got, want := len(cfg.CollectTransactions), 5; got != want {
 		t.Fatalf("unexpected number of transaction collectors: got=%d want=%d", got, want)
@@ -83,7 +85,9 @@ func TestNormalizeIndexerConfig_FullModeDoesNotInjectFspDefaults(t *testing.T) {
 		},
 	}
 
-	normalizeIndexerConfig(&cfg)
+	if err := normalizeIndexerConfig(&cfg); err != nil {
+		t.Fatalf("normalizeIndexerConfig: %v", err)
+	}
 
 	if got, want := len(cfg.CollectTransactions), 1; got != want {
 		t.Fatalf("full mode should keep custom tx collectors unchanged: got=%d want=%d", got, want)

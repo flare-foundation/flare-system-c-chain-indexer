@@ -56,6 +56,12 @@ func RunIndexer(
 		historyDropSeconds,
 		float64(historyDropSeconds)/(24*60*60),
 	)
+	if cfg.DB.HistoryDrop != nil {
+		logger.Warnf(
+			"db.history_drop=%d is ignored in FSP mode; retention is derived from history_epochs",
+			*cfg.DB.HistoryDrop,
+		)
+	}
 	go database.DropHistory(
 		ctx,
 		db,

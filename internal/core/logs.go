@@ -97,7 +97,7 @@ func (ci *Engine) processLogs(
 			return errors.Errorf("block number mismatch: %s != %d", blockNum, log.BlockNumber)
 		}
 
-		dbLog := BuildDBLogFromRequestedLog(log, block.Time(), false)
+		dbLog := BuildDBLogFromRequestedLog(log, block.Time())
 
 		// check if the log was not obtained from transactions already
 		key := fmt.Sprintf("%s%d", dbLog.TransactionHash, dbLog.LogIndex)
@@ -109,13 +109,8 @@ func (ci *Engine) processLogs(
 	return nil
 }
 
-func BuildDBLogFromRequestedLog(log *types.Log, timestamp uint64, lowercaseTxHash bool) *database.Log {
+func BuildDBLogFromRequestedLog(log *types.Log, timestamp uint64) *database.Log {
 	topics := extractLogTopics(log)
-
-	transactionHash := log.TxHash.Hex()[2:]
-	if lowercaseTxHash {
-		transactionHash = strings.ToLower(transactionHash)
-	}
 
 	return &database.Log{
 		Address:         strings.ToLower(log.Address.Hex()[2:]),
@@ -124,7 +119,7 @@ func BuildDBLogFromRequestedLog(log *types.Log, timestamp uint64, lowercaseTxHas
 		Topic1:          topics[1],
 		Topic2:          topics[2],
 		Topic3:          topics[3],
-		TransactionHash: transactionHash,
+		TransactionHash: strings.ToLower(log.TxHash.Hex()[2:]),
 		LogIndex:        uint64(log.Index),
 		Timestamp:       timestamp,
 		BlockNumber:     log.BlockNumber,

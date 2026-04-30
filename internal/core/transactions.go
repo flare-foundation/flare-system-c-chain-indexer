@@ -174,27 +174,7 @@ func buildDBLog(dbTx *database.Transaction, log *types.Log, block *chain.Block) 
 		return nil, errors.Errorf("block number mismatch %s != %d", blockNum, log.BlockNumber)
 	}
 
-	var topics [numTopics]string
-
-	for j := 0; j < numTopics; j++ {
-		if len(log.Topics) > j {
-			topics[j] = log.Topics[j].Hex()[2:]
-		} else {
-			topics[j] = nullTopic
-		}
-	}
-
-	return &database.Log{
-		TransactionID:   dbTx.ID,
-		Address:         log.Address.Hex()[2:],
-		Data:            hex.EncodeToString(log.Data),
-		Topic0:          topics[0],
-		Topic1:          topics[1],
-		Topic2:          topics[2],
-		Topic3:          topics[3],
-		TransactionHash: log.TxHash.Hex()[2:],
-		LogIndex:        uint64(log.Index),
-		Timestamp:       block.Time(),
-		BlockNumber:     log.BlockNumber,
-	}, nil
+	dbLog := BuildDBLogFromRequestedLog(log, block.Time())
+	dbLog.TransactionID = dbTx.ID
+	return dbLog, nil
 }
