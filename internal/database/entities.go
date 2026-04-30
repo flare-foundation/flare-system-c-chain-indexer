@@ -21,8 +21,7 @@ type Transaction struct {
 	Value            string `gorm:"type:string"`
 	GasPrice         string `gorm:"type:string"`
 	Gas              uint64
-	Timestamp        uint64  `gorm:"index"`
-	Signature        *string `gorm:"type:varchar(130)"`
+	Timestamp        uint64 `gorm:"index"`
 }
 
 type Log struct {

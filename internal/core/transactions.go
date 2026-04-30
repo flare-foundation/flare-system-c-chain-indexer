@@ -13,16 +13,15 @@ import (
 	"sync"
 
 	"github.com/ava-labs/coreth/core/types"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 )
 
 type transactionsBatch struct {
 	transactions []*chain.Transaction
-	toBlock      []*chain.Block
-	toIndex      []uint64
-	toReceipt    []*chain.Receipt
-	toPolicy     []transactionsPolicy
+	blocks       []*chain.Block
+	indices      []uint64
+	receipts     []*chain.Receipt
+	policies     []transactionsPolicy
 	mu           sync.RWMutex
 }
 
@@ -37,15 +36,15 @@ func (tb *transactionsBatch) Add(
 	defer tb.mu.Unlock()
 
 	tb.transactions = append(tb.transactions, tx)
-	tb.toBlock = append(tb.toBlock, block)
-	tb.toIndex = append(tb.toIndex, index)
-	tb.toReceipt = append(tb.toReceipt, receipt)
-	tb.toPolicy = append(tb.toPolicy, policy)
+	tb.blocks = append(tb.blocks, block)
+	tb.indices = append(tb.indices, index)
+	tb.receipts = append(tb.receipts, receipt)
+	tb.policies = append(tb.policies, policy)
 }
 
 func countReceipts(txBatch *transactionsBatch) int {
 	i := 0
-	for _, e := range txBatch.toReceipt {
+	for _, e := range txBatch.receipts {
 		if e != nil {
 			i++
 		}
@@ -60,7 +59,7 @@ func (ci *Engine) getTransactionsReceipt(
 	for i := start; i < stop; i++ {
 		txBatch.mu.RLock()
 		tx := *txBatch.transactions[i]
-		policy := txBatch.toPolicy[i]
+		policy := txBatch.policies[i]
 		txBatch.mu.RUnlock()
 
 		var receipt *chain.Receipt
@@ -85,7 +84,7 @@ func (ci *Engine) getTransactionsReceipt(
 		}
 
 		txBatch.mu.Lock()
-		txBatch.toReceipt[i] = receipt
+		txBatch.receipts[i] = receipt
 		txBatch.mu.Unlock()
 	}
 
@@ -98,12 +97,12 @@ func (ci *Engine) processTransactions(txBatch *transactionsBatch, data *database
 
 	for i := range txBatch.transactions {
 		tx := txBatch.transactions[i]
-		block := txBatch.toBlock[i]
-		receipt := txBatch.toReceipt[i]
-		txIndex := txBatch.toIndex[i]
-		policy := txBatch.toPolicy[i]
+		block := txBatch.blocks[i]
+		receipt := txBatch.receipts[i]
+		txIndex := txBatch.indices[i]
+		policy := txBatch.policies[i]
 
-		dbTx, err := buildDBTx(tx, receipt, block, txIndex, policy.collectSignature)
+		dbTx, err := buildDBTx(tx, receipt, block, txIndex)
 		if err != nil {
 			return err
 		}
@@ -131,10 +130,15 @@ func (ci *Engine) processTransactions(txBatch *transactionsBatch, data *database
 }
 
 func buildDBTx(
-	tx *chain.Transaction, receipt *chain.Receipt, block *chain.Block, txIndex uint64, collectSignature bool,
+	tx *chain.Transaction, receipt *chain.Receipt, block *chain.Block, txIndex uint64,
 ) (*database.Transaction, error) {
 	txData := hex.EncodeToString(tx.Data())
-	funcSig := txData[:8]
+	// Guard against tx data shorter than a 4-byte selector (e.g. plain transfers)
+	// reaching this code path with an "undefined" func_sig filter.
+	funcSig := txData
+	if len(funcSig) > 8 {
+		funcSig = funcSig[:8]
+	}
 
 	fromAddress, err := tx.FromAddress() // todo: this is a bit slow
 	if err != nil {
@@ -144,16 +148,6 @@ func buildDBTx(
 	status := uint64(2)
 	if receipt != nil {
 		status = receipt.Status()
-	}
-
-	var signature *string
-	if collectSignature {
-		sig, err := packSignature(tx)
-		if err != nil {
-			return nil, errors.Wrap(err, "packSignature")
-		}
-
-		signature = &sig
 	}
 
 	base := database.BaseEntity{ID: database.TransactionId.Load()}
@@ -172,30 +166,7 @@ func buildDBTx(
 		GasPrice:         tx.GasPrice().String(),
 		Gas:              tx.Gas(),
 		Timestamp:        block.Time(),
-		Signature:        signature,
 	}, nil
-}
-
-func packSignature(tx *chain.Transaction) (string, error) {
-	v, r, s := tx.RawSignatureValues()
-	if v == nil || r == nil || s == nil {
-		return "", errors.New("transaction missing signature values")
-	}
-
-	sig := make([]byte, 65)
-	copy(sig[0:32], common.LeftPadBytes(r.Bytes(), 32)) // pad to 32 bytes
-	copy(sig[32:64], common.LeftPadBytes(s.Bytes(), 32))
-
-	// Convert v to a byte. First check that it is a valid value.
-	if v.Sign() < 0 {
-		return "", errors.New("transaction v value is negative")
-	}
-	if v.BitLen() > 8 {
-		return "", errors.New("transaction v value is too large")
-	}
-
-	sig[64] = byte(v.Uint64())
-	return hex.EncodeToString(sig), nil
 }
 
 func buildDBLog(dbTx *database.Transaction, log *types.Log, block *chain.Block) (*database.Log, error) {

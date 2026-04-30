@@ -133,10 +133,13 @@ type ChainConfig struct {
 }
 
 type IndexerConfig struct {
-	BatchSize               uint64            `toml:"batch_size"`
-	StartIndex              uint64            `toml:"start_index"`
-	StopIndex               uint64            `toml:"stop_index"`
-	Mode                    string            `toml:"mode"`
+	BatchSize  uint64 `toml:"batch_size"`
+	StartIndex uint64 `toml:"start_index"`
+	StopIndex  uint64 `toml:"stop_index"`
+	Mode       string `toml:"mode"`
+	// HistoryEpochs is FSP-mode only: number of past reward epochs whose
+	// metadata events are backfilled at startup and retained by history drop.
+	// 0 falls back to a short lookback window (see defaultFspIndexLookbackSeconds).
 	HistoryEpochs           uint64            `toml:"history_epochs"`
 	NumParallelReq          int               `toml:"num_parallel_req"`
 	LogRange                uint64            `toml:"log_range"`
@@ -169,7 +172,6 @@ type TransactionInfo struct {
 	FuncSig         string `toml:"func_sig"`
 	Status          bool   `toml:"status"`
 	CollectEvents   bool   `toml:"collect_events"`
-	Signature       bool   `toml:"signature"` // if true, the transaction signature will be collected
 }
 
 type LogInfo struct {

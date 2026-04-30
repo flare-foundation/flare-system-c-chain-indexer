@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	ethClient "github.com/ethereum/go-ethereum/ethclient"
-	"github.com/flare-foundation/go-flare-common/pkg/logger"
 
 	avxTypes "github.com/ava-labs/coreth/core/types"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -400,17 +399,5 @@ func (t *Transaction) FromAddress() (common.Address, error) {
 		return ethTypes.Sender(ethTypes.LatestSignerForChainID(t.eth.ChainId()), t.eth)
 	default:
 		return common.Address{}, fmt.Errorf("wrong chain")
-	}
-}
-
-func (t *Transaction) RawSignatureValues() (v, r, s *big.Int) {
-	switch t.chain {
-	case ChainTypeAvax:
-		return t.avx.RawSignatureValues()
-	case ChainTypeEth:
-		return t.eth.RawSignatureValues()
-	default:
-		logger.Errorf("RawSignatureValues called on unsupported chain type: %d", t.chain)
-		return nil, nil, nil
 	}
 }

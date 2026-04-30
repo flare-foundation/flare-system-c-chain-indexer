@@ -17,7 +17,6 @@ contract_address = "0x2cA6571Daa15ce734Bbd0Bf27D5C9D16787fc33f" # example target
 func_sig = "6c532fae" # 4-byte method selector; use "undefined" to match any function on this contract
 status = true # if true, tx receipt status is fetched and stored (both success and failure are indexed)
 collect_events = false # if true, emitted logs from matched transactions are also saved
-signature = true # if true, transaction signature fields are stored
 
 [[indexer.collect_logs]]
 contract_name = "FlareSystemsManager" # example target contract; alternatively use contract_address

@@ -39,9 +39,8 @@ type Engine struct {
 }
 
 type transactionsPolicy struct {
-	status           bool
-	collectEvents    bool
-	collectSignature bool
+	status        bool
+	collectEvents bool
 }
 
 type functionSignature [4]byte
@@ -52,7 +51,7 @@ func NewEngine(
 	client *chain.Client,
 	contractResolver *contracts.ContractResolver,
 ) (*Engine, error) {
-	txs, err := makeTransactions(cfg.Indexer.CollectTransactions)
+	txs, err := buildTransactionPolicies(cfg.Indexer.CollectTransactions)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +59,7 @@ func NewEngine(
 		return nil, errors.New("contract resolver is required")
 	}
 
-	params := updateParams(cfg.Indexer)
+	params := applyIndexerDefaults(cfg.Indexer)
 	diagnostics.LogIndexerPolicy(params)
 
 	return &Engine{
@@ -72,7 +71,7 @@ func NewEngine(
 	}, nil
 }
 
-func updateParams(params config.IndexerConfig) config.IndexerConfig {
+func applyIndexerDefaults(params config.IndexerConfig) config.IndexerConfig {
 	if params.StopIndex == 0 {
 		params.StopIndex = ^uint64(0)
 	}
@@ -94,7 +93,7 @@ func updateParams(params config.IndexerConfig) config.IndexerConfig {
 	return params
 }
 
-func makeTransactions(txInfo []config.TransactionInfo) (map[common.Address]map[functionSignature]transactionsPolicy, error) {
+func buildTransactionPolicies(txInfo []config.TransactionInfo) (map[common.Address]map[functionSignature]transactionsPolicy, error) {
 	transactions := make(map[common.Address]map[functionSignature]transactionsPolicy)
 
 	for i := range txInfo {
@@ -111,9 +110,8 @@ func makeTransactions(txInfo []config.TransactionInfo) (map[common.Address]map[f
 		}
 
 		transactions[contractAddress][funcSig] = transactionsPolicy{
-			status:           transaction.Status,
-			collectEvents:    transaction.CollectEvents,
-			collectSignature: transaction.Signature,
+			status:        transaction.Status,
+			collectEvents: transaction.CollectEvents,
 		}
 	}
 

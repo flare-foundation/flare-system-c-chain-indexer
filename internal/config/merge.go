@@ -82,7 +82,6 @@ func mergeTxInfo(base TransactionInfo, additional TransactionInfo) TransactionIn
 
 	result.Status = result.Status || additional.Status
 	result.CollectEvents = result.CollectEvents || additional.CollectEvents
-	result.Signature = result.Signature || additional.Signature
 
 	return result
 }

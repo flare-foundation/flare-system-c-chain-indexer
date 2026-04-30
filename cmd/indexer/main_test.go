@@ -209,7 +209,6 @@ func initConfig(tCfg testConfig, history bool) config.Config {
 		FuncSig:         "undefined",
 		Status:          true,
 		CollectEvents:   true,
-		Signature:       true,
 	}
 
 	logInfo := config.LogInfo{

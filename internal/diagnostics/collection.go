@@ -21,12 +21,11 @@ func LogIndexerPolicy(cfg config.IndexerConfig) {
 	for i := range cfg.CollectTransactions {
 		tx := &cfg.CollectTransactions[i]
 		logger.Infof(
-			"  tx_filter: contract=%s func_sig=%s status=%t collect_events=%t signature=%t",
+			"  tx_filter: contract=%s func_sig=%s status=%t collect_events=%t",
 			contractRef(tx.ContractName, tx.ContractAddress),
 			formatHexOrAny(tx.FuncSig),
 			tx.Status,
 			tx.CollectEvents,
-			tx.Signature,
 		)
 	}
 	for i := range cfg.CollectLogs {

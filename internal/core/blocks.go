@@ -130,7 +130,6 @@ func (ci *Engine) processBlockBatch(
 						check = true
 						policy.status = policy.status || pol.status
 						policy.collectEvents = policy.collectEvents || pol.collectEvents
-						policy.collectSignature = policy.collectSignature || pol.collectSignature
 					}
 				}
 			}

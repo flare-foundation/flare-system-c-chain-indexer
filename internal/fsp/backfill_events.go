@@ -88,6 +88,10 @@ func fetchEventRangeLogsChunk(
 		Addresses: logAddresses,
 	}
 	if len(logTopics) > 0 {
+		// This assumes the FSP reward-epoch backfill filter set contains only
+		// explicit address+topic pairs. If we ever need to mix "all topics for
+		// address A" with "specific topics for address B", this merged query
+		// would be incorrect and should be split into separate queries.
 		query.Topics = [][]common.Hash{logTopics}
 	}
 

@@ -15,7 +15,6 @@ func TestNormalizeIndexerConfig_FspMergesDefaultAndUserCollectors(t *testing.T) 
 				ContractName:  "Submission",
 				FuncSig:       "6c532fae",
 				CollectEvents: true,
-				Signature:     true,
 			},
 			{
 				ContractName: "CustomTxContract",
@@ -45,7 +44,7 @@ func TestNormalizeIndexerConfig_FspMergesDefaultAndUserCollectors(t *testing.T) 
 	if !ok {
 		t.Fatalf("submission collector missing after merge")
 	}
-	if tx.Status || !tx.CollectEvents || !tx.Signature {
+	if tx.Status || !tx.CollectEvents {
 		t.Fatalf("submission collector flags not merged correctly: %+v", tx)
 	}
 
