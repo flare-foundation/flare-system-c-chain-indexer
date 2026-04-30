@@ -119,7 +119,7 @@ func (db *DBConfig) GetHistoryDrop(ctx context.Context, chainIDBig *big.Int) (ui
 		return 0, errors.Errorf(
 			"history drop must be at least %d seconds, got %d seconds",
 			minHistoryDropSeconds,
-			db.HistoryDrop,
+			historyDrop,
 		)
 	}
 

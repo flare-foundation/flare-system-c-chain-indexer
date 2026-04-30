@@ -90,6 +90,10 @@ func applyIndexerDefaults(params config.IndexerConfig) config.IndexerConfig {
 		params.NumParallelReq = 1
 	}
 
+	if params.NewBlockCheckMillis == 0 {
+		params.NewBlockCheckMillis = 100
+	}
+
 	return params
 }
 

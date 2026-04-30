@@ -31,12 +31,6 @@ var (
 	globalStates = NewStates()
 )
 
-func (s *State) updateIndex(newIndex, blockTimestamp uint64) {
-	s.Index = newIndex
-	s.Updated = time.Now()
-	s.BlockTimestamp = blockTimestamp
-}
-
 func IsSet(state *State) bool {
 	return state != nil && state.Index != 0
 }
@@ -50,7 +44,7 @@ func NewStates() *DBStates {
 	return &DBStates{States: make(map[string]*State)}
 }
 
-func (s *DBStates) updateStates(newStates map[string]*State) {
+func (s *DBStates) replaceAll(newStates map[string]*State) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -59,28 +53,33 @@ func (s *DBStates) updateStates(newStates map[string]*State) {
 	}
 }
 
-func (s *DBStates) updateIndex(name string, newIndex, blockTimestamp uint64) {
-	s.mu.Lock()
-	state := s.States[name]
-	if state == nil {
-		state = &State{Name: name}
-		s.States[name] = state
+// Update persists the state values to the DB and refreshes the in-memory
+// cache. It MUST NOT be called inside a gorm.DB.Transaction block: the cache
+// mutation is not subject to gorm rollback, so an outer rollback would leave
+// the cache ahead of the persisted row.
+func (s *DBStates) Update(db *gorm.DB, name string, newIndex, blockTimestamp uint64) error {
+	s.mu.RLock()
+	var id uint64
+	if existing := s.States[name]; existing != nil {
+		id = existing.ID
+	}
+	s.mu.RUnlock()
+
+	state := &State{
+		BaseEntity:     BaseEntity{ID: id},
+		Name:           name,
+		Index:          newIndex,
+		BlockTimestamp: blockTimestamp,
+		Updated:        time.Now(),
+	}
+	if err := db.Save(state).Error; err != nil {
+		return err
 	}
 
-	state.updateIndex(newIndex, blockTimestamp)
+	s.mu.Lock()
+	s.States[name] = state
 	s.mu.Unlock()
-}
-
-func (s *DBStates) updateDB(db *gorm.DB, name string) error {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-
-	return db.Save(s.States[name]).Error
-}
-
-func (s *DBStates) Update(db *gorm.DB, name string, newIndex, blockTimestamp uint64) error {
-	s.updateIndex(name, newIndex, blockTimestamp)
-	return s.updateDB(db, name)
+	return nil
 }
 
 func (s *DBStates) UpdateAtStart(
@@ -111,7 +110,7 @@ func LoadDBStates(ctx context.Context, db *gorm.DB) (*DBStates, error) {
 		return nil, err
 	}
 
-	globalStates.updateStates(newStates)
+	globalStates.replaceAll(newStates)
 	return globalStates, nil
 }
 

@@ -24,7 +24,7 @@ func newDatabaseStructData() *databaseStructData {
 func (ci *Engine) saveData(
 	data *databaseStructData, states *database.DBStates, lastDBIndex, lastDBTimestamp uint64,
 ) error {
-	return ci.db.Transaction(func(tx *gorm.DB) error {
+	err := ci.db.Transaction(func(tx *gorm.DB) error {
 		if len(data.Blocks) != 0 {
 			err := tx.Clauses(clause.Insert{Modifier: "IGNORE"}).
 				CreateInBatches(data.Blocks, database.DBTransactionBatchesSize).
@@ -54,10 +54,14 @@ func (ci *Engine) saveData(
 			}
 		}
 
-		if err := states.Update(tx, database.LastDatabaseIndexState, lastDBIndex, lastDBTimestamp); err != nil {
-			return errors.Wrap(err, "saveData: Update")
-		}
-
 		return nil
 	})
+	if err != nil {
+		return err
+	}
+
+	// Advance state only after the data transaction has committed. INSERT IGNORE
+	// makes the data writes idempotent, so a crash between commit and this call
+	// just causes the next batch to re-process and self-correct.
+	return states.Update(ci.db, database.LastDatabaseIndexState, lastDBIndex, lastDBTimestamp)
 }
