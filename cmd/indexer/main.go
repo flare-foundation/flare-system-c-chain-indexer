@@ -88,7 +88,7 @@ func run(ctx context.Context) error {
 	logger.Infof("Connected to chain ID %s", chainID)
 
 	if cfg.Indexer.IsFspMode() {
-		return fsp.RunIndexer(ctx, cfg, db, ethClient, resolver)
+		return fsp.RunIndexer(ctx, cfg, db, ethClient, resolver, chainID)
 	}
 
 	historyDrop, err := cfg.DB.GetHistoryDrop(ctx, chainID)
