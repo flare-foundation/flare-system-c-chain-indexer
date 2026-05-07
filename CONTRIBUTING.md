@@ -64,8 +64,8 @@ Run the tests with:
 $ go test ./...
 ```
 
-Note that the `main_test.go` is an integration test which requires an RPC connection and MySQL database - 
-you can edit the test config file at `testing/config_test.toml`. Environment variable overrides are also
+Note that `cmd/indexer/main_test.go` is an integration test which requires an RPC connection and MySQL database -
+you can edit the test config file at `test/config_test.toml`. Environment variable overrides are also
 supported for convenience.
 
 ## Release process (if applicable)

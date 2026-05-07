@@ -11,7 +11,7 @@ drop_table_at_start = true
 
 [logger]
 level = "INFO"
-file = "../logger/logs/flare-ftso-indexer_log"
+file = "../logs/flare-ftso-indexer_log"
 console = true
 
 [chain]

@@ -1,0 +1,299 @@
+package config
+
+import (
+	"context"
+	"flag"
+	"flare-ftso-indexer/internal/chain"
+	"fmt"
+	"math/big"
+	"net/url"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/BurntSushi/toml"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
+	"github.com/pkg/errors"
+)
+
+const (
+	day                            time.Duration   = 24 * time.Hour
+	defaultConfirmations                           = 1
+	defaultChainType               chain.ChainType = chain.ChainTypeAvax
+	defaultIndexerMode                             = IndexerModeFull
+	defaultFspIndexLookbackSeconds                 = uint64(2 * time.Hour / time.Second)
+	defaultFspLogFilterRange                       = uint64(1024)
+)
+
+var (
+	GlobalConfigCallback         ConfigCallback[GlobalConfig]
+	CfgFlag                                    = flag.String("config", "config.toml", "Configuration file (toml format)")
+	BackoffMaxElapsedTime        time.Duration = 5 * time.Minute
+	Timeout                      time.Duration = time.Second
+	mainnetMinHistoryDropSeconds               = uint64((14 * day).Seconds())
+	testnetMinHistoryDropSeconds               = uint64((2 * day).Seconds())
+)
+
+var minHistoryDropSecondsByChain = map[chain.ChainID]uint64{
+	chain.ChainIDFlare:    mainnetMinHistoryDropSeconds,
+	chain.ChainIDSongbird: mainnetMinHistoryDropSeconds,
+	chain.ChainIDCoston:   testnetMinHistoryDropSeconds,
+	chain.ChainIDCoston2:  testnetMinHistoryDropSeconds,
+}
+
+func init() {
+	GlobalConfigCallback.AddCallback(func(config GlobalConfig) {
+		tCfg := config.TimeoutConfig()
+
+		if tCfg.BackoffMaxElapsedTimeSeconds != nil {
+			BackoffMaxElapsedTime = time.Duration(*tCfg.BackoffMaxElapsedTimeSeconds) * time.Second
+		}
+
+		if tCfg.TimeoutMillis > 0 {
+			Timeout = time.Duration(tCfg.TimeoutMillis) * time.Millisecond
+		}
+
+		loggerCfg := config.LoggerConfig()
+		if loggerCfg.File != "" {
+			_ = os.MkdirAll(filepath.Dir(loggerCfg.File), 0o755)
+		}
+		logger.Set(logger.Config{
+			Level:       loggerCfg.Level,
+			File:        loggerCfg.File,
+			MaxFileSize: loggerCfg.MaxFileSize,
+			Console:     loggerCfg.Console,
+		})
+	})
+}
+
+type GlobalConfig interface {
+	LoggerConfig() LoggerConfig
+	TimeoutConfig() TimeoutConfig
+}
+
+type Config struct {
+	DB      DBConfig      `toml:"db"`
+	Logger  LoggerConfig  `toml:"logger"`
+	Chain   ChainConfig   `toml:"chain"`
+	Indexer IndexerConfig `toml:"indexer"`
+	Timeout TimeoutConfig `toml:"timeout"`
+}
+
+type LoggerConfig struct {
+	Level       string `toml:"level"` // valid values are: DEBUG, INFO, WARN, ERROR, DPANIC, PANIC, FATAL (zap)
+	File        string `toml:"file"`
+	MaxFileSize int    `toml:"max_file_size"` // In megabytes
+	Console     bool   `toml:"console"`
+}
+
+type DBConfig struct {
+	Host       string `toml:"host"`
+	Port       int    `toml:"port"`
+	Database   string `toml:"database"`
+	Username   string `toml:"username"`
+	Password   string `toml:"password"`
+	LogQueries bool   `toml:"log_queries"`
+
+	// Using a pointer to distinguish between unset and zero value - the latter
+	// disables history drop.
+	HistoryDrop      *uint64 `toml:"history_drop"`
+	DropTableAtStart bool    `toml:"drop_table_at_start"`
+}
+
+func (db *DBConfig) GetHistoryDrop(ctx context.Context, chainIDBig *big.Int) (uint64, error) {
+	chainID := chain.ChainIDFromBigInt(chainIDBig)
+
+	minHistoryDropSeconds, ok := minHistoryDropSecondsByChain[chainID]
+	if !ok {
+		minHistoryDropSeconds = mainnetMinHistoryDropSeconds // Default to mainnet if chain not recognized
+	}
+
+	if db.HistoryDrop == nil {
+		return minHistoryDropSeconds, nil // Use default if not set
+	}
+
+	historyDrop := *db.HistoryDrop
+	if historyDrop != 0 && historyDrop < minHistoryDropSeconds {
+		return 0, errors.Errorf(
+			"history drop must be at least %d seconds, got %d seconds",
+			minHistoryDropSeconds,
+			historyDrop,
+		)
+	}
+
+	return historyDrop, nil
+}
+
+type ChainConfig struct {
+	NodeURL   string          `toml:"node_url"`
+	APIKey    string          `toml:"api_key"`
+	ChainType chain.ChainType `toml:"chain_type"`
+}
+
+type IndexerConfig struct {
+	BatchSize  uint64 `toml:"batch_size"`
+	StartIndex uint64 `toml:"start_index"`
+	StopIndex  uint64 `toml:"stop_index"`
+	Mode       string `toml:"mode"`
+	// HistoryEpochs is FSP-mode only: number of past reward epochs whose
+	// metadata events are backfilled at startup and retained by history drop.
+	// 0 falls back to a short lookback window (see defaultFspIndexLookbackSeconds).
+	HistoryEpochs           uint64            `toml:"history_epochs"`
+	NumParallelReq          int               `toml:"num_parallel_req"`
+	LogRange                uint64            `toml:"log_range"`
+	NewBlockCheckMillis     int               `toml:"new_block_check_millis"`
+	CollectTransactions     []TransactionInfo `toml:"collect_transactions"`
+	CollectLogs             []LogInfo         `toml:"collect_logs"`
+	Confirmations           uint64            `toml:"confirmations"`
+	NoNewBlocksDelayWarning float64           `toml:"no_new_blocks_delay_warning"`
+	FspTxLookbackSeconds    uint64            `toml:"fsp_tx_lookback_seconds"`
+	FspLogFilterRange       uint64            `toml:"fsp_log_filter_range"`
+}
+
+const (
+	IndexerModeFull = "full"
+	IndexerModeFsp  = "fsp"
+)
+
+func (c IndexerConfig) IsFspMode() bool {
+	return c.Mode == IndexerModeFsp
+}
+
+type TimeoutConfig struct {
+	BackoffMaxElapsedTimeSeconds *int `toml:"backoff_max_elapsed_time_seconds"`
+	TimeoutMillis                int  `toml:"timeout_millis"`
+}
+
+type TransactionInfo struct {
+	ContractAddress string `toml:"contract_address"`
+	ContractName    string `toml:"contract_name"`
+	FuncSig         string `toml:"func_sig"`
+	Status          bool   `toml:"status"`
+	CollectEvents   bool   `toml:"collect_events"`
+}
+
+type LogInfo struct {
+	ContractAddress string `toml:"contract_address"`
+	ContractName    string `toml:"contract_name"`
+	Topic           string `toml:"topic"`
+}
+
+func BuildConfig() (*Config, error) {
+	cfgFileName := *CfgFlag
+
+	// Set default values for the config
+	cfg := &Config{
+		Indexer: IndexerConfig{
+			Confirmations:        defaultConfirmations,
+			Mode:                 defaultIndexerMode,
+			FspTxLookbackSeconds: defaultFspIndexLookbackSeconds,
+			FspLogFilterRange:    defaultFspLogFilterRange,
+		},
+		Chain: ChainConfig{ChainType: defaultChainType},
+	}
+
+	err := parseConfigFile(cfg, cfgFileName)
+	if err != nil {
+		return nil, err
+	}
+
+	applyEnvOverrides(cfg)
+	if err := normalizeIndexerConfig(&cfg.Indexer); err != nil {
+		return nil, err
+	}
+
+	return cfg, nil
+}
+
+func normalizeIndexerConfig(cfg *IndexerConfig) error {
+	cfg.Mode = strings.ToLower(strings.TrimSpace(cfg.Mode))
+	if cfg.Mode == "" {
+		cfg.Mode = defaultIndexerMode
+	}
+	if cfg.Mode != IndexerModeFull && cfg.Mode != IndexerModeFsp {
+		return errors.Errorf(
+			"invalid indexer mode %q: must be %q or %q",
+			cfg.Mode, IndexerModeFull, IndexerModeFsp,
+		)
+	}
+
+	if cfg.Mode == IndexerModeFsp {
+		cfg.CollectTransactions, cfg.CollectLogs = mergeFspCollectors(
+			cfg.CollectTransactions,
+			cfg.CollectLogs,
+		)
+	}
+
+	if cfg.FspTxLookbackSeconds == 0 {
+		cfg.FspTxLookbackSeconds = defaultFspIndexLookbackSeconds
+	}
+	if cfg.FspLogFilterRange == 0 {
+		cfg.FspLogFilterRange = defaultFspLogFilterRange
+	}
+
+	return nil
+}
+
+func parseConfigFile(cfg *Config, fileName string) error {
+	content, err := os.ReadFile(fileName)
+	if err != nil {
+		return fmt.Errorf("error opening config file: %w", err)
+	}
+
+	_, err = toml.Decode(string(content), cfg)
+	if err != nil {
+		return fmt.Errorf("error parsing config file: %w", err)
+	}
+	return nil
+}
+
+func (c Config) LoggerConfig() LoggerConfig {
+	return c.Logger
+}
+
+func (c Config) TimeoutConfig() TimeoutConfig {
+	return c.Timeout
+}
+
+func (cc ChainConfig) FullNodeURL() (*url.URL, error) {
+	u, err := url.Parse(cc.NodeURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "error parsing node url")
+	}
+
+	if cc.APIKey != "" {
+		q := u.Query()
+		q.Set("x-apikey", cc.APIKey)
+		u.RawQuery = q.Encode()
+	}
+
+	return u, nil
+}
+
+var envOverrides = map[string]func(*Config, string){
+	"DB_HOST": func(c *Config, v string) { c.DB.Host = v },
+	"DB_PORT": func(c *Config, v string) {
+		port, err := strconv.Atoi(v)
+		if err == nil {
+			c.DB.Port = port
+		} else {
+			// The logger is not yet initialized here, so we use fmt.Printf
+			fmt.Printf("ERROR: Invalid DB_PORT value: %s\n", v)
+		}
+	},
+	"DB_DATABASE":  func(c *Config, v string) { c.DB.Database = v },
+	"DB_USERNAME":  func(c *Config, v string) { c.DB.Username = v },
+	"DB_PASSWORD":  func(c *Config, v string) { c.DB.Password = v },
+	"NODE_URL":     func(c *Config, v string) { c.Chain.NodeURL = v },
+	"NODE_API_KEY": func(c *Config, v string) { c.Chain.APIKey = v },
+}
+
+func applyEnvOverrides(cfg *Config) {
+	for env, override := range envOverrides {
+		if val, ok := os.LookupEnv(env); ok {
+			override(cfg, val)
+		}
+	}
+}

@@ -2,14 +2,15 @@ package benchmarks
 
 import (
 	"context"
-	"flare-ftso-indexer/chain"
-	"flare-ftso-indexer/config"
-	"flare-ftso-indexer/database"
-	"flare-ftso-indexer/indexer"
-	"flare-ftso-indexer/logger"
+	"flare-ftso-indexer/internal/chain"
+	"flare-ftso-indexer/internal/config"
+	"flare-ftso-indexer/internal/contracts"
+	"flare-ftso-indexer/internal/core"
+	"flare-ftso-indexer/internal/database"
 	"testing"
 
 	"github.com/BurntSushi/toml"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
 type benchmarksConfig struct {
@@ -24,38 +25,43 @@ func BenchmarkBlockRequests(b *testing.B) {
 	tCfg.Chain.ChainType = 1
 	_, err := toml.DecodeFile("config_banchmark.toml", &tCfg)
 	if err != nil {
-		logger.Fatal("Config error: %s", err)
+		logger.Fatalf("Config error: %s", err)
 	}
 	cfg := tCfg.Config
 	config.GlobalConfigCallback.Call(cfg)
 
 	for i := 0; i < b.N; i++ {
-		logger.Info("Running with configuration: chain: %s, database: %s", cfg.Chain.NodeURL, cfg.DB.Database)
+		logger.Infof("Running with configuration: chain: %s, database: %s", cfg.Chain.NodeURL, cfg.DB.Database)
 
 		// connect to the database
 		db, err := database.ConnectAndInitialize(ctx, &cfg.DB)
 		if err != nil {
-			logger.Fatal("Database connect and initialize error: %s", err)
+			logger.Fatalf("Database connect and initialize error: %s", err)
 		}
 
 		nodeURL, err := cfg.Chain.FullNodeURL()
 		if err != nil {
-			logger.Fatal("Invalid node URL in config: %s", err)
+			logger.Fatalf("Invalid node URL in config: %s", err)
 		}
 
 		ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType)
 		if err != nil {
-			logger.Fatal("Eth client error: %s", err)
+			logger.Fatalf("Eth client error: %s", err)
 		}
 
-		cIndexer, err := indexer.CreateBlockIndexer(&cfg, db, ethClient)
+		resolver, err := contracts.NewContractResolver(ethClient)
 		if err != nil {
-			logger.Fatal("Indexer create error: %s", err)
+			logger.Fatalf("Registry resolver error: %s", err)
 		}
 
-		_, err = cIndexer.IndexHistory(ctx)
+		cIndexer, err := core.NewEngine(&cfg, db, ethClient, resolver)
 		if err != nil {
-			logger.Fatal("History run error: %s", err)
+			logger.Fatalf("Indexer create error: %s", err)
+		}
+
+		_, err = cIndexer.IndexHistory(ctx, cfg.Indexer.StartIndex)
+		if err != nil {
+			logger.Fatalf("History run error: %s", err)
 		}
 	}
 }

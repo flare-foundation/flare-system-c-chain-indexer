@@ -1,7 +1,9 @@
-logger/logs
+logs/
 tmp/
 *.log
 config.toml
 .vscode/
 coverage.out
-
+.gocache
+.gitlab
+.github
