@@ -194,7 +194,6 @@ func runIndexer(
 			historyDrop,
 			database.HistoryDropIntervalCheck,
 			ethClient,
-			cfg.Indexer.StartIndex,
 		)
 	}
 

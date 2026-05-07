@@ -23,13 +23,12 @@ func DropHistory(
 	db *gorm.DB,
 	intervalSeconds, checkInterval uint64,
 	client *chain.Client,
-	startBlockNumber uint64,
 ) {
 	for {
 		logger.Infof("starting DropHistory iteration")
 
 		startTime := time.Now()
-		err := dropHistoryIteration(ctx, db, intervalSeconds, client, startBlockNumber)
+		err := dropHistoryIteration(ctx, db, intervalSeconds, client)
 		if err == nil {
 			duration := time.Since(startTime)
 			logger.Infof("finished DropHistory iteration in %v", duration)
@@ -52,22 +51,15 @@ var deleteOrder = []interface{}{
 const deleteBatchSize = 1000
 
 func dropHistoryIteration(
-	ctx context.Context, db *gorm.DB, intervalSeconds uint64, client *chain.Client, startBlockNumber uint64,
+	ctx context.Context, db *gorm.DB, intervalSeconds uint64, client *chain.Client,
 ) error {
-	lastBlockTime, lastBlockNumber, err := getBlockTimestamp(ctx, nil, client)
+	lastBlockTime, _, err := getBlockTimestamp(ctx, nil, client)
 	if err != nil {
 		return errors.Wrap(err, "Failed to get the latest time")
 	}
 
 	db = db.WithContext(ctx)
-
 	deleteStartTime := lastBlockTime - intervalSeconds
-	deleteStartBlock, err := getNearestBlockByTimestamp(
-		ctx, deleteStartTime, db, client, startBlockNumber, lastBlockNumber,
-	)
-	if err != nil {
-		return errors.Wrap(err, "Failed to get the nearest block by timestamp")
-	}
 
 	// Delete in specified order to not break foreign keys.
 	for _, entity := range deleteOrder {
@@ -76,10 +68,19 @@ func dropHistoryIteration(
 		}
 	}
 
-	if err := updateStateIfLower(db, FirstDatabaseIndexState, deleteStartBlock, deleteStartTime); err != nil {
+	var firstBlock Block
+	err = db.Order("number ASC").First(&firstBlock).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil
+	}
+	if err != nil {
+		return errors.Wrap(err, "find first surviving block")
+	}
+
+	if err := updateStateIfLower(db, FirstDatabaseIndexState, firstBlock.Number, firstBlock.Timestamp); err != nil {
 		return errors.Wrap(err, "Failed to update state in the DB")
 	}
-	if err := updateStateIfLower(db, FirstDatabaseFSPEventIndexState, deleteStartBlock, deleteStartTime); err != nil {
+	if err := updateStateIfLower(db, FirstDatabaseFSPEventIndexState, firstBlock.Number, firstBlock.Timestamp); err != nil {
 		return errors.Wrap(err, "Failed to update FSP event state in the DB")
 	}
 
@@ -156,89 +157,4 @@ func getBlockTimestamp(ctx context.Context, index *big.Int, client *chain.Client
 	}
 
 	return block.Time(), block.Number().Uint64(), nil
-}
-
-func getNearestBlockByTimestamp(
-	ctx context.Context,
-	timestamp uint64,
-	db *gorm.DB,
-	client *chain.Client,
-	startBlockNumber uint64,
-	lastBlockNumber uint64,
-) (uint64, error) {
-	// First try to find a block in the DB with a timestamp close to the requested one.
-	// If that fails, we fall back to doing a binary search on the chain.
-	blockNumber, err := getNearestBlockByTimestampFromDB(ctx, timestamp, db)
-	if err != nil {
-		logger.Debugf("failed to get the nearest block by timestamp from DB, will fall back to RPC binary search. err: %s", err)
-	}
-
-	// A blocknumber of 0 means that no block was found in the DB.
-	if blockNumber != 0 {
-		return blockNumber, nil
-	}
-
-	return chain.GetNearestBlockByTimestampFromChain(ctx, timestamp, client, startBlockNumber, lastBlockNumber)
-}
-
-const maxBlockTimeDiff = time.Minute
-
-func validateNearestDBBlockTimestamp(blockTime, timestamp uint64) (bool, error) {
-	if blockTime < timestamp {
-		return false, errors.Errorf(
-			"unexpected block time %d, expected at least %d",
-			blockTime, timestamp,
-		)
-	}
-
-	blockTimeDiff := time.Duration(blockTime-timestamp) * time.Second
-	if blockTimeDiff > maxBlockTimeDiff {
-		// This is expected on initial runs or whenever the DB only contains a
-		// much newer window of blocks than the requested history-drop cutoff.
-		// In that case we should quietly fall back to RPC binary search.
-		return false, nil
-	}
-
-	return true, nil
-}
-
-func getNearestBlockByTimestampFromDB(ctx context.Context, timestamp uint64, db *gorm.DB) (uint64, error) {
-	// First try to find a block in the DB with a similar timestamp.
-	block, err := boff.RetryWithMaxElapsed(
-		ctx,
-		func() (*Block, error) {
-			// First try to find a block in the DB with a similar timestamp.
-			block := new(Block)
-			err := db.Where("timestamp >= ?", timestamp).Order("timestamp ASC").First(block).Error
-
-			if err == nil {
-				return block, nil
-			}
-
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, nil
-			}
-
-			return nil, err
-		},
-		"getNearestBlockByTimestampFromDB",
-	)
-	if err != nil {
-		return 0, errors.Wrap(err, "getNearestBlockByTimestampFromDB")
-	}
-
-	// Block not found in the DB.
-	if block == nil || block.Number == 0 {
-		return 0, nil
-	}
-
-	useBlock, err := validateNearestDBBlockTimestamp(block.Timestamp, timestamp)
-	if err != nil {
-		return 0, errors.Wrapf(err, "invalid DB block %d", block.Number)
-	}
-	if !useBlock {
-		return 0, nil
-	}
-
-	return block.Number, nil
 }
