@@ -93,7 +93,7 @@ func RunIndexer(
 }
 
 // historyDropHeuristicSeconds derives the retention window used by history drop
-// from the number of FSP reward epochs that must remain indexable. It keeps three extra
+// from the number of FSP reward epochs that must remain indexable. It keeps four extra
 // reward epochs worth of history to cover the metadata event windows required by the
 // oldest indexed reward epoch + extra buffer for potentially extended epochs.
 func historyDropHeuristicSeconds(chainId *big.Int, historyEpochs uint64) uint64 {
