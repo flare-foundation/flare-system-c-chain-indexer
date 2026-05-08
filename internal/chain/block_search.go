@@ -21,7 +21,7 @@ func GetNearestBlockByTimestampFromChain(
 	endBlockNumber uint64,
 ) (uint64, error) {
 	logger.Debugf(
-		"Getting nearest block by timestamp from chain: search timestamp: %d, start block: %d, end block: %d",
+		"Block search starting: search_timestamp=%d, start_block=%d, end_block=%d",
 		searchTimestamp, startBlockNumber, endBlockNumber,
 	)
 
@@ -46,7 +46,7 @@ func GetNearestBlockByTimestampFromChain(
 
 		searchStartBlockNumber = startCandidate
 		searchEndBlockNumber = startCandidate + searchWindowBlocks
-		logger.Debugf("Search block window narrowed down to: %d-%d", searchStartBlockNumber, searchEndBlockNumber)
+		logger.Debugf("Block search window narrowed: from=%d, to=%d", searchStartBlockNumber, searchEndBlockNumber)
 	}
 
 	blockNumber, err := binarySearchBlockByTimestamp(
@@ -56,7 +56,7 @@ func GetNearestBlockByTimestampFromChain(
 		return 0, errors.Wrap(err, "GetNearestBlockByTimestampFromChain")
 	}
 
-	logger.Debugf("Found nearest block by timestamp from chain: block number: %d", blockNumber)
+	logger.Debugf("Block search complete: block=%d", blockNumber)
 	return blockNumber, nil
 }
 

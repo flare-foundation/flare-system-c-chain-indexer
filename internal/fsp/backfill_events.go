@@ -34,7 +34,7 @@ func backfillEventRangesLogs(
 		eventRangeInserted := 0
 
 		logger.Infof(
-			"FSP event indexing started: %d/%d from=%d to=%d",
+			"FSP event indexing started: progress=%d/%d, from=%d, to=%d",
 			eventRangeIx+1,
 			len(eventRanges),
 			eventRange.from,
@@ -61,7 +61,7 @@ func backfillEventRangesLogs(
 		}
 
 		logger.Infof(
-			"FSP event indexing completed: %d/%d from=%d to=%d inserted=%d duration_ms=%d",
+			"FSP event indexing completed: progress=%d/%d, from=%d, to=%d, inserted=%d, duration_ms=%d",
 			eventRangeIx+1,
 			len(eventRanges),
 			eventRange.from,

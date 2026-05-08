@@ -25,15 +25,14 @@ func DropHistory(
 	client *chain.Client,
 ) {
 	for {
-		logger.Infof("starting DropHistory iteration")
+		logger.Infof("Starting history drop iteration")
 
 		startTime := time.Now()
 		err := dropHistoryIteration(ctx, db, intervalSeconds, client)
 		if err == nil {
-			duration := time.Since(startTime)
-			logger.Infof("finished DropHistory iteration in %v", duration)
+			logger.Infof("Finished history drop iteration: duration_ms=%d", time.Since(startTime).Milliseconds())
 		} else {
-			logger.Errorf("DropHistory error: %s", err)
+			logger.Errorf("History drop error: %s", err)
 		}
 
 		time.Sleep(time.Duration(checkInterval) * time.Second)
@@ -134,7 +133,7 @@ func DeleteInBatches(db *gorm.DB, deleteStartTime uint64, entity interface{}) er
 		// Take a rest every so often to avoid locking up the database too much
 		batchCount++
 		if batchCount%deleteBatchesPauseAfter == 0 {
-			logger.Debugf("Deleted %d rows of %T so far", batchCount*deleteBatchSize, entity)
+			logger.Debugf("History drop progress: entity=%T, deleted=%d", entity, batchCount*deleteBatchSize)
 			time.Sleep(deleteBatchesPauseDuration)
 		}
 	}

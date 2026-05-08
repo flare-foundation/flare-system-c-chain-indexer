@@ -68,7 +68,7 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 	backfillEventRanges := !database.IsSet(firstFspEvent) || firstFspEvent.Index > eventStartBlock
 
 	logger.Infof(
-		"FSP startup plan: catchup blocks from=%d, latest confirmed=%d, backfill FSP event ranges=%t, ranges=%+v",
+		"FSP startup plan: catchup_from=%d, latest_confirmed=%d, backfill_event_ranges=%t, ranges=%+v",
 		catchupFromBlock,
 		latestConfirmedNumber,
 		backfillEventRanges,
@@ -102,14 +102,14 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 		}
 	} else {
 		logger.Infof(
-			"Skipping FSP catchup block backfill: start=%d is above latest confirmed=%d",
+			"Skipping FSP catchup block backfill: start=%d, latest_confirmed=%d",
 			catchupFromBlock,
 			latestConfirmedNumber,
 		)
 	}
 
 	logger.Infof(
-		"FSP startup backfill complete: targetFullStart=%d targetEventStart=%d lastIndexed=%d",
+		"FSP startup backfill complete: target_full_start=%d, target_event_start=%d, last_indexed=%d",
 		fullStartBlock,
 		eventStartBlock,
 		lastIndexed,

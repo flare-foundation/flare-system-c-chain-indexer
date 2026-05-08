@@ -21,7 +21,7 @@ func LogIndexerPolicy(cfg config.IndexerConfig) {
 	for i := range cfg.CollectTransactions {
 		tx := &cfg.CollectTransactions[i]
 		logger.Infof(
-			"  tx_filter: contract=%s func_sig=%s status=%t collect_events=%t",
+			"  tx_filter: contract=%s, func_sig=%s, status=%t, collect_events=%t",
 			contractRef(tx.ContractName, tx.ContractAddress),
 			formatHexOrAny(tx.FuncSig),
 			tx.Status,
@@ -31,7 +31,7 @@ func LogIndexerPolicy(cfg config.IndexerConfig) {
 	for i := range cfg.CollectLogs {
 		lg := &cfg.CollectLogs[i]
 		logger.Infof(
-			"  log_filter: contract=%s topic=%s",
+			"  log_filter: contract=%s, topic=%s",
 			contractRef(lg.ContractName, lg.ContractAddress),
 			formatHexOrAny(lg.Topic),
 		)
@@ -45,7 +45,7 @@ func LogFspEventFilter(logs []config.LogInfo) {
 	for i := range logs {
 		lg := &logs[i]
 		logger.Infof(
-			"  fsp_event_filter: contract=%s topic=%s",
+			"  fsp_event_filter: contract=%s, topic=%s",
 			contractRef(lg.ContractName, lg.ContractAddress),
 			formatHexOrAny(lg.Topic),
 		)
