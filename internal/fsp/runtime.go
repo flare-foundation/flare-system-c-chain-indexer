@@ -71,7 +71,6 @@ func RunIndexer(
 		historyDropSeconds,
 		database.HistoryDropIntervalCheck,
 		ethClient,
-		0,
 	)
 
 	ready.SetSynced(true)
