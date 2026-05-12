@@ -8,11 +8,11 @@ import (
 	"testing"
 	"time"
 
-	"flare-ftso-indexer/internal/chain"
-	"flare-ftso-indexer/internal/config"
-	"flare-ftso-indexer/internal/contracts"
-	"flare-ftso-indexer/internal/core"
-	"flare-ftso-indexer/internal/database"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/contracts"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/core"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 
 	"github.com/BurntSushi/toml"
 	"github.com/bradleyjkemp/cupaloy/v2"

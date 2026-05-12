@@ -2,8 +2,9 @@ package config
 
 import (
 	"context"
-	"flare-ftso-indexer/internal/contracts"
 	"strings"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/contracts"
 )
 
 func ResolveContractAddresses(ctx context.Context, cfg *Config, resolver *contracts.ContractResolver) error {

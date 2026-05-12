@@ -2,12 +2,13 @@ package fsp
 
 import (
 	"context"
-	"flare-ftso-indexer/internal/boff"
-	"flare-ftso-indexer/internal/config"
-	"flare-ftso-indexer/internal/core"
-	"flare-ftso-indexer/internal/database"
 	"math/big"
 	"time"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/boff"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/core"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 
 	avxTypes "github.com/ava-labs/coreth/core/types"
 	"github.com/ava-labs/coreth/interfaces"
@@ -24,7 +25,7 @@ func backfillEventRangesLogs(
 	logAddresses []common.Address,
 	logTopics []common.Hash,
 ) error {
-	chunkRange := ci.Params().FspLogFilterRange
+	chunkRange := ci.Params().LogRange
 	if chunkRange == 0 {
 		chunkRange = 1
 	}

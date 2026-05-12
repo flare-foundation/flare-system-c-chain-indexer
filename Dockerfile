@@ -11,7 +11,7 @@ RUN go mod download
 COPY . ./
 
 # Build the applications
-RUN go build -o /app/flare_cchain_indexer ./cmd/indexer
+RUN go build -o /app/flare-cchain-indexer ./cmd/indexer
 
 FROM debian:trixie-slim@sha256:cedb1ef40439206b673ee8b33a46a03a0c9fa90bf3732f54704f99cb061d2c5a AS execution
 
@@ -23,6 +23,6 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY --from=builder /app/flare_cchain_indexer .
+COPY --from=builder /app/flare-cchain-indexer .
 
-CMD ["./flare_cchain_indexer"]
+CMD ["./flare-cchain-indexer"]

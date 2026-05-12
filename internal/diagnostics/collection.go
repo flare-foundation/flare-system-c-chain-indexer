@@ -4,8 +4,9 @@ package diagnostics
 import (
 	"strings"
 
-	"flare-ftso-indexer/internal/config"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
 )
 
 const undefined = "undefined"

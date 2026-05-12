@@ -40,9 +40,17 @@ and this project adheres to
 
 - Repository structure refactored under `cmd/` and `internal/` to follow
   conventional Go layout. The runnable binary moved to `./cmd/indexer`.
+- **Binary renamed** to `flare-cchain-indexer` (previously
+  `flare_cchain_indexer` in the Dockerfile / `flare-ftso-indexer` in legacy
+  build snippets). Deployment scripts, container `command:` entries, and any
+  process supervisors that reference the binary by name need to be updated.
+- **Go module path renamed** from `flare-ftso-indexer` to
+  `github.com/flare-foundation/flare-system-c-chain-indexer`. The indexer is
+  shipped as a binary, but any out-of-tree imports must be updated.
 - Block-by-timestamp lookup uses heuristics to narrow the search window before
   binary search, avoiding requests for very old blocks when running against
   RPC nodes with limited history.
+- Minimum Go toolchain version raised to 1.24.
 
 
 ## \[[v1.1.2](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v1.1.2)\] - 2025-11-03

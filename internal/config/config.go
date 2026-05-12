@@ -3,7 +3,6 @@ package config
 import (
 	"context"
 	"flag"
-	"flare-ftso-indexer/internal/chain"
 	"fmt"
 	"math/big"
 	"net/url"
@@ -12,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
 
 	"github.com/BurntSushi/toml"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -24,7 +25,7 @@ const (
 	defaultChainType               chain.ChainType = chain.ChainTypeAvax
 	defaultIndexerMode                             = IndexerModeFull
 	defaultFspIndexLookbackSeconds                 = uint64(2 * time.Hour / time.Second)
-	defaultFspLogFilterRange                       = uint64(1024)
+	defaultLogRange                                = uint64(1024)
 )
 
 var (
@@ -140,8 +141,10 @@ type IndexerConfig struct {
 	// HistoryEpochs is FSP-mode only: number of past reward epochs whose
 	// metadata events are backfilled at startup and retained by history drop.
 	// 0 falls back to a short lookback window (see defaultFspIndexLookbackSeconds).
-	HistoryEpochs           uint64            `toml:"history_epochs"`
-	NumParallelReq          int               `toml:"num_parallel_req"`
+	HistoryEpochs  uint64 `toml:"history_epochs"`
+	NumParallelReq int    `toml:"num_parallel_req"`
+	// LogRange is the max blocks per eth_getLogs (FilterLogs) request,
+	// bounded by the RPC node's getLogs cap (typically 100-10000).
 	LogRange                uint64            `toml:"log_range"`
 	NewBlockCheckMillis     int               `toml:"new_block_check_millis"`
 	CollectTransactions     []TransactionInfo `toml:"collect_transactions"`
@@ -149,7 +152,6 @@ type IndexerConfig struct {
 	Confirmations           uint64            `toml:"confirmations"`
 	NoNewBlocksDelayWarning float64           `toml:"no_new_blocks_delay_warning"`
 	FspTxLookbackSeconds    uint64            `toml:"fsp_tx_lookback_seconds"`
-	FspLogFilterRange       uint64            `toml:"fsp_log_filter_range"`
 }
 
 const (
@@ -188,8 +190,8 @@ func BuildConfig() (*Config, error) {
 		Indexer: IndexerConfig{
 			Confirmations:        defaultConfirmations,
 			Mode:                 defaultIndexerMode,
+			LogRange:             defaultLogRange,
 			FspTxLookbackSeconds: defaultFspIndexLookbackSeconds,
-			FspLogFilterRange:    defaultFspLogFilterRange,
 		},
 		Chain: ChainConfig{ChainType: defaultChainType},
 	}
@@ -226,11 +228,11 @@ func normalizeIndexerConfig(cfg *IndexerConfig) error {
 		)
 	}
 
+	if cfg.LogRange == 0 {
+		cfg.LogRange = defaultLogRange
+	}
 	if cfg.FspTxLookbackSeconds == 0 {
 		cfg.FspTxLookbackSeconds = defaultFspIndexLookbackSeconds
-	}
-	if cfg.FspLogFilterRange == 0 {
-		cfg.FspLogFilterRange = defaultFspLogFilterRange
 	}
 
 	return nil

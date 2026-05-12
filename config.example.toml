@@ -5,12 +5,10 @@ stop_index = 0 # stop block; set 0 to index indefinitely
 history_epochs = 0 # FSP mode only: 0=last 2 hours, >0=number of reward epochs to keep/index from
 num_parallel_req = 100 # number of parallel requests to the chain
 batch_size = 1000 # the number of blocks that will be pushed to a database in a batch (should be divisible by num_parallel_req)
-log_range = 10 # the size of the interval of blocks used to request logs in each request; suggested value is log_range = batch_size / num_parallel_req; note that a blockchain node might have an upper bound on this
+log_range = 1024 # max blocks per eth_getLogs request; set to your RPC's getLogs cap (typically 100-10000)
 new_block_check_millis = 1000 # interval for checking for new blocks
 confirmations = 1 # number of confirmations for latest block queries
 no_new_blocks_delay_warning = 60 # max allowed delay between consecutive processed blocks before warning; 0 disables warning
-fsp_tx_lookback_seconds = 7200 # FSP mode startup tx lookback window (default 2h)
-fsp_log_filter_range = 1024 # FSP mode block range per FilterLogs request during metadata backfill
 
 [[indexer.collect_transactions]]
 contract_address = "0x2cA6571Daa15ce734Bbd0Bf27D5C9D16787fc33f" # example target contract; alternatively use contract_name
@@ -24,7 +22,7 @@ topic = "undefined" # topic0 filter; use "undefined" to index all events from th
 
 [logger]
 level = "INFO"
-file = "./logs/flare-ftso-indexer.log"
+file = "./logs/flare-cchain-indexer.log"
 console = true
 
 [chain]

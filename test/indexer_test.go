@@ -2,16 +2,17 @@ package testing
 
 import (
 	"context"
-	"flare-ftso-indexer/internal/chain"
-	"flare-ftso-indexer/internal/config"
-	"flare-ftso-indexer/internal/contracts"
-	"flare-ftso-indexer/internal/core"
-	"flare-ftso-indexer/internal/database"
 	"fmt"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/contracts"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/core"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 
 	"github.com/BurntSushi/toml"
 	"github.com/bradleyjkemp/cupaloy/v2"
@@ -86,7 +87,7 @@ func TestIndexer(t *testing.T) {
 		StartIndex: 1112, StopIndex: 2400, BatchSize: 500, NumParallelReq: 4,
 		NewBlockCheckMillis: 200, CollectTransactions: collectTransactions,
 	}
-	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logs/flare-ftso-indexer_test.log"}
+	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logs/flare-cchain-indexer_test.log"}
 	cfgDB := config.DBConfig{
 		Host: tCfg.DBHost, Port: tCfg.DBPort, Database: tCfg.DBName,
 		Username: tCfg.DBUsername, Password: tCfg.DBPassword, DropTableAtStart: true,

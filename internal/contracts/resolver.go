@@ -2,9 +2,10 @@ package contracts
 
 import (
 	"context"
-	"flare-ftso-indexer/internal/contracts/contractregistry"
 	"strings"
 	"sync"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/contracts/contractregistry"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"

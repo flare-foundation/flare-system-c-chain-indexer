@@ -1,6 +1,6 @@
-module flare-ftso-indexer
+module github.com/flare-foundation/flare-system-c-chain-indexer
 
-go 1.23.0
+go 1.24.0
 
 require (
 	github.com/BurntSushi/toml v1.5.0

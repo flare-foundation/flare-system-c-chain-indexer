@@ -2,9 +2,10 @@ package database
 
 import (
 	"context"
-	"flare-ftso-indexer/internal/config"
 	"fmt"
 	"sync/atomic"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/pkg/errors"

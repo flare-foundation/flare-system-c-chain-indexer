@@ -2,10 +2,11 @@ package fsp
 
 import (
 	"context"
-	"flare-ftso-indexer/internal/chain"
-	"flare-ftso-indexer/internal/core"
-	"flare-ftso-indexer/internal/database"
 	"math/big"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/core"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	systemcontract "github.com/flare-foundation/go-flare-common/pkg/contracts/system"

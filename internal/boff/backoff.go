@@ -4,8 +4,9 @@ package boff
 
 import (
 	"context"
-	"flare-ftso-indexer/internal/config"
 	"time"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
 
 	"github.com/cenkalti/backoff/v5"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"

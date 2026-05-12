@@ -1,8 +1,9 @@
 package health
 
 import (
-	"flare-ftso-indexer/internal/ready"
 	"net/http"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/ready"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )

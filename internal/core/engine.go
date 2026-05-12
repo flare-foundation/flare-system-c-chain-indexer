@@ -3,14 +3,15 @@ package core
 import (
 	"context"
 	"encoding/hex"
-	"flare-ftso-indexer/internal/chain"
-	"flare-ftso-indexer/internal/config"
-	"flare-ftso-indexer/internal/contracts"
-	"flare-ftso-indexer/internal/database"
-	"flare-ftso-indexer/internal/diagnostics"
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/contracts"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/diagnostics"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"

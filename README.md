@@ -28,7 +28,7 @@ docker-compose.yaml file for automatic deployment of a database).
 
 ### Configuration
 
-The configuration is read from a `toml` file. Config file can be specified using the command line parameter `--config`, e.g., `./flare-ftso-indexer --config config.toml`.
+The configuration is read from a `toml` file. Config file can be specified using the command line parameter `--config`, e.g., `./flare-cchain-indexer --config config.toml`.
 The default config file name is `config.toml`.
 Use [`config.example.toml`](config.example.toml) as the single config template. It includes full mode/indexer/db/chain/logger/timeout examples and comments.
 
@@ -36,6 +36,14 @@ Use [`config.example.toml`](config.example.toml) as the single config template. 
 
 - `indexer.mode = "fsp"`: use this when running as part of the FSP provider stack. Required FSP transactions/logs are hardcoded and auto-applied, so you do not need to specify `[[indexer.collect_transactions]]` or `[[indexer.collect_logs]]` in config (you can still add extra entries; they are merged and deduplicated). FSP startup also does selective indexing for required reward-epoch metadata windows instead of blindly indexing full historical ranges, which makes startup significantly faster. In this mode, `indexer.start_index` and `db.history_drop` are ignored; retention is derived from `indexer.history_epochs`.
 - `indexer.mode = "full"`: use this for a generic C-chain indexer. In this mode you should define what to index via `[[indexer.collect_transactions]]` and `[[indexer.collect_logs]]`.
+
+#### Contract addressing
+
+Contracts in `[[indexer.collect_transactions]]` and `[[indexer.collect_logs]]` can be specified either by `contract_address = "0x..."` or by `contract_name = "FlareSystemsManager"`. When a name is provided, the indexer resolves it to an address at startup via the on-chain ContractRegistry, so addresses that differ across networks (or change between deployments) do not need to be hardcoded in config. FSP mode's built-in collectors all use name-based resolution.
+
+#### Startup and history (full mode)
+
+The behavior described in this section applies to **full mode** only. FSP mode derives its start block and retention from `indexer.history_epochs`, and ignores both `indexer.start_index` and `db.history_drop`.
 
 If the C chain indexer has been previously run and there is existing data in the database,
 subsequent runs will resume indexing from after the last indexed block. Only when starting with an
@@ -71,8 +79,8 @@ go run ./cmd/indexer --config config.toml
 or build and run the binaries with
 
 ```bash
-go build -o flare-ftso-indexer ./cmd/indexer
-./flare-ftso-indexer --config config.toml
+go build -o flare-cchain-indexer ./cmd/indexer
+./flare-cchain-indexer --config config.toml
 ```
 
 ### Health endpoint
@@ -113,7 +121,7 @@ go tool cover -html=coverage.out
 
 ### Benchmarks
 
-File `benchmarks/songbird_test.go` contains a benchmark test for indexing the FTSO protocol on the Songbird network. It processes 10,000 blocks and analyzes them. The test configuration is specified in `benchmarks/config_banchmark.toml`. To run the benchmark (replacing 10x with any desired number of repetitions), use:
+File `benchmarks/songbird_test.go` contains a benchmark test for indexing the FTSO protocol on the Songbird network. It processes 10,000 blocks and analyzes them. The test configuration is specified in `benchmarks/config_benchmark.toml`. To run the benchmark (replacing 10x with any desired number of repetitions), use:
 
 ```bash
 go test -benchmem -run=^$ -benchtime 10x -bench ^BenchmarkBlockRequests$ ./benchmarks

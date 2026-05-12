@@ -2,13 +2,14 @@ package core
 
 import (
 	"context"
-	"flare-ftso-indexer/internal/boff"
-	"flare-ftso-indexer/internal/chain"
-	"flare-ftso-indexer/internal/config"
-	"flare-ftso-indexer/internal/database"
 	"fmt"
 	"math/big"
 	"sync"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/boff"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"

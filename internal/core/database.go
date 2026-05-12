@@ -1,7 +1,7 @@
 package core
 
 import (
-	"flare-ftso-indexer/internal/database"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
