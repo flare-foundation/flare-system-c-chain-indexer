@@ -2,9 +2,10 @@ package core
 
 import (
 	"context"
-	"flare-ftso-indexer/internal/chain"
-	"flare-ftso-indexer/internal/config"
-	"flare-ftso-indexer/internal/contracts"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/contracts"
 
 	"gorm.io/gorm"
 )

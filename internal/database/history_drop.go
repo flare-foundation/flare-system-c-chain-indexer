@@ -2,11 +2,12 @@ package database
 
 import (
 	"context"
-	"flare-ftso-indexer/internal/boff"
-	"flare-ftso-indexer/internal/chain"
-	"flare-ftso-indexer/internal/config"
 	"math/big"
 	"time"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/boff"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"

@@ -2,15 +2,16 @@ package fsp
 
 import (
 	"context"
-	"flare-ftso-indexer/internal/boff"
-	"flare-ftso-indexer/internal/chain"
-	"flare-ftso-indexer/internal/config"
-	"flare-ftso-indexer/internal/contracts"
-	"flare-ftso-indexer/internal/core"
-	"flare-ftso-indexer/internal/database"
-	"flare-ftso-indexer/internal/ready"
 	"math/big"
 	"time"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/boff"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/contracts"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/core"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/ready"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"

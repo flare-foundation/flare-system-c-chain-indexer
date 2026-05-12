@@ -2,12 +2,13 @@ package benchmarks
 
 import (
 	"context"
-	"flare-ftso-indexer/internal/chain"
-	"flare-ftso-indexer/internal/config"
-	"flare-ftso-indexer/internal/contracts"
-	"flare-ftso-indexer/internal/core"
-	"flare-ftso-indexer/internal/database"
 	"testing"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/contracts"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/core"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 
 	"github.com/BurntSushi/toml"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -23,7 +24,7 @@ func BenchmarkBlockRequests(b *testing.B) {
 	tCfg := benchmarksConfig{}
 	tCfg.Indexer.Confirmations = 1
 	tCfg.Chain.ChainType = 1
-	_, err := toml.DecodeFile("config_banchmark.toml", &tCfg)
+	_, err := toml.DecodeFile("config_benchmark.toml", &tCfg)
 	if err != nil {
 		logger.Fatalf("Config error: %s", err)
 	}

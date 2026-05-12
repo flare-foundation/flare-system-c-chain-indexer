@@ -3,14 +3,15 @@ package core
 import (
 	"context"
 	"encoding/hex"
-	"flare-ftso-indexer/internal/boff"
-	"flare-ftso-indexer/internal/chain"
-	"flare-ftso-indexer/internal/config"
-	"flare-ftso-indexer/internal/database"
 	"fmt"
 	"math/big"
 	"strings"
 	"sync"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/boff"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 
 	"github.com/ava-labs/coreth/core/types"
 	"github.com/pkg/errors"

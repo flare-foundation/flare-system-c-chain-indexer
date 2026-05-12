@@ -2,10 +2,11 @@ package fsp
 
 import (
 	"context"
-	"flare-ftso-indexer/internal/config"
-	"flare-ftso-indexer/internal/contracts"
-	"flare-ftso-indexer/internal/diagnostics"
 	"strings"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/contracts"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/diagnostics"
 
 	"github.com/ethereum/go-ethereum/common"
 )
