@@ -167,11 +167,11 @@ func (ci *Engine) IndexHistory(ctx context.Context, startIndex uint64) (uint64, 
 		return 0, err
 	}
 
-	logger.Infof("Starting to index blocks from %d to %d", ixRange.start, ixRange.end)
+	logger.Infof("Starting history indexing: from=%d, to=%d", ixRange.start, ixRange.end)
 
 	for i := ixRange.start; i <= ixRange.end; i = i + ci.params.BatchSize {
 		if err := ci.indexBatch(ctx, states, i, ixRange); err != nil {
-			return 0, err
+			return 0, errors.Wrapf(err, "indexBatch: from=%d, to=%d", i, min(i+ci.params.BatchSize-1, ixRange.end))
 		}
 
 		// in the second to last run of the loop update lastIndex to get the blocks
@@ -190,6 +190,7 @@ func (ci *Engine) IndexHistory(ctx context.Context, startIndex uint64) (uint64, 
 func (ci *Engine) indexBatch(
 	ctx context.Context, states *database.DBStates, batchIx uint64, ixRange *indexRange,
 ) error {
+	batchStart := time.Now()
 	lastBlockNumInRound := min(batchIx+ci.params.BatchSize-1, ixRange.end)
 
 	bBatch, err := ci.obtainBlocksBatch(ctx, batchIx, lastBlockNumInRound)
@@ -217,6 +218,7 @@ func (ci *Engine) indexBatch(
 		batchIx,
 		lastBlockNumInRound,
 		lastForDBTimestamp,
+		batchStart,
 	)
 }
 
@@ -255,8 +257,8 @@ func (ci *Engine) obtainBlocksBatch(ctx context.Context, firstBlockNumber uint64
 		return nil, err
 	}
 
-	logger.Infof(
-		"Successfully obtained blocks %d to %d in %d milliseconds",
+	logger.Debugf(
+		"Fetched blocks: from=%d, to=%d, duration_ms=%d",
 		firstBlockNumber, lastBlockNumInRound, time.Since(startTime).Milliseconds(),
 	)
 
@@ -268,8 +270,8 @@ func (ci *Engine) processBlocksBatch(bBatch *blockBatch) *transactionsBatch {
 	txBatch := new(transactionsBatch)
 
 	ci.processBlocks(bBatch, txBatch)
-	logger.Infof(
-		"Successfully extracted %d transactions in %d milliseconds",
+	logger.Debugf(
+		"Extracted transactions: count=%d, duration_ms=%d",
 		len(txBatch.transactions), time.Since(startTime).Milliseconds(),
 	)
 
@@ -297,8 +299,8 @@ func (ci *Engine) processTransactionsBatch(
 		return err
 	}
 
-	logger.Infof(
-		"Checked receipts of %d transactions in %d milliseconds",
+	logger.Debugf(
+		"Checked receipts: count=%d, duration_ms=%d",
 		countReceipts(txBatch), time.Since(startTime).Milliseconds(),
 	)
 
@@ -337,8 +339,8 @@ func (ci *Engine) obtainLogsBatch(
 		}
 	}
 
-	logger.Infof(
-		"Obtained %d logs by request in %d milliseconds",
+	logger.Debugf(
+		"Fetched logs: count=%d, duration_ms=%d",
 		len(lgBatch.logs), time.Since(startTime).Milliseconds(),
 	)
 
@@ -393,9 +395,8 @@ func (ci *Engine) processAndSave(
 	lgBatch *logsBatch,
 	states *database.DBStates,
 	firstBlockNum, lastDBIndex, lastDBTimestamp uint64,
+	batchStart time.Time,
 ) error {
-	startTime := time.Now()
-
 	data := newDatabaseStructData()
 	data.Blocks = ci.convertBlocksToDB(bBatch)
 
@@ -408,25 +409,26 @@ func (ci *Engine) processAndSave(
 		return errors.Wrap(err, "ci.processLogs")
 	}
 
-	logger.Infof(
-		"Processed %d blocks with %d transactions and extracted %d logs from receipts and %d new logs from requests in %d milliseconds",
-		len(data.Blocks),
-		len(txBatch.transactions),
-		numLogsFromReceipts,
-		len(data.Logs)-numLogsFromReceipts,
-		time.Since(startTime).Milliseconds(),
-	)
-
-	// Push transactions and logs in the database
-	startTime = time.Now()
+	saveStart := time.Now()
 	if err := ci.saveData(data, states, lastDBIndex, lastDBTimestamp); err != nil {
 		return errors.Wrap(err, "ci.saveData")
 	}
 
-	logger.Infof(
-		"Saved %d transactions and %d logs in the DB in %d milliseconds",
+	logger.Debugf(
+		"Saved batch: transactions=%d, logs=%d, duration_ms=%d",
 		len(data.Transactions), len(data.Logs),
-		time.Since(startTime).Milliseconds(),
+		time.Since(saveStart).Milliseconds(),
+	)
+
+	logger.Infof(
+		"Processed batch: from=%d, to=%d, blocks=%d, transactions=%d, receipt_logs=%d, filter_logs=%d, duration_ms=%d",
+		firstBlockNum,
+		lastDBIndex,
+		len(data.Blocks),
+		len(txBatch.transactions),
+		numLogsFromReceipts,
+		len(data.Logs)-numLogsFromReceipts,
+		time.Since(batchStart).Milliseconds(),
 	)
 
 	return nil
@@ -450,7 +452,7 @@ func (ci *Engine) updateLastIndexHistory(
 
 	if lastChainIndex > ixRange.end && ci.params.StopIndex > ixRange.end {
 		ixRange.end = min(lastChainIndex, ci.params.StopIndex)
-		logger.Infof("Updating the last block to %d", ixRange.end)
+		logger.Infof("Extending history range: last_block=%d", ixRange.end)
 	}
 
 	return ixRange, nil
@@ -467,14 +469,13 @@ func (ci *Engine) IndexContinuous(ctx context.Context, startIndex uint64) error 
 		return errors.Wrap(err, "ci.getIndexRange")
 	}
 
-	logger.Infof("Continuously indexing blocks from %d", ixRange.start)
+	logger.Infof("Starting continuous indexing: from=%d", ixRange.start)
 
 	// Request blocks one by one
 	blockNum := ixRange.start
 	lastProcessedBlockTime := [2]time.Time{time.Now(), time.Now()}
 	for blockNum <= ci.params.StopIndex {
 		if blockNum > ixRange.end {
-			logger.Debugf("Up to date, last block %d", states.States[database.LastChainIndexState].Index)
 			time.Sleep(time.Millisecond * time.Duration(ci.params.NewBlockCheckMillis))
 
 			ixRange, err = ci.updateLastIndexContinuous(ctx, states, ixRange)
@@ -485,7 +486,7 @@ func (ci *Engine) IndexContinuous(ctx context.Context, startIndex uint64) error 
 			elapsed := time.Since(lastProcessedBlockTime[0]).Seconds()
 			delay := ci.params.NoNewBlocksDelayWarning
 			if delay != 0 && elapsed > delay {
-				logger.Warnf("Warning: %.2f seconds have elapsed since the last block was processed.", time.Since(lastProcessedBlockTime[1]).Seconds())
+				logger.Warnf("No new blocks: elapsed_seconds=%.2f", time.Since(lastProcessedBlockTime[1]).Seconds())
 				lastProcessedBlockTime[0] = time.Now()
 			}
 
@@ -501,15 +502,16 @@ func (ci *Engine) IndexContinuous(ctx context.Context, startIndex uint64) error 
 		blockNum++
 	}
 
-	logger.Debugf("Stopping the indexer at block %d", blockNum)
+	logger.Debugf("Stopping continuous indexing: block=%d", blockNum)
 
 	return nil
 }
 
 func (ci *Engine) indexContinuousIteration(ctx context.Context, states *database.DBStates, index uint64) error {
+	startTime := time.Now()
 	block, err := ci.fetchBlock(ctx, &index)
 	if err != nil {
-		return errors.Wrap(err, "ci.fetchBlock")
+		return errors.Wrapf(err, "fetchBlock: block=%d", index)
 	}
 
 	bBatch := &blockBatch{blocks: []*chain.Block{block}}
@@ -519,14 +521,14 @@ func (ci *Engine) indexContinuousIteration(ctx context.Context, states *database
 
 	err = ci.getTransactionsReceipt(ctx, txBatch, 0, len(txBatch.transactions))
 	if err != nil {
-		return errors.Wrap(err, "ci.getTransactionsReceipt")
+		return errors.Wrapf(err, "getTransactionsReceipt: block=%d", index)
 	}
 
 	logsBatch := new(logsBatch)
 	for _, logInfo := range ci.params.CollectLogs {
 		err = ci.requestLogs(ctx, logsBatch, logInfo, index, index+1, index)
 		if err != nil {
-			return fmt.Errorf("IndexContinuous: %w", err)
+			return errors.Wrapf(err, "requestLogs: block=%d", index)
 		}
 	}
 
@@ -534,21 +536,26 @@ func (ci *Engine) indexContinuousIteration(ctx context.Context, states *database
 	data.Blocks = ci.convertBlocksToDB(bBatch)
 
 	if err := ci.processTransactions(txBatch, data); err != nil {
-		return fmt.Errorf("IndexContinuous: %w", err)
+		return errors.Wrapf(err, "processTransactions: block=%d", index)
 	}
 
 	err = ci.processLogs(logsBatch, bBatch, index, data)
 	if err != nil {
-		return fmt.Errorf("IndexContinuous: %w", err)
+		return errors.Wrapf(err, "processLogs: block=%d", index)
 	}
 
 	indexTimestamp := bBatch.blocks[0].Time()
 	if err := ci.saveData(data, states, index, indexTimestamp); err != nil {
-		return fmt.Errorf("IndexContinuous: %w", err)
+		return errors.Wrapf(err, "saveData: block=%d", index)
 	}
 
+	logger.Debugf(
+		"Indexed block: block=%d, transactions=%d, logs=%d, duration_ms=%d",
+		index, len(data.Transactions), len(data.Logs), time.Since(startTime).Milliseconds(),
+	)
+
 	if index%1000 == 0 {
-		logger.Infof("Indexer at block %d", index)
+		logger.Infof("Continuous progress: block=%d", index)
 	}
 
 	return nil

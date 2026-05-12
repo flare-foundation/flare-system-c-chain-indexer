@@ -32,15 +32,19 @@ func RetryNoReturn(ctx context.Context, operation func() error, name string) err
 }
 
 func retry[T any](ctx context.Context, operation func() (T, error), name string, maxElapsedTime time.Duration) (T, error) {
-	return backoff.Retry(
+	result, err := backoff.Retry(
 		ctx,
 		operation,
 		backoff.WithBackOff(backoff.NewExponentialBackOff()),
 		backoff.WithMaxElapsedTime(maxElapsedTime),
 		backoff.WithNotify(
 			func(err error, d time.Duration) {
-				logger.Debugf("%s error: %s - retrying after %v", name, err, d)
+				logger.Debugf("Backoff retry: op=%s, error=%s, delay=%v", name, err, d)
 			},
 		),
 	)
+	if err != nil && ctx.Err() == nil {
+		logger.Warnf("Backoff exhausted: op=%s, error=%s", name, err)
+	}
+	return result, err
 }

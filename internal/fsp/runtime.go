@@ -53,7 +53,7 @@ func RunIndexer(
 
 	historyDropSeconds := historyDropHeuristicSeconds(chainID, cfg.Indexer.HistoryEpochs)
 	logger.Infof(
-		"Using FSP history drop: chain_id=%s, history_epochs=%d, derived retention=%ds (%.2f days)",
+		"Using FSP history drop: chain_id=%s, history_epochs=%d, derived_retention_seconds=%d, derived_retention_days=%.2f",
 		chainID,
 		cfg.Indexer.HistoryEpochs,
 		historyDropSeconds,
