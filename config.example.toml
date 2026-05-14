@@ -3,9 +3,9 @@ mode = "full" # "full" (default) or "fsp"
 start_index = 0 # start block; set only when history_drop = 0.
 stop_index = 0 # stop block; set 0 to index indefinitely
 history_epochs = 0 # FSP mode only: 0=last 2 hours, >0=number of reward epochs to keep/index from
-num_parallel_req = 100 # number of parallel requests to the chain
-batch_size = 1000 # the number of blocks that will be pushed to a database in a batch (should be divisible by num_parallel_req)
-log_range = 1024 # max blocks per eth_getLogs request; set to your RPC's getLogs cap (typically 100-10000)
+num_parallel_req = 100 # concurrency cap for block (eth_getBlockByNumber) and receipt (eth_getTransactionReceipt) fetches during history catchup
+batch_size = 1000 # number of blocks committed to the database in a single transaction during history catchup
+log_range = 1000 # max blocks per eth_getLogs request during history catchup; set to your RPC's getLogs cap (typically 100-10000)
 new_block_check_millis = 1000 # interval for checking for new blocks
 confirmations = 1 # number of confirmations for latest block queries
 no_new_blocks_delay_warning = 60 # max allowed delay between consecutive processed blocks before warning; 0 disables warning
