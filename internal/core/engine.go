@@ -313,30 +313,17 @@ func (ci *Engine) obtainLogsBatch(
 ) (*logsBatch, error) {
 	lgBatch := new(logsBatch)
 	startTime := time.Now()
-	numRequests := ci.params.BatchSize / ci.params.LogRange
-	perRunner := numRequests / uint64(ci.params.NumParallelReq)
 
 	for _, logInfo := range ci.params.CollectLogs {
-		eg, ctx := errgroup.WithContext(ctx)
+		for fromBlock := batchIx; fromBlock <= lastBlockNumInRound; fromBlock += ci.params.LogRange {
+			toBlock := min(fromBlock+ci.params.LogRange-1, lastBlockNumInRound)
 
-		for i := 0; i < ci.params.NumParallelReq; i++ {
-			start := batchIx + perRunner*ci.params.LogRange*uint64(i)
-			stop := batchIx + perRunner*ci.params.LogRange*uint64(i+1)
+			logs, err := ci.fetchLogsChunk(ctx, logInfo, fromBlock, toBlock)
+			if err != nil {
+				return nil, err
+			}
 
-			eg.Go(func() error {
-				return ci.requestLogs(
-					ctx,
-					lgBatch,
-					logInfo,
-					start,
-					stop,
-					lastBlockNumInRound,
-				)
-			})
-		}
-
-		if err := eg.Wait(); err != nil {
-			return nil, err
+			lgBatch.logs = append(lgBatch.logs, logs...)
 		}
 	}
 

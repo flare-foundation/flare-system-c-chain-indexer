@@ -25,7 +25,7 @@ const (
 	defaultChainType               chain.ChainType = chain.ChainTypeAvax
 	defaultIndexerMode                             = IndexerModeFull
 	defaultFspIndexLookbackSeconds                 = uint64(2 * time.Hour / time.Second)
-	defaultLogRange                                = uint64(1024)
+	defaultLogRange                                = uint64(1000)
 )
 
 var (
