@@ -149,8 +149,9 @@ type IndexerConfig struct {
 	// metadata events are backfilled at startup and retained by history drop.
 	// 0 falls back to a short lookback window (see defaultFspIndexLookbackSeconds).
 	HistoryEpochs uint64 `toml:"history_epochs"`
-	// RpcConcurrency is the max number of simultaneous point-RPC calls (block
-	// and receipt fetches). It does not affect log fetching.
+	// RpcConcurrency is the max number of simultaneous RPC calls of any kind —
+	// block, receipt and log (eth_getLogs) fetches, plus contract calls and
+	// history-drop lookups — enforced process-wide in chain.Client.
 	RpcConcurrency int `toml:"rpc_concurrency"`
 	// LogRange is the max blocks per eth_getLogs (FilterLogs) request,
 	// bounded by the RPC node's getLogs cap (typically 100-10000).

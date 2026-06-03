@@ -172,7 +172,7 @@ func runIndexer(ctx context.Context, mockChain *MockChain, db *gorm.DB, cfg *con
 		logger.Fatalf("Invalid node URL in config: %s", err)
 	}
 
-	ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType)
+	ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType, cfg.Indexer.RpcConcurrency)
 	if err != nil {
 		logger.Fatalf("Could not connect to the Ethereum node: %s", err)
 	}

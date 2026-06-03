@@ -247,6 +247,9 @@ func (ci *Engine) obtainBlocksBatch(ctx context.Context, firstBlockNumber uint64
 	batchSize := lastBlockNumInRound + 1 - firstBlockNumber
 	bBatch := newBlockBatch(batchSize)
 
+	// SetLimit bounds goroutine fan-out so we don't spawn one goroutine per
+	// block up front; the real RPC concurrency cap is enforced globally in
+	// chain.Client.
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.SetLimit(ci.params.RpcConcurrency)
 
@@ -297,9 +300,9 @@ func (ci *Engine) processTransactionsBatch(
 ) error {
 	startTime := time.Now()
 
-	// Fetch receipts concurrently, one per transaction, bounded by RpcConcurrency.
-	// A per-transaction errgroup keeps load even (no straggler slices) and reuses
-	// the same concurrency budget as block fetching.
+	// Fetch receipts concurrently, one goroutine per transaction (no straggler
+	// slices). SetLimit bounds goroutine fan-out, not RPC concurrency — the real
+	// cap is enforced globally in chain.Client.
 	eg, ctx := errgroup.WithContext(ctx)
 	eg.SetLimit(ci.params.RpcConcurrency)
 

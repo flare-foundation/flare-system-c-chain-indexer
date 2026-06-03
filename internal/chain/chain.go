@@ -45,6 +45,31 @@ type Client struct {
 	chain ChainType
 	eth   *ethClient.Client
 	avx   avxClient.Client
+	// sem caps the number of simultaneous RPC calls across every caller of this
+	// client (catchup, continuous indexing, FSP backfill, start-block search,
+	// contract calls, history drop), making it a true process-wide ceiling. A
+	// nil sem means unlimited.
+	sem chan struct{}
+}
+
+// acquire blocks until an RPC slot is free or ctx is cancelled. A nil sem
+// (client built without a limit) is treated as unlimited.
+func (c *Client) acquire(ctx context.Context) error {
+	if c.sem == nil {
+		return nil
+	}
+	select {
+	case c.sem <- struct{}{}:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+func (c *Client) release() {
+	if c.sem != nil {
+		<-c.sem
+	}
 }
 
 type Block struct {
@@ -71,8 +96,13 @@ type Transaction struct {
 	avx   *avxTypes.Transaction
 }
 
-func DialRPCNode(nodeURL *url.URL, chainType ChainType) (*Client, error) {
-	c := &Client{chain: chainType}
+// DialRPCNode connects to the node and caps concurrent RPC calls at
+// maxConcurrency (values < 1 are treated as 1).
+func DialRPCNode(nodeURL *url.URL, chainType ChainType, maxConcurrency int) (*Client, error) {
+	if maxConcurrency < 1 {
+		maxConcurrency = 1
+	}
+	c := &Client{chain: chainType, sem: make(chan struct{}, maxConcurrency)}
 	var err error
 
 	switch c.chain {
@@ -99,6 +129,11 @@ func (c *Client) ChainID(ctx context.Context) (*big.Int, error) {
 }
 
 func (c *Client) BlockByNumber(ctx context.Context, number *big.Int) (*Block, error) {
+	if err := c.acquire(ctx); err != nil {
+		return nil, err
+	}
+	defer c.release()
+
 	block := &Block{chain: c.chain}
 	var err error
 	switch c.chain {
@@ -114,6 +149,11 @@ func (c *Client) BlockByNumber(ctx context.Context, number *big.Int) (*Block, er
 }
 
 func (c *Client) HeaderByNumber(ctx context.Context, number *big.Int) (*Header, error) {
+	if err := c.acquire(ctx); err != nil {
+		return nil, err
+	}
+	defer c.release()
+
 	block := &Header{chain: c.chain}
 	var err error
 	switch c.chain {
@@ -129,6 +169,11 @@ func (c *Client) HeaderByNumber(ctx context.Context, number *big.Int) (*Header, 
 }
 
 func (c *Client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*Receipt, error) {
+	if err := c.acquire(ctx); err != nil {
+		return nil, err
+	}
+	defer c.release()
+
 	receipt := &Receipt{chain: c.chain}
 	var err error
 	switch c.chain {
@@ -144,6 +189,11 @@ func (c *Client) TransactionReceipt(ctx context.Context, txHash common.Hash) (*R
 }
 
 func (c *Client) FilterLogs(ctx context.Context, q interfaces.FilterQuery) ([]avxTypes.Log, error) {
+	if err := c.acquire(ctx); err != nil {
+		return nil, err
+	}
+	defer c.release()
+
 	switch c.chain {
 	case ChainTypeAvax:
 		return c.avx.FilterLogs(ctx, q)
@@ -164,6 +214,11 @@ func (c *Client) FilterLogs(ctx context.Context, q interfaces.FilterQuery) ([]av
 }
 
 func (c *Client) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
+	if err := c.acquire(ctx); err != nil {
+		return nil, err
+	}
+	defer c.release()
+
 	switch c.chain {
 	case ChainTypeAvax:
 		return c.avx.CodeAt(ctx, contract, blockNumber)
@@ -175,6 +230,11 @@ func (c *Client) CodeAt(ctx context.Context, contract common.Address, blockNumbe
 }
 
 func (c *Client) CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error) {
+	if err := c.acquire(ctx); err != nil {
+		return nil, err
+	}
+	defer c.release()
+
 	switch c.chain {
 	case ChainTypeAvax:
 		return c.avx.CallContract(ctx, toAvaxCallMsg(msg), blockNumber)

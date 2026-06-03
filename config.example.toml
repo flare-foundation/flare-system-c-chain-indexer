@@ -3,7 +3,7 @@ mode = "full" # "full" (default) or "fsp"
 start_index = 0 # start block; set only when history_drop = 0.
 stop_index = 0 # stop block; set 0 to index indefinitely
 history_epochs = 0 # FSP mode only: 0=last 2 hours, >0=number of reward epochs to keep/index from
-rpc_concurrency = 100 # max simultaneous point-RPC calls (block + receipt fetches); raise for a dedicated node, lower if rate-limited. Does not affect log fetching.
+rpc_concurrency = 100 # max simultaneous RPC calls of any kind (blocks, receipts, eth_getLogs, contract calls); raise for a dedicated node, lower if rate-limited
 batch_size = 1000 # blocks fetched and committed per batch (one DB transaction); larger means fewer, larger commits and more memory. Most users leave this.
 log_range = 1000 # max blocks per eth_getLogs request; SET TO YOUR RPC's getLogs cap (commonly 1000-10000), or requests fail
 new_block_check_millis = 1000 # interval for checking for new blocks
