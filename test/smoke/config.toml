@@ -1,0 +1,18 @@
+# Smoke-test config: FSP mode with minimal history (last ~2h of blocks).
+# The RPC node URL and DB credentials are injected via environment variables in
+# docker-compose.yaml.
+[indexer]
+mode = "fsp"
+history_epochs = 0
+rpc_concurrency = 100
+batch_size = 1000
+log_range = 1000
+new_block_check_millis = 1000
+
+[db]
+log_queries = false
+drop_table_at_start = true
+
+[logger]
+level = "INFO"
+console = true
