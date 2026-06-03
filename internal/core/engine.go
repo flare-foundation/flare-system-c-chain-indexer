@@ -77,8 +77,6 @@ func applyIndexerDefaults(params config.IndexerConfig) config.IndexerConfig {
 		params.StopIndex = ^uint64(0)
 	}
 
-	params.BatchSize -= params.BatchSize % uint64(params.NumParallelReq)
-
 	if params.LogRange == 0 {
 		params.LogRange = 1
 	}
@@ -87,8 +85,8 @@ func applyIndexerDefaults(params config.IndexerConfig) config.IndexerConfig {
 		params.BatchSize = 1
 	}
 
-	if params.NumParallelReq == 0 {
-		params.NumParallelReq = 1
+	if params.RpcConcurrency <= 0 {
+		params.RpcConcurrency = 1
 	}
 
 	if params.NewBlockCheckMillis == 0 {
@@ -194,19 +192,39 @@ func (ci *Engine) indexBatch(
 	batchStart := time.Now()
 	lastBlockNumInRound := min(batchIx+ci.params.BatchSize-1, ixRange.end)
 
-	bBatch, err := ci.obtainBlocksBatch(ctx, batchIx, lastBlockNumInRound)
-	if err != nil {
+	// Blocks (and the receipts derived from them) and logs are independent RPC
+	// streams: log queries need only the block range, not the fetched bodies.
+	// Fetch both concurrently and join before processing, so the handful of
+	// eth_getLogs requests complete in the shadow of the much heavier block
+	// fetch. A shared errgroup ctx means a failure on either side cancels the
+	// other's in-flight requests.
+	var (
+		bBatch    *blockBatch
+		txBatch   *transactionsBatch
+		logsBatch *logsBatch
+	)
+
+	eg, egCtx := errgroup.WithContext(ctx)
+
+	eg.Go(func() error {
+		var err error
+		bBatch, err = ci.obtainBlocksBatch(egCtx, batchIx, lastBlockNumInRound)
+		if err != nil {
+			return err
+		}
+
+		txBatch = ci.processBlocksBatch(bBatch)
+
+		return ci.processTransactionsBatch(egCtx, txBatch)
+	})
+
+	eg.Go(func() error {
+		var err error
+		logsBatch, err = ci.obtainLogsBatch(egCtx, batchIx, lastBlockNumInRound)
 		return err
-	}
+	})
 
-	txBatch := ci.processBlocksBatch(bBatch)
-
-	if err := ci.processTransactionsBatch(ctx, txBatch); err != nil {
-		return err
-	}
-
-	logsBatch, err := ci.obtainLogsBatch(ctx, batchIx, lastBlockNumInRound)
-	if err != nil {
+	if err := eg.Wait(); err != nil {
 		return err
 	}
 
@@ -226,20 +244,18 @@ func (ci *Engine) indexBatch(
 func (ci *Engine) obtainBlocksBatch(ctx context.Context, firstBlockNumber uint64, lastBlockNumInRound uint64) (*blockBatch, error) {
 	startTime := time.Now()
 
-	// Use a semaphore to limit concurrent requests.
-	sem := make(chan struct{}, ci.params.NumParallelReq)
-
 	batchSize := lastBlockNumInRound + 1 - firstBlockNumber
 	bBatch := newBlockBatch(batchSize)
 
+	// SetLimit bounds goroutine fan-out so we don't spawn one goroutine per
+	// block up front; the real RPC concurrency cap is enforced globally in
+	// chain.Client.
 	eg, ctx := errgroup.WithContext(ctx)
+	eg.SetLimit(ci.params.RpcConcurrency)
 
 	for i := uint64(0); i < batchSize; i++ {
 		num := firstBlockNumber + i
 		eg.Go(func() error {
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
 			block, err := ci.fetchBlock(ctx, &num)
 			if err != nil {
 				return err
@@ -283,16 +299,16 @@ func (ci *Engine) processTransactionsBatch(
 	ctx context.Context, txBatch *transactionsBatch,
 ) error {
 	startTime := time.Now()
-	oneRunnerReqNum := (len(txBatch.transactions) / ci.params.NumParallelReq) + 1
 
+	// Fetch receipts concurrently, one goroutine per transaction (no straggler
+	// slices). SetLimit bounds goroutine fan-out, not RPC concurrency — the real
+	// cap is enforced globally in chain.Client.
 	eg, ctx := errgroup.WithContext(ctx)
+	eg.SetLimit(ci.params.RpcConcurrency)
 
-	for i := 0; i < ci.params.NumParallelReq; i++ {
-		start := oneRunnerReqNum * i
-		stop := min(oneRunnerReqNum*(i+1), len(txBatch.transactions))
-
+	for i := 0; i < len(txBatch.transactions); i++ {
 		eg.Go(func() error {
-			return ci.getTransactionsReceipt(ctx, txBatch, start, stop)
+			return ci.fetchReceiptAt(ctx, txBatch, i)
 		})
 	}
 
@@ -314,16 +330,19 @@ func (ci *Engine) obtainLogsBatch(
 	lgBatch := new(logsBatch)
 	startTime := time.Now()
 
+	// Fetch logs sequentially, one filter at a time. requestLogs walks
+	// [batchIx, lastBlockNumInRound] stepping by LogRange, so LogRange is simply
+	// the max number of blocks per eth_getLogs request.
 	for _, logInfo := range ci.params.CollectLogs {
-		for fromBlock := batchIx; fromBlock <= lastBlockNumInRound; fromBlock += ci.params.LogRange {
-			toBlock := min(fromBlock+ci.params.LogRange-1, lastBlockNumInRound)
-
-			logs, err := ci.fetchLogsChunk(ctx, logInfo, fromBlock, toBlock)
-			if err != nil {
-				return nil, err
-			}
-
-			lgBatch.logs = append(lgBatch.logs, logs...)
+		if err := ci.requestLogs(
+			ctx,
+			lgBatch,
+			logInfo,
+			batchIx,
+			lastBlockNumInRound+1,
+			lastBlockNumInRound,
+		); err != nil {
+			return nil, err
 		}
 	}
 

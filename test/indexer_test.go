@@ -84,7 +84,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	cfgIndexer := config.IndexerConfig{
-		StartIndex: 1112, StopIndex: 2400, BatchSize: 500, NumParallelReq: 4,
+		StartIndex: 1112, StopIndex: 2400, BatchSize: 500, RpcConcurrency: 4,
 		NewBlockCheckMillis: 200, CollectTransactions: collectTransactions,
 	}
 	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logs/flare-cchain-indexer_test.log"}
@@ -172,7 +172,7 @@ func runIndexer(ctx context.Context, mockChain *MockChain, db *gorm.DB, cfg *con
 		logger.Fatalf("Invalid node URL in config: %s", err)
 	}
 
-	ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType)
+	ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType, cfg.Indexer.RpcConcurrency)
 	if err != nil {
 		logger.Fatalf("Could not connect to the Ethereum node: %s", err)
 	}

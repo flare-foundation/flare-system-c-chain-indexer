@@ -45,7 +45,7 @@ func BenchmarkBlockRequests(b *testing.B) {
 			logger.Fatalf("Invalid node URL in config: %s", err)
 		}
 
-		ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType)
+		ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType, cfg.Indexer.RpcConcurrency)
 		if err != nil {
 			logger.Fatalf("Eth client error: %s", err)
 		}

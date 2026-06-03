@@ -51,6 +51,25 @@ and this project adheres to
   binary search, avoiding requests for very old blocks when running against
   RPC nodes with limited history.
 - Minimum Go toolchain version raised to 1.24.
+- **`indexer.num_parallel_req` renamed to `indexer.rpc_concurrency`**. Configs
+  using the old key now fail at startup with a message pointing to the new name.
+- Log fetching in the catchup path is now sequential, fetching `log_range`
+  blocks per `eth_getLogs` request (matching the FSP metadata backfill).
+  `log_range` is now a standalone "max blocks per `eth_getLogs`" knob with no
+  dependency on `batch_size` or `rpc_concurrency`; set it to your RPC node's
+  getLogs cap. The previous fan-out tied to `num_parallel_req` could silently
+  fetch zero logs or drop ranges when misconfigured.
+- `batch_size` is no longer forced to a multiple of the concurrency setting, and
+  receipt fetching is now load-balanced per transaction rather than statically
+  sliced. `rpc_concurrency`, `batch_size`, and `log_range` are now independent.
+- Within each catchup batch, block fetching and log fetching now run
+  concurrently instead of sequentially. Log queries depend only on the block
+  range, so they complete in the shadow of the heavier block fetch, removing
+  their latency from the critical path.
+- The `rpc_concurrency` limit is now enforced inside the RPC client itself, so
+  it is a single process-wide ceiling covering every caller — catchup,
+  continuous indexing, FSP metadata backfill, start-block search, contract
+  calls, and the concurrent history-drop scan — rather than a per-fan-out cap.
 
 
 ## \[[v1.1.2](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v1.1.2)\] - 2025-11-03

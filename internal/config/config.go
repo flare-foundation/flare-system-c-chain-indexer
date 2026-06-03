@@ -26,6 +26,8 @@ const (
 	defaultIndexerMode                             = IndexerModeFull
 	defaultFspIndexLookbackSeconds                 = uint64(2 * time.Hour / time.Second)
 	defaultLogRange                                = uint64(1000)
+	defaultRpcConcurrency                          = 100
+	defaultBatchSize                               = uint64(1000)
 )
 
 var (
@@ -134,6 +136,11 @@ type ChainConfig struct {
 }
 
 type IndexerConfig struct {
+	// BatchSize is the number of blocks processed per batch and committed in a
+	// single database transaction (i.e. the DB commit size and in-memory working
+	// set). It does not affect RPC request sizes, and is independent of
+	// RpcConcurrency and LogRange. Within a batch, rows are inserted in fixed
+	// chunks of database.DBTransactionBatchesSize, not BatchSize.
 	BatchSize  uint64 `toml:"batch_size"`
 	StartIndex uint64 `toml:"start_index"`
 	StopIndex  uint64 `toml:"stop_index"`
@@ -141,8 +148,11 @@ type IndexerConfig struct {
 	// HistoryEpochs is FSP-mode only: number of past reward epochs whose
 	// metadata events are backfilled at startup and retained by history drop.
 	// 0 falls back to a short lookback window (see defaultFspIndexLookbackSeconds).
-	HistoryEpochs  uint64 `toml:"history_epochs"`
-	NumParallelReq int    `toml:"num_parallel_req"`
+	HistoryEpochs uint64 `toml:"history_epochs"`
+	// RpcConcurrency is the max number of simultaneous RPC calls of any kind —
+	// block, receipt and log (eth_getLogs) fetches, plus contract calls and
+	// history-drop lookups — enforced process-wide in chain.Client.
+	RpcConcurrency int `toml:"rpc_concurrency"`
 	// LogRange is the max blocks per eth_getLogs (FilterLogs) request,
 	// bounded by the RPC node's getLogs cap (typically 100-10000).
 	LogRange                uint64            `toml:"log_range"`
@@ -191,6 +201,8 @@ func BuildConfig() (*Config, error) {
 			Confirmations:        defaultConfirmations,
 			Mode:                 defaultIndexerMode,
 			LogRange:             defaultLogRange,
+			RpcConcurrency:       defaultRpcConcurrency,
+			BatchSize:            defaultBatchSize,
 			FspTxLookbackSeconds: defaultFspIndexLookbackSeconds,
 		},
 		Chain: ChainConfig{ChainType: defaultChainType},
@@ -231,6 +243,12 @@ func normalizeIndexerConfig(cfg *IndexerConfig) error {
 	if cfg.LogRange == 0 {
 		cfg.LogRange = defaultLogRange
 	}
+	if cfg.RpcConcurrency <= 0 {
+		cfg.RpcConcurrency = defaultRpcConcurrency
+	}
+	if cfg.BatchSize == 0 {
+		cfg.BatchSize = defaultBatchSize
+	}
 	if cfg.FspTxLookbackSeconds == 0 {
 		cfg.FspTxLookbackSeconds = defaultFspIndexLookbackSeconds
 	}
@@ -244,9 +262,16 @@ func parseConfigFile(cfg *Config, fileName string) error {
 		return fmt.Errorf("error opening config file: %w", err)
 	}
 
-	_, err = toml.Decode(string(content), cfg)
+	md, err := toml.Decode(string(content), cfg)
 	if err != nil {
 		return fmt.Errorf("error parsing config file: %w", err)
+	}
+	for _, key := range md.Undecoded() {
+		if key.String() == "indexer.num_parallel_req" {
+			return fmt.Errorf(
+				"config key \"indexer.num_parallel_req\" has been renamed to \"indexer.rpc_concurrency\"",
+			)
+		}
 	}
 	return nil
 }

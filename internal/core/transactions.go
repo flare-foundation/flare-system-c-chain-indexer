@@ -58,36 +58,46 @@ func (ci *Engine) getTransactionsReceipt(
 	ctx context.Context, txBatch *transactionsBatch, start, stop int,
 ) error {
 	for i := start; i < stop; i++ {
-		txBatch.mu.RLock()
-		tx := *txBatch.transactions[i]
-		policy := txBatch.policies[i]
-		txBatch.mu.RUnlock()
-
-		var receipt *chain.Receipt
-
-		if policy.status || policy.collectEvents {
-			var err error
-
-			receipt, err = boff.RetryWithMaxElapsed(
-				ctx,
-				func() (*chain.Receipt, error) {
-					ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
-					defer cancelFunc()
-
-					return ci.client.TransactionReceipt(ctx, tx.Hash())
-				},
-				"getTransactionsReceipt",
-			)
-
-			if err != nil {
-				return errors.Wrap(err, "getTransactionsReceipt")
-			}
+		if err := ci.fetchReceiptAt(ctx, txBatch, i); err != nil {
+			return err
 		}
-
-		txBatch.mu.Lock()
-		txBatch.receipts[i] = receipt
-		txBatch.mu.Unlock()
 	}
+
+	return nil
+}
+
+// fetchReceiptAt fetches the receipt for transaction i (only if its policy
+// requires status or events) and stores it in the batch. Safe for concurrent
+// use across distinct indices.
+func (ci *Engine) fetchReceiptAt(
+	ctx context.Context, txBatch *transactionsBatch, i int,
+) error {
+	txBatch.mu.RLock()
+	tx := *txBatch.transactions[i]
+	policy := txBatch.policies[i]
+	txBatch.mu.RUnlock()
+
+	if !policy.status && !policy.collectEvents {
+		return nil
+	}
+
+	receipt, err := boff.RetryWithMaxElapsed(
+		ctx,
+		func() (*chain.Receipt, error) {
+			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
+			defer cancelFunc()
+
+			return ci.client.TransactionReceipt(ctx, tx.Hash())
+		},
+		"getTransactionsReceipt",
+	)
+	if err != nil {
+		return errors.Wrap(err, "getTransactionsReceipt")
+	}
+
+	txBatch.mu.Lock()
+	txBatch.receipts[i] = receipt
+	txBatch.mu.Unlock()
 
 	return nil
 }

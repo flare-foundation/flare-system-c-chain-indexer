@@ -41,6 +41,16 @@ Use [`config.example.toml`](config.example.toml) as the single config template. 
 
 Contracts in `[[indexer.collect_transactions]]` and `[[indexer.collect_logs]]` can be specified either by `contract_address = "0x..."` or by `contract_name = "FlareSystemsManager"`. When a name is provided, the indexer resolves it to an address at startup via the on-chain ContractRegistry, so addresses that differ across networks (or change between deployments) do not need to be hardcoded in config. FSP mode's built-in collectors all use name-based resolution.
 
+#### Performance and RPC tuning
+
+Three parameters control how the indexer talks to the RPC node. Most deployments only need to set `log_range`; the others have sensible defaults.
+
+- **`log_range`** — max blocks per `eth_getLogs` request. **Set this to your RPC node's getLogs limit.** Many providers cap the block range (commonly 1000–10000) or the number of returned results; if `log_range` exceeds that cap, log requests fail. Use a conservative value on shared/public endpoints and a larger one on your own node to reduce the number of log requests. This is the only knob you usually need to know your node for.
+- **`rpc_concurrency`** — max simultaneous RPC calls of every kind, enforced process-wide: block, receipt and log (`eth_getLogs`) fetches share this single budget, as do contract calls and history-drop lookups. This is the main throughput dial, since block fetching dominates catchup. Raise it to speed up catchup against a dedicated or underutilized node; lower it if a shared or rate-limited endpoint returns 429s or times out — note that lowering it also throttles log fetching. Leave the default otherwise.
+- **`batch_size`** — the unit of work: how many blocks are fetched, processed, and committed together. Each batch is written in a single database transaction, so `batch_size` is effectively the DB commit size (and the in-memory working set, since the batch's blocks, transactions, and logs are held at once). Within that transaction, rows are inserted in fixed chunks of 1000 — a separate, non-configurable value, not `batch_size`. It does **not** change RPC request sizes: blocks and receipts are always one call each (there is no JSON-RPC request batching), and the per-request log range is governed by `log_range`. It is a memory-vs-checkpoint trade — larger batches mean fewer, larger DB commits and more data held in memory at once, and a crash re-processes up to `batch_size` blocks. Most users should leave it at the default.
+
+Within a batch, block fetching and log fetching run concurrently (they have no data dependency, though they share the `rpc_concurrency` budget), and the indexer issues one `eth_getLogs` per configured log filter, tiled into `log_range`-sized chunks when `batch_size` exceeds `log_range`.
+
 #### Startup and history (full mode)
 
 The behavior described in this section applies to **full mode** only. FSP mode derives its start block and retention from `indexer.history_epochs`, and ignores both `indexer.start_index` and `db.history_drop`.
