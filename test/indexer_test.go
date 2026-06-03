@@ -84,7 +84,7 @@ func TestIndexer(t *testing.T) {
 	}
 
 	cfgIndexer := config.IndexerConfig{
-		StartIndex: 1112, StopIndex: 2400, BatchSize: 500, NumParallelReq: 4,
+		StartIndex: 1112, StopIndex: 2400, BatchSize: 500, RpcConcurrency: 4,
 		NewBlockCheckMillis: 200, CollectTransactions: collectTransactions,
 	}
 	cfgLog := config.LoggerConfig{Level: "DEBUG", Console: true, File: "../logs/flare-cchain-indexer_test.log"}
