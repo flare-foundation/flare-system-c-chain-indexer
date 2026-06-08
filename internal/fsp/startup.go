@@ -38,14 +38,10 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 		return 0, err
 	}
 
-	eventRanges, err := fspRewardEpochEventRanges(ctx, fsmCaller, startEpochID, latestConfirmedNumber)
+	eventStartBlock, err := fspEventBackfillStartBlock(ctx, fsmCaller, startEpochID)
 	if err != nil {
-		return 0, errors.Wrap(err, "compute FSP event ranges")
+		return 0, errors.Wrap(err, "compute FSP event backfill start")
 	}
-
-	// Trim ranges that overlap the catchup region — catchup full-indexes those
-	// blocks and naturally captures the same events.
-	eventRanges = trimEventRanges(eventRanges, fullStartBlock)
 
 	states, err := database.LoadDBStates(ctx, ci.DB())
 	if err != nil {
@@ -62,27 +58,28 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 		catchupFromBlock = lastDb.Index + 1
 	}
 
-	// FSP event backfill is needed iff we don't already have events at or below
-	// the lowest event range start.
-	eventStartBlock := lowestRangeFrom(eventRanges, fullStartBlock)
+	// FSP events from eventStartBlock up to the catchup start need a log-only
+	// backfill; catchup full-indexes everything from fullStartBlock onward. Skip
+	// it when that region is empty or already covered.
 	firstFspEvent := states.States[database.FirstDatabaseFSPEventIndexState]
-	backfillEventRanges := !database.IsSet(firstFspEvent) || firstFspEvent.Index > eventStartBlock
+	backfillEvents := eventStartBlock < fullStartBlock &&
+		(!database.IsSet(firstFspEvent) || firstFspEvent.Index > eventStartBlock)
 
 	logger.Infof(
-		"FSP startup plan: catchup_from=%d, latest_confirmed=%d, backfill_event_ranges=%t, ranges=%+v",
+		"FSP startup plan: catchup_from=%d, latest_confirmed=%d, backfill_events=%t, event_start=%d",
 		catchupFromBlock,
 		latestConfirmedNumber,
-		backfillEventRanges,
-		eventRanges,
+		backfillEvents,
+		eventStartBlock,
 	)
 
-	if backfillEventRanges && len(eventRanges) > 0 {
+	if backfillEvents {
 		logAddresses, logTopics, err := resolveFspContractAddresses(ctx, ci.ContractResolver())
 		if err != nil {
 			return 0, err
 		}
-		if err := backfillEventRangesLogs(ctx, ci, eventRanges, logAddresses, logTopics); err != nil {
-			return 0, errors.Wrap(err, "backfill FSP event ranges")
+		if err := backfillFspEventLogs(ctx, ci, eventStartBlock, fullStartBlock-1, logAddresses, logTopics); err != nil {
+			return 0, errors.Wrap(err, "backfill FSP events")
 		}
 		eventStartTimestamp, err := ci.FetchBlockTimestamp(ctx, eventStartBlock)
 		if err != nil {
@@ -117,39 +114,6 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 	)
 
 	return lastIndexed, nil
-}
-
-// trimEventRanges drops any range whose `from` is at or above fullStartBlock,
-// and clips the `to` of any range that straddles to fullStartBlock-1. The
-// catchup phase will full-index everything from fullStartBlock onward, so
-// running FilterLogs over the same blocks would just duplicate work.
-func trimEventRanges(ranges []fspBlockRange, fullStartBlock uint64) []fspBlockRange {
-	if fullStartBlock == 0 {
-		return ranges
-	}
-	out := make([]fspBlockRange, 0, len(ranges))
-	for _, r := range ranges {
-		if r.from >= fullStartBlock {
-			continue
-		}
-		if r.to >= fullStartBlock {
-			r.to = fullStartBlock - 1
-		}
-		out = append(out, r)
-	}
-	return out
-}
-
-// lowestRangeFrom returns the lowest `from` across the given ranges, or
-// fallback if there are none.
-func lowestRangeFrom(ranges []fspBlockRange, fallback uint64) uint64 {
-	lowest := fallback
-	for _, r := range ranges {
-		if r.from < lowest {
-			lowest = r.from
-		}
-	}
-	return lowest
 }
 
 func resolveFullStartBlock(

@@ -23,9 +23,9 @@ and this project adheres to
   signing-policy event metadata needed for those epochs. 
   In this mode `indexer.start_index` and `db.history_drop` are ignored.
   **`history_epochs = 0` is the recommended setting for FSP provider
-  operation**: the indexer fully indexes only the last ~2 hours of blocks and
-  backfills only the required metadata events for the three most recent reward
-  epochs. Higher values are mainly useful for reward calculation.
+  operation**: the indexer fully indexes only the most recent blocks and
+  backfills the FSP protocol events needed for the recent reward epochs. Higher
+  values are mainly useful for reward calculation.
 - Resolution of contract addresses by name via the on-chain ContractRegistry,
   removing the need to hardcode addresses in config.
 - `GET /health` endpoint on port 8080: returns 503 while startup catchup is in

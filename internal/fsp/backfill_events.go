@@ -18,10 +18,10 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-func backfillEventRangesLogs(
+func backfillFspEventLogs(
 	ctx context.Context,
 	ci *core.Engine,
-	eventRanges []fspBlockRange,
+	fromBlock, toBlock uint64,
 	logAddresses []common.Address,
 	logTopics []common.Hash,
 ) error {
@@ -30,48 +30,33 @@ func backfillEventRangesLogs(
 		chunkRange = 1
 	}
 
-	for eventRangeIx, eventRange := range eventRanges {
-		eventRangeStart := time.Now()
-		eventRangeInserted := 0
+	start := time.Now()
+	inserted := 0
+	logger.Infof("FSP event indexing started: from=%d, to=%d", fromBlock, toBlock)
 
-		logger.Infof(
-			"FSP event indexing started: progress=%d/%d, from=%d, to=%d",
-			eventRangeIx+1,
-			len(eventRanges),
-			eventRange.from,
-			eventRange.to,
-		)
-
-		for blockStart := eventRange.from; blockStart <= eventRange.to; blockStart += chunkRange {
-			blockEnd := min(blockStart+chunkRange-1, eventRange.to)
-			logs, err := fetchEventRangeLogsChunk(ctx, ci, blockStart, blockEnd, logAddresses, logTopics)
-			if err != nil {
-				return err
-			}
-			if len(logs) == 0 {
-				continue
-			}
-			dbLogs, err := buildDBLogs(ctx, ci, logs)
-			if err != nil {
-				return err
-			}
-			if err := saveLogs(ci, dbLogs); err != nil {
-				return err
-			}
-			eventRangeInserted += len(dbLogs)
+	for blockStart := fromBlock; blockStart <= toBlock; blockStart += chunkRange {
+		blockEnd := min(blockStart+chunkRange-1, toBlock)
+		logs, err := fetchEventRangeLogsChunk(ctx, ci, blockStart, blockEnd, logAddresses, logTopics)
+		if err != nil {
+			return err
 		}
-
-		logger.Infof(
-			"FSP event indexing completed: progress=%d/%d, from=%d, to=%d, inserted=%d, duration_ms=%d",
-			eventRangeIx+1,
-			len(eventRanges),
-			eventRange.from,
-			eventRange.to,
-			eventRangeInserted,
-			time.Since(eventRangeStart).Milliseconds(),
-		)
+		if len(logs) == 0 {
+			continue
+		}
+		dbLogs, err := buildDBLogs(ctx, ci, logs)
+		if err != nil {
+			return err
+		}
+		if err := saveLogs(ci, dbLogs); err != nil {
+			return err
+		}
+		inserted += len(dbLogs)
 	}
 
+	logger.Infof(
+		"FSP event indexing completed: from=%d, to=%d, inserted=%d, duration_ms=%d",
+		fromBlock, toBlock, inserted, time.Since(start).Milliseconds(),
+	)
 	return nil
 }
 
