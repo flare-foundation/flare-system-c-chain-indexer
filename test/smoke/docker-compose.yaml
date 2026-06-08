@@ -1,0 +1,42 @@
+# Smoke-test stack: an ephemeral MySQL plus the indexer built from source,
+# pointed at a C-chain RPC node.
+#
+# RPC_URL must be set to a C-chain RPC endpoint for the network under test
+# (Coston is recommended). A keyed endpoint is recommended — public endpoints
+# are rate-limited and the run will likely stall during FSP event backfill.
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    volumes:
+      - ../../internal/database/docker/db_init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -proot --silent"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 20s
+
+  indexer:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    # Recover from transient startup errors (e.g. a flaky RPC call during
+    # contract resolution), matching the production deployment.
+    restart: on-failure
+    ports:
+      - "18080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: ["./flare-cchain-indexer", "--config", "/app/config.toml"]
+    environment:
+      NODE_URL: "${RPC_URL:?set RPC_URL to a C-chain RPC endpoint (Coston recommended)}"
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_DATABASE: flare_ftso_indexer
+      DB_USERNAME: root
+      DB_PASSWORD: root
+    volumes:
+      - ./config.toml:/app/config.toml:ro
