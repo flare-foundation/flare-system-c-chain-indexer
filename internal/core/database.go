@@ -60,8 +60,26 @@ func (ci *Engine) saveData(
 		return err
 	}
 
-	// Advance state only after the data transaction has committed. INSERT IGNORE
-	// makes the data writes idempotent, so a crash between commit and this call
-	// just causes the next batch to re-process and self-correct.
+	// Advance states only after the data transaction has committed, so they
+	// understate rather than overstate coverage. INSERT IGNORE makes the data
+	// writes idempotent, so a crash between commit and these calls just causes
+	// the next batch to re-process and self-correct.
+	if first := lowestBlock(data.Blocks); first != nil {
+		err := database.CreateStateIfMissing(ci.db, database.FirstDatabaseIndexState, first.Number, first.Timestamp)
+		if err != nil {
+			return errors.Wrap(err, "saveData: CreateStateIfMissing")
+		}
+	}
+
 	return database.UpdateState(ci.db, database.LastDatabaseIndexState, lastDBIndex, lastDBTimestamp)
+}
+
+func lowestBlock(blocks []*database.Block) *database.Block {
+	var first *database.Block
+	for _, b := range blocks {
+		if first == nil || b.Number < first.Number {
+			first = b
+		}
+	}
+	return first
 }

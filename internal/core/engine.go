@@ -361,13 +361,8 @@ func (ci *Engine) getIndexRange(
 		return nil, errors.Wrap(err, "ci.fetchLastBlockIndex")
 	}
 
-	startTimestamp, err := ci.fetchBlockTimestamp(ctx, startIndex)
-	if err != nil {
-		return nil, errors.Wrap(err, "ci.fetchBlockTimestamp")
-	}
-
-	if err := database.UpdateStatesAtStart(ci.db, startIndex, startTimestamp, lastChainIndex, lastChainTimestamp); err != nil {
-		return nil, errors.Wrap(err, "database.UpdateStatesAtStart")
+	if err := database.UpdateState(ci.db, database.LastChainIndexState, lastChainIndex, lastChainTimestamp); err != nil {
+		return nil, errors.Wrap(err, "database.UpdateState(LastChainIndexState)")
 	}
 
 	lastIndex := min(lastChainIndex, ci.params.StopIndex)

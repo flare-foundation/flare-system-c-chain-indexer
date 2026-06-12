@@ -65,30 +65,18 @@ func GetStates(db *gorm.DB, names ...string) (map[string]*State, error) {
 	return states, nil
 }
 
-// UpdateStatesAtStart records the indexing start: the first-database floor is
-// written only when it does not exist yet (atomic insert-if-missing, so a
-// concurrent history-drop raise can never be overwritten), the chain tip
-// unconditionally.
-func UpdateStatesAtStart(
-	db *gorm.DB, startIndex, startBlockTimestamp, lastChainIndex, lastBlockTimestamp uint64,
-) error {
-	first := &State{
-		Name:           FirstDatabaseIndexState,
-		Index:          startIndex,
-		BlockTimestamp: startBlockTimestamp,
+// CreateStateIfMissing writes the state row only when it does not exist yet.
+// The insert is atomic (ON CONFLICT DO NOTHING on the unique name), so it can
+// never overwrite a concurrent update of an existing row.
+func CreateStateIfMissing(db *gorm.DB, name string, index, blockTimestamp uint64) error {
+	state := &State{
+		Name:           name,
+		Index:          index,
+		BlockTimestamp: blockTimestamp,
 		Updated:        time.Now(),
 	}
-	err := db.Clauses(clause.OnConflict{
+	return db.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "name"}},
 		DoNothing: true,
-	}).Create(first).Error
-	if err != nil {
-		return errors.Wrap(err, "create-if-missing FirstDatabaseIndexState")
-	}
-
-	if err := UpdateState(db, LastChainIndexState, lastChainIndex, lastBlockTimestamp); err != nil {
-		return errors.Wrap(err, "UpdateState(LastChainIndexState)")
-	}
-
-	return nil
+	}).Create(state).Error
 }
