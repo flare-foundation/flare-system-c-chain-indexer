@@ -1,5 +1,5 @@
-(map[string]*database.State) (len=3) {
-  (string) (len=20) "first_database_block": (*database.State)({
+(map[string]database.State) (len=3) {
+  (string) (len=20) "first_database_block": (database.State) {
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
@@ -7,8 +7,8 @@
     Index: (uint64) 1112,
     BlockTimestamp: (uint64) 1662557489,
     Updated: (time.Time) 0001-01-01 00:00:00 +0000 UTC
-  }),
-  (string) (len=16) "last_chain_block": (*database.State)({
+  },
+  (string) (len=16) "last_chain_block": (database.State) {
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
@@ -16,8 +16,8 @@
     Index: (uint64) 10223878,
     BlockTimestamp: (uint64) 1721830576,
     Updated: (time.Time) 0001-01-01 00:00:00 +0000 UTC
-  }),
-  (string) (len=19) "last_database_block": (*database.State)({
+  },
+  (string) (len=19) "last_database_block": (database.State) {
     BaseEntity: (database.BaseEntity) {
       ID: (uint64) 0
     },
@@ -25,5 +25,5 @@
     Index: (uint64) 2400,
     BlockTimestamp: (uint64) 1662560050,
     Updated: (time.Time) 0001-01-01 00:00:00 +0000 UTC
-  })
+  }
 }

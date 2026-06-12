@@ -126,9 +126,10 @@ func TestIndexer(t *testing.T) {
 	// vary with current system  time. Also set the IDs to zero as these
 	// depend on a race condition between the different states being
 	// inserted concurrently.
-	for _, state := range states {
+	for name, state := range states {
 		state.Updated = time.Time{}
 		state.ID = 0
+		states[name] = state
 	}
 
 	cupaloy.SnapshotT(t, states)
