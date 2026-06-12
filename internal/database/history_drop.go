@@ -19,6 +19,12 @@ const (
 	deleteBatchesPauseDuration = 100 * time.Millisecond
 )
 
+// DropHistory periodically deletes data older than intervalSeconds and raises
+// the coverage floors past the deletions. It must be started only after the
+// initial startup/catchup has written its floors (FSP backfill floor, first
+// committed batch): while running it assumes it is the only raiser of the
+// first_* states, and the boundary gate in dropAndRaiseFloor relies on the
+// floors it reads being final apart from its own writes.
 func DropHistory(
 	ctx context.Context,
 	db *gorm.DB,
@@ -74,8 +80,9 @@ func dropHistoryBelow(ctx context.Context, db *gorm.DB, deleteStartTime uint64) 
 // dropAndRaiseFloor deletes the given entities below the boundary, then raises
 // the floor state to the first surviving row of the floor's own table — but
 // only once the boundary has passed the floor. The floor is a coverage
-// guarantee written at startup, not an observation: an iteration that cannot
-// have deleted anything at or above it must leave it alone.
+// guarantee written by whoever created the coverage (startup backfill, first
+// committed batch), not an observation: an iteration that cannot have deleted
+// anything at or above it must leave it alone.
 func dropAndRaiseFloor(
 	db *gorm.DB,
 	deleteStartTime uint64,
