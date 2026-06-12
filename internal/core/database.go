@@ -22,7 +22,7 @@ func newDatabaseStructData() *databaseStructData {
 }
 
 func (ci *Engine) saveData(
-	data *databaseStructData, states *database.DBStates, lastDBIndex, lastDBTimestamp uint64,
+	data *databaseStructData, lastDBIndex, lastDBTimestamp uint64,
 ) error {
 	err := ci.db.Transaction(func(tx *gorm.DB) error {
 		if len(data.Blocks) != 0 {
@@ -63,5 +63,5 @@ func (ci *Engine) saveData(
 	// Advance state only after the data transaction has committed. INSERT IGNORE
 	// makes the data writes idempotent, so a crash between commit and this call
 	// just causes the next batch to re-process and self-correct.
-	return states.Update(ci.db, database.LastDatabaseIndexState, lastDBIndex, lastDBTimestamp)
+	return database.UpdateState(ci.db, database.LastDatabaseIndexState, lastDBIndex, lastDBTimestamp)
 }

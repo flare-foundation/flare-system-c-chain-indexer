@@ -59,14 +59,6 @@ func TestDropHistoryFloors(t *testing.T) {
 			if tc.fspMode {
 				seedState(t, db, FirstDatabaseFSPEventIndexState, 1000)
 			}
-			// LoadDBStates only overwrites states present in the DB, so the
-			// package-global cache must be cleared between scenarios.
-			globalStates.mu.Lock()
-			globalStates.States = make(map[string]*State)
-			globalStates.mu.Unlock()
-			_, err := LoadDBStates(context.Background(), db)
-			require.NoError(t, err)
-
 			require.NoError(t, dropHistoryBelow(context.Background(), db, tc.boundary))
 
 			require.Equal(t, tc.wantFirst, stateRow(t, db, FirstDatabaseIndexState).BlockTimestamp)

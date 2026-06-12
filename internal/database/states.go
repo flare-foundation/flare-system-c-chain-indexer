@@ -1,13 +1,11 @@
 package database
 
 import (
-	"context"
-	"sync"
 	"time"
 
 	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 const (
@@ -17,133 +15,80 @@ const (
 	FirstDatabaseFSPEventIndexState string = "first_database_fsp_event_block"
 )
 
-var (
-	stateNames = []string{
-		FirstDatabaseIndexState,
-		FirstDatabaseFSPEventIndexState,
-		LastDatabaseIndexState,
-		LastChainIndexState,
-	}
-
-	// States captures the state of the DB giving guaranties which
-	// blocks were indexed. The global variable is used/modified by
-	// the indexer as well as the history drop functionality.
-	globalStates = NewStates()
-)
+// States capture the state of the DB, giving guarantees about which blocks and
+// logs are indexed. The DB rows are the single source of truth: there is no
+// in-memory cache, so writes are safe inside transactions and out-of-band
+// changes to the states table are picked up by the next reader.
 
 func IsSet(state *State) bool {
 	return state != nil && state.Index != 0
 }
 
-type DBStates struct {
-	States map[string]*State
-	mu     sync.RWMutex
-}
-
-func NewStates() *DBStates {
-	return &DBStates{States: make(map[string]*State)}
-}
-
-func (s *DBStates) replaceAll(newStates map[string]*State) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	for name, state := range newStates {
-		s.States[name] = state
-	}
-}
-
-// Update persists the state values to the DB and refreshes the in-memory
-// cache. It MUST NOT be called inside a gorm.DB.Transaction block: the cache
-// mutation is not subject to gorm rollback, so an outer rollback would leave
-// the cache ahead of the persisted row.
-func (s *DBStates) Update(db *gorm.DB, name string, newIndex, blockTimestamp uint64) error {
-	s.mu.RLock()
-	var id uint64
-	if existing := s.States[name]; existing != nil {
-		id = existing.ID
-	}
-	s.mu.RUnlock()
-
+// UpdateState upserts the state row with the given name.
+func UpdateState(db *gorm.DB, name string, index, blockTimestamp uint64) error {
 	state := &State{
-		BaseEntity:     BaseEntity{ID: id},
 		Name:           name,
-		Index:          newIndex,
+		Index:          index,
 		BlockTimestamp: blockTimestamp,
 		Updated:        time.Now(),
 	}
-	if err := db.Save(state).Error; err != nil {
-		return err
-	}
-
-	s.mu.Lock()
-	s.States[name] = state
-	s.mu.Unlock()
-	return nil
+	return db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "name"}},
+		DoUpdates: clause.AssignmentColumns([]string{"index", "block_timestamp", "updated"}),
+	}).Create(state).Error
 }
 
-func (s *DBStates) UpdateAtStart(
-	db *gorm.DB, startIndex, startBlockTimestamp, lastChainIndex, lastBlockTimestamp uint64,
-) error {
-	s.mu.RLock()
-	_, firstDatabaseIndexSet := s.States[FirstDatabaseIndexState]
-	s.mu.RUnlock()
-
-	// Set the first database index state only if it does not exist yet
-	if !firstDatabaseIndexSet {
-		if err := s.Update(db, FirstDatabaseIndexState, startIndex, startBlockTimestamp); err != nil {
-			return errors.Wrap(err, "states.Update(FirstDatabaseIndexState)")
-		}
+// GetState returns the state row with the given name, or nil if it does not exist.
+func GetState(db *gorm.DB, name string) (*State, error) {
+	var state State
+	err := db.Where(&State{Name: name}).First(&state).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
 	}
-
-	// Set the state for the current latest chain index
-	if err := s.Update(db, LastChainIndexState, lastChainIndex, lastBlockTimestamp); err != nil {
-		return errors.Wrap(err, "states.Update(LastChainIndexState)")
-	}
-
-	return nil
-}
-
-func LoadDBStates(ctx context.Context, db *gorm.DB) (*DBStates, error) {
-	newStates, err := getDBStates(ctx, db)
 	if err != nil {
 		return nil, err
 	}
-
-	globalStates.replaceAll(newStates)
-	return globalStates, nil
+	return &state, nil
 }
 
-func getDBStates(ctx context.Context, db *gorm.DB) (map[string]*State, error) {
-	newStates := make(map[string]*State)
-	var mu sync.Mutex
-	eg, ctx := errgroup.WithContext(ctx)
-
-	for i := range stateNames {
-		name := stateNames[i]
-
-		eg.Go(func() error {
-			state := new(State)
-			err := db.WithContext(ctx).Where(&State{Name: name}).First(state).Error
-			if err != nil {
-				if !errors.Is(err, gorm.ErrRecordNotFound) {
-					return errors.Wrap(err, "db.Where")
-				}
-
-				return nil
-			}
-
-			mu.Lock()
-			newStates[name] = state
-			mu.Unlock()
-
-			return nil
-		})
-	}
-
-	if err := eg.Wait(); err != nil {
+// GetStates returns the named state rows keyed by name; missing rows are
+// simply absent from the map.
+func GetStates(db *gorm.DB, names ...string) (map[string]*State, error) {
+	var rows []*State
+	if err := db.Where("name IN ?", names).Find(&rows).Error; err != nil {
 		return nil, err
 	}
+	states := make(map[string]*State, len(rows))
+	for _, state := range rows {
+		states[state.Name] = state
+	}
+	return states, nil
+}
 
-	return newStates, nil
+// UpdateStatesAtStart records the indexing start: the first-database floor is
+// written only when it does not exist yet (atomic insert-if-missing, so a
+// concurrent history-drop raise can never be overwritten), the chain tip
+// unconditionally.
+func UpdateStatesAtStart(
+	db *gorm.DB, startIndex, startBlockTimestamp, lastChainIndex, lastBlockTimestamp uint64,
+) error {
+	first := &State{
+		Name:           FirstDatabaseIndexState,
+		Index:          startIndex,
+		BlockTimestamp: startBlockTimestamp,
+		Updated:        time.Now(),
+	}
+	err := db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "name"}},
+		DoNothing: true,
+	}).Create(first).Error
+	if err != nil {
+		return errors.Wrap(err, "create-if-missing FirstDatabaseIndexState")
+	}
+
+	if err := UpdateState(db, LastChainIndexState, lastChainIndex, lastBlockTimestamp); err != nil {
+		return errors.Wrap(err, "UpdateState(LastChainIndexState)")
+	}
+
+	return nil
 }

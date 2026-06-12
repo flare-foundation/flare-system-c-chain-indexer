@@ -89,9 +89,10 @@ func dropAndRaiseFloor(
 		}
 	}
 
-	globalStates.mu.RLock()
-	floor := globalStates.States[floorState]
-	globalStates.mu.RUnlock()
+	floor, err := GetState(db, floorState)
+	if err != nil {
+		return errors.Wrapf(err, "read floor state %s", floorState)
+	}
 	if IsSet(floor) && deleteStartTime <= floor.BlockTimestamp {
 		return nil
 	}
@@ -104,7 +105,7 @@ func dropAndRaiseFloor(
 		return errors.Wrapf(err, "find first surviving row for %s", floorState)
 	}
 
-	return updateStateIfLower(db, floorState, index, timestamp)
+	return UpdateState(db, floorState, index, timestamp)
 }
 
 func firstSurvivingBlock(db *gorm.DB) (uint64, uint64, error) {
@@ -121,18 +122,6 @@ func firstSurvivingLog(db *gorm.DB) (uint64, uint64, error) {
 		return 0, 0, err
 	}
 	return log.BlockNumber, log.Timestamp, nil
-}
-
-func updateStateIfLower(db *gorm.DB, stateName string, index, timestamp uint64) error {
-	globalStates.mu.RLock()
-	state := globalStates.States[stateName]
-	globalStates.mu.RUnlock()
-
-	if state != nil && state.Index >= index {
-		return nil
-	}
-
-	return globalStates.Update(db, stateName, index, timestamp)
 }
 
 // GetStartBlock returns the block number to start indexing from based on the history drop parameter.
