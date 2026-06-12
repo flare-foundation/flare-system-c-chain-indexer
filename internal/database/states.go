@@ -8,11 +8,23 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// StateName identifies a row in the states table. The string values are a
+// cross-repo contract (consumers read them by name) — rename identifiers
+// freely, never the values without a coordinated migration.
+type StateName string
+
 const (
-	LastChainIndexState             string = "last_chain_block"
-	LastDatabaseIndexState          string = "last_database_block"
-	FirstDatabaseIndexState         string = "first_database_block"
-	FirstDatabaseFSPEventIndexState string = "first_database_fsp_event_block"
+	// ChainTip is the latest confirmed block observed on chain (an
+	// observation, not a coverage claim).
+	ChainTip StateName = "last_chain_block"
+	// LastIndexed is the top of the fully indexed range.
+	LastIndexed StateName = "last_database_block"
+	// BlockFloor is the full-coverage floor: all blocks, transactions and
+	// logs from this block on are indexed.
+	BlockFloor StateName = "first_database_block"
+	// LogFloor is the log-coverage floor: all collected logs from this block
+	// on are present (FSP mode backfills logs deeper than blocks).
+	LogFloor StateName = "first_database_log_block"
 )
 
 // States capture the state of the DB, giving guarantees about which blocks and
@@ -27,9 +39,9 @@ func IsSet(state State) bool {
 }
 
 // UpdateState upserts the state row with the given name.
-func UpdateState(db *gorm.DB, name string, index, blockTimestamp uint64) error {
+func UpdateState(db *gorm.DB, name StateName, index, blockTimestamp uint64) error {
 	state := &State{
-		Name:           name,
+		Name:           string(name),
 		Index:          index,
 		BlockTimestamp: blockTimestamp,
 		Updated:        time.Now(),
@@ -42,9 +54,9 @@ func UpdateState(db *gorm.DB, name string, index, blockTimestamp uint64) error {
 
 // GetState returns the state row with the given name by value, or the zero
 // State (IsSet == false) if it does not exist.
-func GetState(db *gorm.DB, name string) (State, error) {
+func GetState(db *gorm.DB, name StateName) (State, error) {
 	var state State
-	err := db.Where(&State{Name: name}).First(&state).Error
+	err := db.Where(&State{Name: string(name)}).First(&state).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return State{}, nil
 	}
@@ -56,14 +68,14 @@ func GetState(db *gorm.DB, name string) (State, error) {
 
 // GetStates returns the named state rows keyed by name; a missing row reads
 // as the zero State (IsSet == false) when the map is indexed.
-func GetStates(db *gorm.DB, names ...string) (map[string]State, error) {
+func GetStates(db *gorm.DB, names ...StateName) (map[StateName]State, error) {
 	var rows []State
 	if err := db.Where("name IN ?", names).Find(&rows).Error; err != nil {
 		return nil, err
 	}
-	states := make(map[string]State, len(rows))
+	states := make(map[StateName]State, len(rows))
 	for _, state := range rows {
-		states[state.Name] = state
+		states[StateName(state.Name)] = state
 	}
 	return states, nil
 }
@@ -71,9 +83,9 @@ func GetStates(db *gorm.DB, names ...string) (map[string]State, error) {
 // CreateStateIfMissing writes the state row only when it does not exist yet.
 // The insert is atomic (ON CONFLICT DO NOTHING on the unique name), so it can
 // never overwrite a concurrent update of an existing row.
-func CreateStateIfMissing(db *gorm.DB, name string, index, blockTimestamp uint64) error {
+func CreateStateIfMissing(db *gorm.DB, name StateName, index, blockTimestamp uint64) error {
 	state := &State{
-		Name:           name,
+		Name:           string(name),
 		Index:          index,
 		BlockTimestamp: blockTimestamp,
 		Updated:        time.Now(),

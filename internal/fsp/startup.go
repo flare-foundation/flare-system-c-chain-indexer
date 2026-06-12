@@ -45,9 +45,9 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 
 	states, err := database.GetStates(
 		ci.DB().WithContext(ctx),
-		database.FirstDatabaseIndexState,
-		database.LastDatabaseIndexState,
-		database.FirstDatabaseFSPEventIndexState,
+		database.BlockFloor,
+		database.LastIndexed,
+		database.LogFloor,
 	)
 	if err != nil {
 		return 0, errors.Wrap(err, "database.GetStates")
@@ -56,8 +56,8 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 	// Catchup start: continue from where we left off if existing data covers
 	// the target start; otherwise (re)start from fullStartBlock.
 	catchupFromBlock := fullStartBlock
-	firstDb := states[database.FirstDatabaseIndexState]
-	lastDb := states[database.LastDatabaseIndexState]
+	firstDb := states[database.BlockFloor]
+	lastDb := states[database.LastIndexed]
 	if database.IsSet(firstDb) && database.IsSet(lastDb) &&
 		firstDb.Index <= fullStartBlock && lastDb.Index >= fullStartBlock {
 		catchupFromBlock = lastDb.Index + 1
@@ -66,7 +66,7 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 	// FSP events from eventStartBlock up to the catchup start need a log-only
 	// backfill; catchup full-indexes everything from fullStartBlock onward. Skip
 	// it when that region is empty or already covered.
-	firstFspEvent := states[database.FirstDatabaseFSPEventIndexState]
+	firstFspEvent := states[database.LogFloor]
 	backfillEvents := eventStartBlock < fullStartBlock &&
 		(!database.IsSet(firstFspEvent) || firstFspEvent.Index > eventStartBlock)
 
@@ -90,7 +90,7 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 		if err != nil {
 			return 0, errors.Wrapf(err, "fetch FSP event-start timestamp for block %d", eventStartBlock)
 		}
-		if err := database.UpdateState(ci.DB(), database.FirstDatabaseFSPEventIndexState, eventStartBlock, eventStartTimestamp); err != nil {
+		if err := database.UpdateState(ci.DB(), database.LogFloor, eventStartBlock, eventStartTimestamp); err != nil {
 			return 0, errors.Wrap(err, "set first FSP event index state")
 		}
 	} else {

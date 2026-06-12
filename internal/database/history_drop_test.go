@@ -54,15 +54,15 @@ func TestDropHistoryFloors(t *testing.T) {
 				require.NoError(t, db.Create(&Block{Number: n, Timestamp: n, Hash: fmt.Sprintf("block-%d", n)}).Error)
 				createLog(t, db, n)
 			}
-			seedState(t, db, FirstDatabaseIndexState, 2000)
-			seedState(t, db, LastDatabaseIndexState, 2009)
+			seedState(t, db, BlockFloor, 2000)
+			seedState(t, db, LastIndexed, 2009)
 			if tc.fspMode {
-				seedState(t, db, FirstDatabaseFSPEventIndexState, 1000)
+				seedState(t, db, LogFloor, 1000)
 			}
 			require.NoError(t, dropHistoryBelow(context.Background(), db, tc.boundary))
 
-			require.Equal(t, tc.wantFirst, stateRow(t, db, FirstDatabaseIndexState).BlockTimestamp)
-			require.Equal(t, tc.wantFsp, stateRow(t, db, FirstDatabaseFSPEventIndexState).BlockTimestamp)
+			require.Equal(t, tc.wantFirst, stateRow(t, db, BlockFloor).BlockTimestamp)
+			require.Equal(t, tc.wantFsp, stateRow(t, db, LogFloor).BlockTimestamp)
 
 			var below int64
 			require.NoError(t, db.Model(&Log{}).Where("timestamp < ?", tc.boundary).Count(&below).Error)
@@ -92,12 +92,12 @@ func createLog(t *testing.T, db *gorm.DB, n uint64) {
 	}).Error)
 }
 
-func seedState(t *testing.T, db *gorm.DB, name string, at uint64) {
-	require.NoError(t, db.Create(&State{Name: name, Index: at, BlockTimestamp: at, Updated: time.Now()}).Error)
+func seedState(t *testing.T, db *gorm.DB, name StateName, at uint64) {
+	require.NoError(t, db.Create(&State{Name: string(name), Index: at, BlockTimestamp: at, Updated: time.Now()}).Error)
 }
 
-func stateRow(t *testing.T, db *gorm.DB, name string) State {
+func stateRow(t *testing.T, db *gorm.DB, name StateName) State {
 	var s State
-	require.NoError(t, db.Where(&State{Name: name}).First(&s).Error)
+	require.NoError(t, db.Where(&State{Name: string(name)}).First(&s).Error)
 	return s
 }

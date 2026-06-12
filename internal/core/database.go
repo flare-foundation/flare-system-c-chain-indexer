@@ -65,13 +65,13 @@ func (ci *Engine) saveData(
 	// writes idempotent, so a crash between commit and these calls just causes
 	// the next batch to re-process and self-correct.
 	if first := lowestBlock(data.Blocks); first != nil {
-		err := database.CreateStateIfMissing(ci.db, database.FirstDatabaseIndexState, first.Number, first.Timestamp)
+		err := database.CreateStateIfMissing(ci.db, database.BlockFloor, first.Number, first.Timestamp)
 		if err != nil {
 			return errors.Wrap(err, "saveData: CreateStateIfMissing")
 		}
 	}
 
-	return database.UpdateState(ci.db, database.LastDatabaseIndexState, lastDBIndex, lastDBTimestamp)
+	return database.UpdateState(ci.db, database.LastIndexed, lastDBIndex, lastDBTimestamp)
 }
 
 func lowestBlock(blocks []*database.Block) *database.Block {

@@ -115,10 +115,10 @@ func TestIndexer(t *testing.T) {
 	// correctness check
 	states, err := database.GetStates(
 		db,
-		database.FirstDatabaseIndexState,
-		database.FirstDatabaseFSPEventIndexState,
-		database.LastDatabaseIndexState,
-		database.LastChainIndexState,
+		database.BlockFloor,
+		database.LogFloor,
+		database.LastIndexed,
+		database.ChainTip,
 	)
 	require.NoError(t, err)
 

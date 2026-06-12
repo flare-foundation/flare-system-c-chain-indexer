@@ -71,10 +71,10 @@ func dropHistoryIteration(
 func dropHistoryBelow(ctx context.Context, db *gorm.DB, deleteStartTime uint64) error {
 	db = db.WithContext(ctx)
 
-	if err := dropAndRaiseFloor(db, deleteStartTime, FirstDatabaseFSPEventIndexState, firstSurvivingLog, Log{}); err != nil {
+	if err := dropAndRaiseFloor(db, deleteStartTime, LogFloor, firstSurvivingLog, Log{}); err != nil {
 		return err
 	}
-	return dropAndRaiseFloor(db, deleteStartTime, FirstDatabaseIndexState, firstSurvivingBlock, Transaction{}, Block{})
+	return dropAndRaiseFloor(db, deleteStartTime, BlockFloor, firstSurvivingBlock, Transaction{}, Block{})
 }
 
 // dropAndRaiseFloor deletes the given entities below the boundary, then raises
@@ -86,7 +86,7 @@ func dropHistoryBelow(ctx context.Context, db *gorm.DB, deleteStartTime uint64) 
 func dropAndRaiseFloor(
 	db *gorm.DB,
 	deleteStartTime uint64,
-	floorState string,
+	floorState StateName,
 	firstSurviving func(*gorm.DB) (uint64, uint64, error),
 	entities ...interface{},
 ) error {

@@ -361,7 +361,7 @@ func (ci *Engine) getIndexRange(
 		return nil, errors.Wrap(err, "ci.fetchLastBlockIndex")
 	}
 
-	if err := database.UpdateState(ci.db, database.LastChainIndexState, lastChainIndex, lastChainTimestamp); err != nil {
+	if err := database.UpdateState(ci.db, database.ChainTip, lastChainIndex, lastChainTimestamp); err != nil {
 		return nil, errors.Wrap(err, "database.UpdateState(LastChainIndexState)")
 	}
 
@@ -378,7 +378,7 @@ func (ci *Engine) updateLastIndexContinuous(
 		return nil, errors.Wrap(err, "ci.fetchLastBlockIndex")
 	}
 
-	if err := database.UpdateState(ci.db, database.LastChainIndexState, lastIndex, lastChainTimestamp); err != nil {
+	if err := database.UpdateState(ci.db, database.ChainTip, lastIndex, lastChainTimestamp); err != nil {
 		return nil, errors.Wrap(err, "database.UpdateState")
 	}
 
@@ -441,7 +441,7 @@ func (ci *Engine) updateLastIndexHistory(
 		return nil, errors.Wrap(err, "ci.fetchLastBlockIndex")
 	}
 
-	if err := database.UpdateState(ci.db, database.LastChainIndexState, lastChainIndex, lastChainTimestamp); err != nil {
+	if err := database.UpdateState(ci.db, database.ChainTip, lastChainIndex, lastChainTimestamp); err != nil {
 		return nil, errors.Wrap(err, "database.UpdateState")
 	}
 
