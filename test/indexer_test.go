@@ -113,16 +113,23 @@ func TestIndexer(t *testing.T) {
 	require.NoError(t, err)
 
 	// correctness check
-	states, err := database.LoadDBStates(ctx, db)
+	states, err := database.GetStates(
+		db,
+		database.BlockFloor,
+		database.LogFloor,
+		database.LastIndexed,
+		database.ChainTip,
+	)
 	require.NoError(t, err)
 
 	// Set the update timestamps to zero for the snapshot as these will
 	// vary with current system  time. Also set the IDs to zero as these
 	// depend on a race condition between the different states being
 	// inserted concurrently.
-	for _, state := range states.States {
+	for name, state := range states {
 		state.Updated = time.Time{}
 		state.ID = 0
+		states[name] = state
 	}
 
 	cupaloy.SnapshotT(t, states)

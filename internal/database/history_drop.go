@@ -19,6 +19,12 @@ const (
 	deleteBatchesPauseDuration = 100 * time.Millisecond
 )
 
+// DropHistory periodically deletes data older than intervalSeconds and raises
+// the coverage floors past the deletions. It must be started only after the
+// initial startup/catchup has written its floors (FSP backfill floor, first
+// committed batch): while running it assumes it is the only raiser of the
+// first_* states, and the boundary gate in dropAndRaiseFloor relies on the
+// floors it reads being final apart from its own writes.
 func DropHistory(
 	ctx context.Context,
 	db *gorm.DB,
@@ -40,12 +46,6 @@ func DropHistory(
 	}
 }
 
-var deleteOrder = []interface{}{
-	Log{},
-	Transaction{},
-	Block{},
-}
-
 // Only delete up to 1000 items in a single DB transaction to avoid lock
 // timeouts.
 const deleteBatchSize = 1000
@@ -58,45 +58,77 @@ func dropHistoryIteration(
 		return errors.Wrap(err, "Failed to get the latest time")
 	}
 
-	db = db.WithContext(ctx)
-	deleteStartTime := lastBlockTime - intervalSeconds
+	return dropHistoryBelow(ctx, db, lastBlockTime-intervalSeconds)
+}
 
-	// Delete in specified order to not break foreign keys.
-	for _, entity := range deleteOrder {
+// dropHistoryBelow runs two symmetric passes sharing one boundary: logs first
+// (they hold the FK on transactions), then transactions+blocks. Each pass
+// deletes below the boundary and maintains its own coverage floor from its own
+// table; in FSP mode logs are retained further back than blocks, so the floors
+// diverge until the log-only region is consumed. Should the two boundaries
+// ever be split, logs must be retained at least as long as blocks, or
+// first_database_block loses its all-logs-present guarantee.
+func dropHistoryBelow(ctx context.Context, db *gorm.DB, deleteStartTime uint64) error {
+	db = db.WithContext(ctx)
+
+	if err := dropAndRaiseFloor(db, deleteStartTime, LogFloor, firstSurvivingLog, Log{}); err != nil {
+		return err
+	}
+	return dropAndRaiseFloor(db, deleteStartTime, BlockFloor, firstSurvivingBlock, Transaction{}, Block{})
+}
+
+// dropAndRaiseFloor deletes the given entities below the boundary, then raises
+// the floor state to the first surviving row of the floor's own table — but
+// only once the boundary has passed the floor. The floor is a coverage
+// guarantee written by whoever created the coverage (startup backfill, first
+// committed batch), not an observation: an iteration that cannot have deleted
+// anything at or above it must leave it alone.
+func dropAndRaiseFloor(
+	db *gorm.DB,
+	deleteStartTime uint64,
+	floorState StateName,
+	firstSurviving func(*gorm.DB) (uint64, uint64, error),
+	entities ...interface{},
+) error {
+	for _, entity := range entities {
 		if err := DeleteInBatches(db, deleteStartTime, entity); err != nil {
 			return err
 		}
 	}
 
-	var firstBlock Block
-	err = db.Order("number ASC").First(&firstBlock).Error
+	floor, err := GetState(db, floorState)
+	if err != nil {
+		return errors.Wrapf(err, "read floor state %s", floorState)
+	}
+	if IsSet(floor) && deleteStartTime <= floor.BlockTimestamp {
+		return nil
+	}
+
+	index, timestamp, err := firstSurviving(db)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil
 	}
 	if err != nil {
-		return errors.Wrap(err, "find first surviving block")
+		return errors.Wrapf(err, "find first surviving row for %s", floorState)
 	}
 
-	if err := updateStateIfLower(db, FirstDatabaseIndexState, firstBlock.Number, firstBlock.Timestamp); err != nil {
-		return errors.Wrap(err, "Failed to update state in the DB")
-	}
-	if err := updateStateIfLower(db, FirstDatabaseFSPEventIndexState, firstBlock.Number, firstBlock.Timestamp); err != nil {
-		return errors.Wrap(err, "Failed to update FSP event state in the DB")
-	}
-
-	return nil
+	return UpdateState(db, floorState, index, timestamp)
 }
 
-func updateStateIfLower(db *gorm.DB, stateName string, index, timestamp uint64) error {
-	globalStates.mu.RLock()
-	state := globalStates.States[stateName]
-	globalStates.mu.RUnlock()
-
-	if state != nil && state.Index >= index {
-		return nil
+func firstSurvivingBlock(db *gorm.DB) (uint64, uint64, error) {
+	var block Block
+	if err := db.Order("number ASC").First(&block).Error; err != nil {
+		return 0, 0, err
 	}
+	return block.Number, block.Timestamp, nil
+}
 
-	return globalStates.Update(db, stateName, index, timestamp)
+func firstSurvivingLog(db *gorm.DB) (uint64, uint64, error) {
+	var log Log
+	if err := db.Order("block_number ASC").First(&log).Error; err != nil {
+		return 0, 0, err
+	}
+	return log.BlockNumber, log.Timestamp, nil
 }
 
 // GetStartBlock returns the block number to start indexing from based on the history drop parameter.

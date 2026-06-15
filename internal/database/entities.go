@@ -49,7 +49,9 @@ type Block struct {
 
 type State struct {
 	BaseEntity
-	Name           string `gorm:"type:varchar(50);index"`
+	// Name is unique so state writes can be a single upsert; the DB row is the
+	// only source of truth (no in-memory state cache).
+	Name           string `gorm:"type:varchar(50);uniqueIndex:idx_states_name_unique"`
 	Index          uint64
 	BlockTimestamp uint64
 	Updated        time.Time
