@@ -75,7 +75,7 @@ func (ci *Engine) fetchLogsChunk(
 	return boff.RetryWithMaxElapsed(
 		ctx,
 		func() ([]types.Log, error) {
-			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
+			ctx, cancelFunc := context.WithTimeout(ctx, config.RPCTimeout)
 			defer cancelFunc()
 
 			return ci.client.FilterLogs(ctx, query)

@@ -176,7 +176,7 @@ func getBlockTimestamp(ctx context.Context, index *big.Int, client *chain.Client
 	block, err := boff.RetryWithMaxElapsed(
 		ctx,
 		func() (*chain.Block, error) {
-			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
+			ctx, cancelFunc := context.WithTimeout(ctx, config.RPCTimeout)
 			defer cancelFunc()
 
 			return client.BlockByNumber(ctx, index)

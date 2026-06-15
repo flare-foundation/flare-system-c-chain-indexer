@@ -43,4 +43,4 @@ history_drop = 3628800 # 42 days
 
 [timeout]
 backoff_max_elapsed_time_seconds = 300 # optional, defaults to 300s = 5 minutes. Set to 0 to retry indefinitely.
-timeout_millis = 1000 # optional, defaults to 1000ms = 1s.
+rpc_timeout_millis = 5000 # optional, defaults to 5000ms = 5s. Per-attempt timeout for every RPC call (blocks, receipts, eth_getLogs, contract calls); must cover the heaviest eth_getLogs over a full log_range on a busy/throttled endpoint.

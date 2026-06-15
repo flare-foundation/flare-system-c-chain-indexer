@@ -53,6 +53,17 @@ and this project adheres to
 - Minimum Go toolchain version raised to 1.24.
 - **`indexer.num_parallel_req` renamed to `indexer.rpc_concurrency`**. Configs
   using the old key now fail at startup with a message pointing to the new name.
+- **`timeout.timeout_millis` renamed to `timeout.rpc_timeout_millis`, and its
+  default raised from 1s to 5s.** It bounds every individual RPC attempt (block,
+  receipt, `eth_getLogs`, contract call). Configs using the old key now fail at
+  startup with a message pointing to the new name. The old 1s default was too
+  tight for `eth_getLogs` over a full `log_range` on a busy or throttled
+  endpoint: a log fetch that timed out on every attempt exhausted its retry
+  backoff, and that error tore the indexer back down to startup and re-attempted
+  the same batch from the last committed block — looping with no forward
+  progress. 5s clears measured healthy call latency (well under 1s) with margin
+  while still failing a dead endpoint fast enough to retry within the backoff
+  window; raise it for endpoints that are merely slow.
 - Log fetching in the catchup path is now sequential, fetching `log_range`
   blocks per `eth_getLogs` request (matching the FSP metadata backfill).
   `log_range` is now a standalone "max blocks per `eth_getLogs`" knob with no

@@ -31,10 +31,16 @@ const (
 )
 
 var (
-	GlobalConfigCallback         ConfigCallback[GlobalConfig]
-	CfgFlag                                    = flag.String("config", "config.toml", "Configuration file (toml format)")
-	BackoffMaxElapsedTime        time.Duration = 5 * time.Minute
-	Timeout                      time.Duration = time.Second
+	GlobalConfigCallback  ConfigCallback[GlobalConfig]
+	CfgFlag                             = flag.String("config", "config.toml", "Configuration file (toml format)")
+	BackoffMaxElapsedTime time.Duration = 5 * time.Minute
+	// RPCTimeout bounds a single RPC attempt (block, receipt, eth_getLogs,
+	// contract call). It must be generous enough for the heaviest call —
+	// eth_getLogs over a full log_range on a busy or throttled endpoint —
+	// since one timeout exhausting its backoff tears the indexer back down to
+	// startup. Cheap calls return well under it, so a high value costs nothing
+	// on the happy path.
+	RPCTimeout                   time.Duration = 5 * time.Second
 	mainnetMinHistoryDropSeconds               = uint64((14 * day).Seconds())
 	testnetMinHistoryDropSeconds               = uint64((2 * day).Seconds())
 )
@@ -54,8 +60,8 @@ func init() {
 			BackoffMaxElapsedTime = time.Duration(*tCfg.BackoffMaxElapsedTimeSeconds) * time.Second
 		}
 
-		if tCfg.TimeoutMillis > 0 {
-			Timeout = time.Duration(tCfg.TimeoutMillis) * time.Millisecond
+		if tCfg.RPCTimeoutMillis > 0 {
+			RPCTimeout = time.Duration(tCfg.RPCTimeoutMillis) * time.Millisecond
 		}
 
 		loggerCfg := config.LoggerConfig()
@@ -175,7 +181,7 @@ func (c IndexerConfig) IsFspMode() bool {
 
 type TimeoutConfig struct {
 	BackoffMaxElapsedTimeSeconds *int `toml:"backoff_max_elapsed_time_seconds"`
-	TimeoutMillis                int  `toml:"timeout_millis"`
+	RPCTimeoutMillis             int  `toml:"rpc_timeout_millis"`
 }
 
 type TransactionInfo struct {
@@ -266,11 +272,13 @@ func parseConfigFile(cfg *Config, fileName string) error {
 	if err != nil {
 		return fmt.Errorf("error parsing config file: %w", err)
 	}
+	renamedKeys := map[string]string{
+		"indexer.num_parallel_req": "indexer.rpc_concurrency",
+		"timeout.timeout_millis":   "timeout.rpc_timeout_millis",
+	}
 	for _, key := range md.Undecoded() {
-		if key.String() == "indexer.num_parallel_req" {
-			return fmt.Errorf(
-				"config key \"indexer.num_parallel_req\" has been renamed to \"indexer.rpc_concurrency\"",
-			)
+		if newName, ok := renamedKeys[key.String()]; ok {
+			return fmt.Errorf("config key %q has been renamed to %q", key.String(), newName)
 		}
 	}
 	return nil
