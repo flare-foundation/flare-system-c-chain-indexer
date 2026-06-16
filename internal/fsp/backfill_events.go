@@ -84,7 +84,7 @@ func fetchEventRangeLogsChunk(
 	logs, err := boff.RetryWithMaxElapsed(
 		ctx,
 		func() ([]avxTypes.Log, error) {
-			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
+			ctx, cancelFunc := context.WithTimeout(ctx, config.RPCTimeout)
 			defer cancelFunc()
 
 			return ci.Client().FilterLogs(ctx, query)

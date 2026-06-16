@@ -30,7 +30,7 @@ func (ci *Engine) fetchBlock(ctx context.Context, index *uint64) (*chain.Block, 
 	return boff.RetryWithMaxElapsed(
 		ctx,
 		func() (*chain.Block, error) {
-			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
+			ctx, cancelFunc := context.WithTimeout(ctx, config.RPCTimeout)
 			defer cancelFunc()
 
 			return ci.client.BlockByNumber(ctx, indexBigInt)
@@ -45,7 +45,7 @@ func (ci *Engine) fetchBlockHeader(ctx context.Context, index *uint64) (*chain.H
 	return boff.RetryWithMaxElapsed(
 		ctx,
 		func() (*chain.Header, error) {
-			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
+			ctx, cancelFunc := context.WithTimeout(ctx, config.RPCTimeout)
 			defer cancelFunc()
 
 			return ci.client.HeaderByNumber(ctx, indexBigInt)

@@ -84,7 +84,7 @@ func (ci *Engine) fetchReceiptAt(
 	receipt, err := boff.RetryWithMaxElapsed(
 		ctx,
 		func() (*chain.Receipt, error) {
-			ctx, cancelFunc := context.WithTimeout(ctx, config.Timeout)
+			ctx, cancelFunc := context.WithTimeout(ctx, config.RPCTimeout)
 			defer cancelFunc()
 
 			return ci.client.TransactionReceipt(ctx, tx.Hash())
