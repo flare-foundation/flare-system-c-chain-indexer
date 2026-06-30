@@ -152,3 +152,28 @@ func getDBStates(ctx context.Context, db *gorm.DB) (map[string]*State, error) {
 
 	return newStates, nil
 }
+
+// ResumeIndex returns the block continuous indexing should resume from: one
+// past the higher of historyLastIndex (the startup tip) and the latest block
+// already persisted. On a retry this avoids rewinding to the startup tip and
+// re-processing everything indexed since.
+func ResumeIndex(historyLastIndex, latestIndexedBlock uint64) uint64 {
+	resumeAfter := historyLastIndex
+	if latestIndexedBlock > resumeAfter {
+		resumeAfter = latestIndexedBlock
+	}
+	return resumeAfter + 1
+}
+
+// ContinuousStartIndex resolves ResumeIndex against the latest block persisted
+// in the database (the same progress source getStartIndex uses on restart).
+// Call it inside the retry loop so each attempt re-reads real progress instead
+// of reusing the startup tip.
+func ContinuousStartIndex(db *gorm.DB, historyLastIndex uint64) (uint64, error) {
+	var latestIndexedBlock Block
+	err := db.Last(&Block{}).Select("number").Scan(&latestIndexedBlock).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, errors.Wrap(err, "ContinuousStartIndex: query latest block")
+	}
+	return ResumeIndex(historyLastIndex, latestIndexedBlock.Number), nil
+}
