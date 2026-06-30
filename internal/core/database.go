@@ -62,16 +62,17 @@ func (ci *Engine) saveData(
 
 	// Advance states only after the data transaction has committed, so they
 	// understate rather than overstate coverage. INSERT IGNORE makes the data
-	// writes idempotent, so a crash between commit and these calls just causes
-	// the next batch to re-process and self-correct.
-	if first := lowestBlock(data.Blocks); first != nil {
-		err := database.CreateStateIfMissing(ci.db, database.BlockFloor, first.Number, first.Timestamp)
-		if err != nil {
-			return errors.Wrap(err, "saveData: CreateStateIfMissing")
-		}
+	// writes idempotent, so a crash between that commit and these writes just
+	// causes the next batch to re-process and self-correct.
+	//
+	// WriteCoverageStates moves LastIndexed and the floor together atomically; on
+	// a history_epochs raise the floor lowers while LastIndexed regresses to the
+	// re-indexed batch, and the pair must never be split (see its doc comment).
+	first := lowestBlock(data.Blocks)
+	if first == nil {
+		return database.UpdateState(ci.db, database.LastIndexed, lastDBIndex, lastDBTimestamp)
 	}
-
-	return database.UpdateState(ci.db, database.LastIndexed, lastDBIndex, lastDBTimestamp)
+	return database.WriteCoverageStates(ci.db, lastDBIndex, lastDBTimestamp, first.Number, first.Timestamp)
 }
 
 func lowestBlock(blocks []*database.Block) *database.Block {

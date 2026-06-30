@@ -11,6 +11,11 @@ import (
 
 const searchWindowBlocks = uint64(5 * 24 * 3600) // Heuristic: 5 days of blocks, assuming 1 sec per block
 
+// blockTimeLookup returns the timestamp of a block by number. It is the only
+// chain dependency of the search, injected so the search/guard logic can be
+// unit-tested against a synthetic chain without an RPC node.
+type blockTimeLookup func(ctx context.Context, blockNumber uint64) (uint64, error)
+
 // GetNearestBlockByTimestampFromChain returns the first block in [startBlockNumber, endBlockNumber]
 // whose timestamp is greater than or equal to searchTimestamp.
 func GetNearestBlockByTimestampFromChain(
@@ -19,6 +24,21 @@ func GetNearestBlockByTimestampFromChain(
 	client *Client,
 	startBlockNumber uint64,
 	endBlockNumber uint64,
+) (uint64, error) {
+	return nearestBlockByTimestamp(
+		ctx, searchTimestamp, startBlockNumber, endBlockNumber,
+		func(ctx context.Context, blockNumber uint64) (uint64, error) {
+			return blockTimestampByNumber(ctx, client, blockNumber)
+		},
+	)
+}
+
+func nearestBlockByTimestamp(
+	ctx context.Context,
+	searchTimestamp uint64,
+	startBlockNumber uint64,
+	endBlockNumber uint64,
+	blockTime blockTimeLookup,
 ) (uint64, error) {
 	logger.Debugf(
 		"Block search starting: search_timestamp=%d, start_block=%d, end_block=%d",
@@ -37,20 +57,32 @@ func GetNearestBlockByTimestampFromChain(
 
 		var err error
 		for candidateBlockTime > searchTimestamp {
+			// Guard the uint64 subtraction: never step below genesis. On short
+			// chains / freshly reset nodes endBlockNumber can be below
+			// searchWindowBlocks, and a searchTimestamp older than genesis would
+			// otherwise loop until startCandidate underflows past 0 and we query a
+			// non-existent block. Floor at 0 and let the binary search resolve.
+			if startCandidate < searchWindowBlocks {
+				startCandidate = 0
+				break
+			}
+
 			startCandidate -= searchWindowBlocks
-			candidateBlockTime, err = blockTimestampByNumber(ctx, client, startCandidate)
+			candidateBlockTime, err = blockTime(ctx, startCandidate)
 			if err != nil {
 				return 0, errors.Wrap(err, "GetNearestBlockByTimestampFromChain")
 			}
 		}
 
 		searchStartBlockNumber = startCandidate
-		searchEndBlockNumber = startCandidate + searchWindowBlocks
+		// Clamp to endBlockNumber: when the window is floored at genesis the
+		// nominal upper bound can exceed the chain head.
+		searchEndBlockNumber = min(startCandidate+searchWindowBlocks, endBlockNumber)
 		logger.Debugf("Block search window narrowed: from=%d, to=%d", searchStartBlockNumber, searchEndBlockNumber)
 	}
 
 	blockNumber, err := binarySearchBlockByTimestamp(
-		ctx, searchTimestamp, client, searchStartBlockNumber, searchEndBlockNumber,
+		ctx, searchTimestamp, searchStartBlockNumber, searchEndBlockNumber, blockTime,
 	)
 	if err != nil {
 		return 0, errors.Wrap(err, "GetNearestBlockByTimestampFromChain")
@@ -63,9 +95,9 @@ func GetNearestBlockByTimestampFromChain(
 func binarySearchBlockByTimestamp(
 	ctx context.Context,
 	searchTimestamp uint64,
-	client *Client,
 	startBlockNumber uint64,
 	endBlockNumber uint64,
+	blockTime blockTimeLookup,
 ) (uint64, error) {
 	low := startBlockNumber
 	high := endBlockNumber
@@ -73,12 +105,12 @@ func binarySearchBlockByTimestamp(
 	for low < high {
 		mid := low + (high-low)/2
 
-		blockTime, err := blockTimestampByNumber(ctx, client, mid)
+		ts, err := blockTime(ctx, mid)
 		if err != nil {
 			return 0, err
 		}
 
-		if blockTime >= searchTimestamp {
+		if ts >= searchTimestamp {
 			high = mid
 		} else {
 			low = mid + 1

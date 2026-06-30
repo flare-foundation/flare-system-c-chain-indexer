@@ -116,3 +116,42 @@ func ContinuousStartIndex(db *gorm.DB, historyLastIndex uint64) (uint64, error) 
 	}
 	return ResumeIndex(historyLastIndex, lastIndexed), nil
 }
+
+// WriteCoverageStates advances LastIndexed and lowers the BlockFloor in a
+// single transaction. The pair must be atomic: when history_epochs is raised
+// across a restart, catchup lowers the floor and regresses LastIndexed to the
+// re-indexed batch together. A lowered floor left paired with a stale, higher
+// LastIndexed would read as a contiguous [floor, LastIndexed] range to the FSP
+// resume guard, which would then resume above the not-yet-reindexed blocks and
+// skip them for good. Either both move or neither does.
+func WriteCoverageStates(db *gorm.DB, lastIndex, lastTimestamp, floorBlock, floorTimestamp uint64) error {
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := UpdateState(tx, LastIndexed, lastIndex, lastTimestamp); err != nil {
+			return errors.Wrap(err, "WriteCoverageStates: LastIndexed")
+		}
+		if err := LowerStateFloor(tx, BlockFloor, floorBlock, floorTimestamp); err != nil {
+			return errors.Wrap(err, "WriteCoverageStates: BlockFloor")
+		}
+		return nil
+	})
+}
+
+// LowerStateFloor writes a coverage-floor row that only ever moves down: it
+// creates the row if missing, then lowers an existing floor toward index, but
+// never raises it (history drop owns raising the floor). It is a no-op when the
+// stored floor is already at or below index, so it is safe to call on every
+// batch — including continuous mode, where the committed block is always above
+// the floor. Two idempotent statements rather than a dialect-specific
+// conditional upsert, so it behaves identically on every backend.
+func LowerStateFloor(db *gorm.DB, name StateName, index, blockTimestamp uint64) error {
+	if err := CreateStateIfMissing(db, name, index, blockTimestamp); err != nil {
+		return err
+	}
+	return db.Model(&State{}).
+		Where("name = ? AND `index` > ?", string(name), index).
+		Updates(map[string]interface{}{
+			"index":           index,
+			"block_timestamp": blockTimestamp,
+			"updated":         time.Now(),
+		}).Error
+}
