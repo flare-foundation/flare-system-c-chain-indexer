@@ -95,3 +95,24 @@ func CreateStateIfMissing(db *gorm.DB, name StateName, index, blockTimestamp uin
 		DoNothing: true,
 	}).Create(state).Error
 }
+
+// ResumeIndex returns the block continuous indexing should resume from: one
+// past the higher of historyLastIndex (the cold-start floor) and the persisted
+// LastIndexed high-water mark.
+func ResumeIndex(historyLastIndex uint64, lastIndexed State) uint64 {
+	resumeAfter := historyLastIndex
+	if IsSet(lastIndexed) && lastIndexed.Index > resumeAfter {
+		resumeAfter = lastIndexed.Index
+	}
+	return resumeAfter + 1
+}
+
+// ContinuousStartIndex resolves ResumeIndex against the persisted LastIndexed
+// state. Call it inside the retry loop so each attempt re-reads real progress.
+func ContinuousStartIndex(db *gorm.DB, historyLastIndex uint64) (uint64, error) {
+	lastIndexed, err := GetState(db, LastIndexed)
+	if err != nil {
+		return 0, errors.Wrap(err, "GetState(LastIndexed)")
+	}
+	return ResumeIndex(historyLastIndex, lastIndexed), nil
+}

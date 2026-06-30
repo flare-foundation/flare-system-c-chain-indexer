@@ -79,7 +79,13 @@ func RunIndexer(
 	err = boff.RetryNoReturn(
 		ctx,
 		func() error {
-			return cIndexer.IndexContinuous(ctx, historyLastIndex+1)
+			// Re-read progress each attempt so a retry resumes from the
+			// high-water mark, not the startup tip.
+			startIndex, err := database.ContinuousStartIndex(db, historyLastIndex)
+			if err != nil {
+				return err
+			}
+			return cIndexer.IndexContinuous(ctx, startIndex)
 		},
 		"IndexContinuous",
 	)
