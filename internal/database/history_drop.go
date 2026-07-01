@@ -58,7 +58,17 @@ func dropHistoryIteration(
 		return errors.Wrap(err, "Failed to get the latest time")
 	}
 
-	return dropHistoryBelow(ctx, db, lastBlockTime-intervalSeconds)
+	return dropHistoryBelow(ctx, db, safeDeleteBoundary(lastBlockTime, intervalSeconds))
+}
+
+// safeDeleteBoundary returns lastBlockTime-intervalSeconds, saturating at 0
+// instead of underflowing into a near-MaxUint64 boundary that would delete
+// everything.
+func safeDeleteBoundary(lastBlockTime, intervalSeconds uint64) uint64 {
+	if intervalSeconds >= lastBlockTime {
+		return 0
+	}
+	return lastBlockTime - intervalSeconds
 }
 
 // dropHistoryBelow runs two symmetric passes sharing one boundary: logs first
@@ -140,7 +150,7 @@ func GetStartBlock(
 		return 0, errors.Wrap(err, "Failed to get the latest block")
 	}
 
-	deleteStartTime := lastBlockTime - historyDropIntervalSeconds
+	deleteStartTime := safeDeleteBoundary(lastBlockTime, historyDropIntervalSeconds)
 
 	// This function is only ever called when starting with an empty DB state
 	// so we can skip the DB check and jump straight to the chain search.
