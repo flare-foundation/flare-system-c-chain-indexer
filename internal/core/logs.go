@@ -51,18 +51,26 @@ func (ci *Engine) fetchLogsChunk(
 	var addresses []common.Address
 	contractAddress := strings.TrimSpace(logInfo.ContractAddress)
 	if contractAddress != "" && !strings.EqualFold(contractAddress, undefined) {
+		if !common.IsHexAddress(contractAddress) {
+			return nil, fmt.Errorf("%s in not a valid address", contractAddress)
+		}
 		addresses = []common.Address{
-			common.HexToAddress(strings.ToLower(contractAddress)),
+			common.HexToAddress(contractAddress),
 		}
 	}
 
 	var topic [][]common.Hash
 	topic0 := strings.TrimSpace(logInfo.Topic)
 	if topic0 != "" && !strings.EqualFold(topic0, undefined) {
-		if !strings.HasPrefix(topic0, "0x") {
-			topic0 = "0x" + topic0
+		t0 := strings.TrimPrefix(strings.ToLower(topic0), "0x")
+		decodedT0, err := hex.DecodeString(t0)
+		if err != nil {
+			return nil, fmt.Errorf("decoding topic0: %w", err)
 		}
-		topic = [][]common.Hash{{common.HexToHash(strings.ToLower(topic0))}}
+		if len(decodedT0) != common.HashLength {
+			return nil, fmt.Errorf("topic0 %s does not have 32 bytes", topic0)
+		}
+		topic = [][]common.Hash{{common.BytesToHash(decodedT0)}}
 	}
 
 	query := interfaces.FilterQuery{

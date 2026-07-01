@@ -50,9 +50,7 @@ func DropHistory(
 // timeouts.
 const deleteBatchSize = 1000
 
-func dropHistoryIteration(
-	ctx context.Context, db *gorm.DB, intervalSeconds uint64, client *chain.Client,
-) error {
+func dropHistoryIteration(ctx context.Context, db *gorm.DB, intervalSeconds uint64, client *chain.Client) error {
 	lastBlockTime, _, err := getBlockTimestamp(ctx, nil, client)
 	if err != nil {
 		return errors.Wrap(err, "Failed to get the latest time")
@@ -127,6 +125,7 @@ func dropAndRaiseFloor(
 
 func firstSurvivingBlock(db *gorm.DB) (uint64, uint64, error) {
 	var block Block
+
 	if err := db.Order("number ASC").First(&block).Error; err != nil {
 		return 0, 0, err
 	}
