@@ -89,7 +89,7 @@ func applyIndexerDefaults(params config.IndexerConfig) config.IndexerConfig {
 		params.RpcConcurrency = 1
 	}
 
-	if params.NewBlockCheckMillis == 0 {
+	if params.NewBlockCheckMillis <= 0 {
 		params.NewBlockCheckMillis = 100
 	}
 
@@ -101,7 +101,10 @@ func buildTransactionPolicies(txInfo []config.TransactionInfo) (map[common.Addre
 
 	for i := range txInfo {
 		transaction := &txInfo[i]
-		contractAddress := parseTransactionAddress(transaction.ContractAddress)
+		contractAddress, err := parseTransactionAddress(transaction.ContractAddress)
+		if err != nil {
+			return nil, fmt.Errorf("parsing address %s: %w", transaction.ContractAddress, err)
+		}
 
 		if _, ok := transactions[contractAddress]; !ok {
 			transactions[contractAddress] = make(map[functionSignature]transactionsPolicy)
@@ -109,7 +112,7 @@ func buildTransactionPolicies(txInfo []config.TransactionInfo) (map[common.Addre
 
 		funcSig, err := parseFuncSig(transaction.FuncSig)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("parsing func sig %s: %w", transaction.FuncSig, err)
 		}
 
 		transactions[contractAddress][funcSig] = transactionsPolicy{
@@ -143,16 +146,20 @@ func parseFuncSig(funcSig string) (functionSignature, error) {
 	return funcSigBytes, nil
 }
 
-func parseTransactionAddress(address string) common.Address {
+func parseTransactionAddress(address string) (common.Address, error) {
 	if address == undefined {
-		return undefinedAddress
+		return undefinedAddress, nil
+	}
+
+	if !common.IsHexAddress(address) {
+		return common.Address{}, errors.New("not an address")
 	}
 
 	if !strings.HasPrefix(address, "0x") {
 		address = fmt.Sprintf("0x%s", address)
 	}
 
-	return common.HexToAddress(address)
+	return common.HexToAddress(address), nil
 }
 
 func (ci *Engine) IndexHistory(ctx context.Context, startIndex uint64) (uint64, error) {

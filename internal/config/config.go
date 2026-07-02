@@ -28,6 +28,8 @@ const (
 	defaultLogRange                                = uint64(1000)
 	defaultRpcConcurrency                          = 100
 	defaultBatchSize                               = uint64(1000)
+	// maxHistoryEpochs guards against a config typo (e.g. an extra digit).
+	maxHistoryEpochs = 1000
 )
 
 var (
@@ -43,6 +45,8 @@ var (
 	RPCTimeout                   time.Duration = 5 * time.Second
 	mainnetMinHistoryDropSeconds               = uint64((14 * day).Seconds())
 	testnetMinHistoryDropSeconds               = uint64((2 * day).Seconds())
+	// maxHistoryDropSeconds guards against a config typo (e.g. wrong units).
+	maxHistoryDropSeconds = uint64((3650 * day).Seconds())
 )
 
 var minHistoryDropSecondsByChain = map[chain.ChainID]uint64{
@@ -128,6 +132,13 @@ func (db *DBConfig) GetHistoryDrop(ctx context.Context, chainIDBig *big.Int) (ui
 		return 0, errors.Errorf(
 			"history drop must be at least %d seconds, got %d seconds",
 			minHistoryDropSeconds,
+			historyDrop,
+		)
+	}
+	if historyDrop > maxHistoryDropSeconds {
+		return 0, errors.Errorf(
+			"history drop must be at most %d seconds, got %d seconds",
+			maxHistoryDropSeconds,
 			historyDrop,
 		)
 	}
@@ -244,6 +255,10 @@ func normalizeIndexerConfig(cfg *IndexerConfig) error {
 			cfg.CollectTransactions,
 			cfg.CollectLogs,
 		)
+	}
+
+	if cfg.HistoryEpochs > maxHistoryEpochs {
+		return errors.Errorf("indexer.history_epochs must be at most %d, got %d", maxHistoryEpochs, cfg.HistoryEpochs)
 	}
 
 	if cfg.LogRange == 0 {

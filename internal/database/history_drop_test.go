@@ -18,6 +18,26 @@ import (
 // a scratch database history_drop_test is created and dropped per scenario.
 const testDSNEnv = "HISTORY_DROP_TEST_DSN"
 
+func TestSafeDeleteBoundary(t *testing.T) {
+	tests := []struct {
+		name            string
+		lastBlockTime   uint64
+		intervalSeconds uint64
+		want            uint64
+	}{
+		{"interval smaller than chain age subtracts normally", 1_000_000, 100, 999_900},
+		{"interval larger than chain age saturates at 0", 1_000_000, 2_000_000, 0},
+		{"interval exactly equal to chain age saturates at 0", 1_000_000, 1_000_000, 0},
+		{"zero interval keeps the full chain time as the boundary", 1_000_000, 0, 1_000_000},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, safeDeleteBoundary(tc.lastBlockTime, tc.intervalSeconds))
+		})
+	}
+}
+
 func TestDropHistoryFloors(t *testing.T) {
 	dsn := os.Getenv(testDSNEnv)
 	if dsn == "" {

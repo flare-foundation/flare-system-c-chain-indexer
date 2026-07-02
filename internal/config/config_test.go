@@ -1,10 +1,14 @@
 package config
 
 import (
+	"context"
+	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
 )
 
 func writeTempConfig(t *testing.T, content string) string {
@@ -49,6 +53,21 @@ func TestParseConfigFileRejectsRenamedKeys(t *testing.T) {
 				t.Fatalf("error should name both old and new keys, got: %s", err)
 			}
 		})
+	}
+}
+
+func TestNormalizeIndexerConfigRejectsExcessiveHistoryEpochs(t *testing.T) {
+	cfg := IndexerConfig{Mode: IndexerModeFsp, HistoryEpochs: maxHistoryEpochs + 1}
+	if err := normalizeIndexerConfig(&cfg); err == nil {
+		t.Fatal("expected error for history_epochs above the max, got nil")
+	}
+}
+
+func TestGetHistoryDropRejectsExcessiveValue(t *testing.T) {
+	tooLarge := maxHistoryDropSeconds + 1
+	cfg := DBConfig{HistoryDrop: &tooLarge}
+	if _, err := cfg.GetHistoryDrop(context.Background(), big.NewInt(int64(chain.ChainIDFlare))); err == nil {
+		t.Fatal("expected error for history_drop above the max, got nil")
 	}
 }
 
