@@ -52,7 +52,7 @@ func (ci *Engine) fetchLogsChunk(
 	contractAddress := strings.TrimSpace(logInfo.ContractAddress)
 	if contractAddress != "" && !strings.EqualFold(contractAddress, undefined) {
 		if !common.IsHexAddress(contractAddress) {
-			return nil, fmt.Errorf("%s in not a valid address", contractAddress)
+			return nil, fmt.Errorf("%s is not a valid address", contractAddress)
 		}
 		addresses = []common.Address{
 			common.HexToAddress(contractAddress),
