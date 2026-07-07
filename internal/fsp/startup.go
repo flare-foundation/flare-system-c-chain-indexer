@@ -155,7 +155,9 @@ func resolveFullStartBlock(
 
 	epochStartBlock := info.RewardEpochStartBlock
 	if epochStartBlock > latestConfirmedNumber {
-		return latestConfirmedNumber, 0, nil
+		// Oldest wanted epoch starts above the confirmed tip: full indexing
+		// starts at the tip; the event backfill still anchors on startEpochID.
+		return latestConfirmedNumber, startEpochID, nil
 	}
 
 	epochStartTimestamp, err := ci.FetchBlockTimestamp(ctx, epochStartBlock)
