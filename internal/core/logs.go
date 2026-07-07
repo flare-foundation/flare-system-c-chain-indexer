@@ -45,32 +45,61 @@ func (ci *Engine) requestLogs(
 	return nil
 }
 
+// validateCollectLogs parses every collect_logs filter once at engine
+// construction so a config typo fails startup rather than at fetch time.
+func validateCollectLogs(logInfos []config.LogInfo) error {
+	for _, logInfo := range logInfos {
+		if _, err := parseLogAddresses(logInfo.ContractAddress); err != nil {
+			return fmt.Errorf("collect_logs address %q: %w", logInfo.ContractAddress, err)
+		}
+		if _, err := parseLogTopics(logInfo.Topic); err != nil {
+			return fmt.Errorf("collect_logs topic %q: %w", logInfo.Topic, err)
+		}
+	}
+	return nil
+}
+
+// parseLogAddresses returns the address filter for a collect_logs entry: nil
+// (no filter) for empty/"undefined", or the single parsed address.
+func parseLogAddresses(contractAddress string) ([]common.Address, error) {
+	contractAddress = strings.TrimSpace(contractAddress)
+	if contractAddress == "" || strings.EqualFold(contractAddress, undefined) {
+		return nil, nil
+	}
+	if !common.IsHexAddress(contractAddress) {
+		return nil, fmt.Errorf("%s is not a valid address", contractAddress)
+	}
+	return []common.Address{common.HexToAddress(contractAddress)}, nil
+}
+
+// parseLogTopics returns the topic0 filter for a collect_logs entry: nil (no
+// filter) for empty/"undefined", or the single parsed 32-byte topic.
+func parseLogTopics(topic0 string) ([][]common.Hash, error) {
+	topic0 = strings.TrimSpace(topic0)
+	if topic0 == "" || strings.EqualFold(topic0, undefined) {
+		return nil, nil
+	}
+	decoded, err := hex.DecodeString(strings.TrimPrefix(strings.ToLower(topic0), "0x"))
+	if err != nil {
+		return nil, fmt.Errorf("decoding topic0: %w", err)
+	}
+	if len(decoded) != common.HashLength {
+		return nil, fmt.Errorf("topic0 %s does not have 32 bytes", topic0)
+	}
+	return [][]common.Hash{{common.BytesToHash(decoded)}}, nil
+}
+
 func (ci *Engine) fetchLogsChunk(
 	ctx context.Context, logInfo config.LogInfo, fromBlock, toBlock uint64,
 ) ([]types.Log, error) {
-	var addresses []common.Address
-	contractAddress := strings.TrimSpace(logInfo.ContractAddress)
-	if contractAddress != "" && !strings.EqualFold(contractAddress, undefined) {
-		if !common.IsHexAddress(contractAddress) {
-			return nil, fmt.Errorf("%s is not a valid address", contractAddress)
-		}
-		addresses = []common.Address{
-			common.HexToAddress(contractAddress),
-		}
+	addresses, err := parseLogAddresses(logInfo.ContractAddress)
+	if err != nil {
+		return nil, err
 	}
 
-	var topic [][]common.Hash
-	topic0 := strings.TrimSpace(logInfo.Topic)
-	if topic0 != "" && !strings.EqualFold(topic0, undefined) {
-		t0 := strings.TrimPrefix(strings.ToLower(topic0), "0x")
-		decodedT0, err := hex.DecodeString(t0)
-		if err != nil {
-			return nil, fmt.Errorf("decoding topic0: %w", err)
-		}
-		if len(decodedT0) != common.HashLength {
-			return nil, fmt.Errorf("topic0 %s does not have 32 bytes", topic0)
-		}
-		topic = [][]common.Hash{{common.BytesToHash(decodedT0)}}
+	topic, err := parseLogTopics(logInfo.Topic)
+	if err != nil {
+		return nil, err
 	}
 
 	query := interfaces.FilterQuery{
