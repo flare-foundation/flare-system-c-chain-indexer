@@ -56,6 +56,9 @@ func NewEngine(
 	if err != nil {
 		return nil, err
 	}
+	if err := validateCollectLogs(cfg.Indexer.CollectLogs); err != nil {
+		return nil, err
+	}
 	if contractResolver == nil {
 		return nil, errors.New("contract resolver is required")
 	}
