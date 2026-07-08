@@ -2,13 +2,11 @@ package fsp
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/core"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	systemcontract "github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"
@@ -124,7 +122,7 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 func resolveFullStartBlock(
 	ctx context.Context,
 	ci *core.Engine,
-	fsm *systemcontract.FlareSystemsManagerCaller,
+	fsm fsmReader,
 	latestConfirmedNumber uint64,
 	latestConfirmedTimestamp uint64,
 ) (uint64, uint64, error) {
@@ -143,14 +141,31 @@ func resolveFullStartBlock(
 		return startBlock, currentEpochID, nil
 	}
 
-	startEpochID := uint64(0)
-	if params.HistoryEpochs-1 < currentEpochID {
-		startEpochID = currentEpochID - (params.HistoryEpochs - 1)
-	}
-
-	info, err := fsm.GetRewardEpochStartInfo(&bind.CallOpts{Context: ctx}, new(big.Int).SetUint64(startEpochID))
+	desiredEpochID := historyStartEpochID(currentEpochID, params.HistoryEpochs)
+	startEpochID, info, ok, err := oldestEpochWithStartInfo(ctx, fsm, desiredEpochID, currentEpochID)
 	if err != nil {
-		return 0, 0, errors.Wrapf(err, "getRewardEpochStartInfo(%d)", startEpochID)
+		return 0, 0, err
+	}
+	if !ok {
+		// No epoch has start data yet (an FSM deployment still in its bootstrap
+		// epoch): fall back to the lookback window rather than resolving a zero
+		// start block, which would full-index from genesis.
+		logger.Warnf(
+			"No reward epoch in [%d, %d] has FSP start data; falling back to a %ds lookback from the confirmed tip",
+			desiredEpochID, currentEpochID, params.FspTxLookbackSeconds,
+		)
+		startBlock, err := findStartBlockByLookback(ctx, ci, latestConfirmedTimestamp, latestConfirmedNumber)
+		if err != nil {
+			return 0, 0, errors.Wrap(err, "find FSP catchup start block by timestamp")
+		}
+
+		return startBlock, currentEpochID, nil
+	}
+	if startEpochID > desiredEpochID {
+		logger.Warnf(
+			"history_epochs=%d requests reward epoch %d, but the oldest epoch with FSP start data is %d; clamping",
+			params.HistoryEpochs, desiredEpochID, startEpochID,
+		)
 	}
 
 	epochStartBlock := info.RewardEpochStartBlock
@@ -160,12 +175,7 @@ func resolveFullStartBlock(
 		return latestConfirmedNumber, startEpochID, nil
 	}
 
-	epochStartTimestamp, err := ci.FetchBlockTimestamp(ctx, epochStartBlock)
-	if err != nil {
-		return 0, 0, errors.Wrapf(err, "fetch start epoch timestamp for block %d", epochStartBlock)
-	}
-
-	startBlock, err := findStartBlockByLookback(ctx, ci, epochStartTimestamp, epochStartBlock)
+	startBlock, err := findStartBlockByLookback(ctx, ci, info.RewardEpochStartTs, epochStartBlock)
 	if err != nil {
 		return 0, 0, errors.Wrapf(err, "find start block from epoch %d with lookback", startEpochID)
 	}
