@@ -34,7 +34,7 @@ Use [`config.example.toml`](config.example.toml) as the single config template. 
 
 #### Mode selection
 
-- `indexer.mode = "fsp"`: use this when running as part of the FSP provider stack. Required FSP transactions/logs are hardcoded and auto-applied, so you do not need to specify `[[indexer.collect_transactions]]` or `[[indexer.collect_logs]]` in config (you can still add extra entries; they are merged and deduplicated). FSP startup indexes only the recent data needed for FSP operation instead of the full block history, which makes startup significantly faster. In this mode, `indexer.start_index` and `db.history_drop` are ignored; retention is derived from `indexer.history_epochs`.
+- `indexer.mode = "fsp"`: use this when running as part of the FSP provider stack. Required FSP transactions/logs are hardcoded and auto-applied, so you do not need to specify `[[indexer.collect_transactions]]` or `[[indexer.collect_logs]]` in config (you can still add extra entries; they are merged and deduplicated). FSP startup indexes only the recent data needed for FSP operation instead of the full block history, which makes startup significantly faster. In this mode, `indexer.start_index` and `db.history_drop` are ignored; retention follows the on-chain start data of the oldest reward epoch implied by `indexer.history_epochs`, so it stays correct even when reward epoch starts are delayed.
 - `indexer.mode = "full"`: use this for a generic C-chain indexer. In this mode you should define what to index via `[[indexer.collect_transactions]]` and `[[indexer.collect_logs]]`.
 
 #### Contract addressing
@@ -53,7 +53,7 @@ Within a batch, block fetching and log fetching run concurrently (they have no d
 
 #### Startup and history (full mode)
 
-The behavior described in this section applies to **full mode** only. FSP mode derives its start block and retention from `indexer.history_epochs`, and ignores both `indexer.start_index` and `db.history_drop`.
+The behavior described in this section applies to **full mode** only. FSP mode derives its start block and retention from `indexer.history_epochs` and the corresponding epochs' on-chain start data, and ignores both `indexer.start_index` and `db.history_drop`.
 
 If the C chain indexer has been previously run and there is existing data in the database,
 subsequent runs will resume indexing from after the last indexed block. Only when starting with an

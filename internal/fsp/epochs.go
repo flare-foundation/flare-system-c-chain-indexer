@@ -144,6 +144,34 @@ func fspEventAnchor(ctx context.Context, fsm fsmReader, lo, hi uint64) (eventAnc
 	}, true, nil
 }
 
+// retentionMarginSeconds keeps the history-drop boundary a safety margin
+// below the event anchor, so deletion never races the exact block the
+// backfill guarantees coverage from.
+const retentionMarginSeconds = uint64(60 * 60)
+
+// fspRetentionBoundary returns the timestamp below which history drop may
+// delete: a safety margin below the event anchor of the oldest epoch whose
+// metadata the indexer must serve (two epochs before the history_epochs
+// window, matching the startup backfill). It is recomputed from chain state
+// on every call, so the retention window slides forward as epochs switch
+// over — and, because the anchor is recorded epoch data rather than
+// history_epochs times a nominal duration, it stays correct when an epoch
+// start is delayed. Returns 0 (delete nothing) while no epoch has start data.
+func fspRetentionBoundary(ctx context.Context, fsm fsmReader, historyEpochs uint64) (uint64, error) {
+	currentEpochID, err := fspCurrentEpochID(ctx, fsm)
+	if err != nil {
+		return 0, err
+	}
+
+	firstEpochID := saturatingSub(historyStartEpochID(currentEpochID, historyEpochs), 2)
+	anchor, ok, err := fspEventAnchor(ctx, fsm, firstEpochID, currentEpochID)
+	if err != nil || !ok {
+		return 0, err
+	}
+
+	return saturatingSub(anchor.timestamp, retentionMarginSeconds), nil
+}
+
 // fspEventBackfillAnchor returns the block from which to backfill FSP events:
 // the event anchor of the epoch two before startEpochID, so consumers also
 // have the boundary events of the epoch preceding the oldest one they

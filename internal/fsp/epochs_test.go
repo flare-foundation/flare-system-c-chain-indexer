@@ -179,6 +179,53 @@ func TestFspEventBackfillAnchor(t *testing.T) {
 	})
 }
 
+func TestFspRetentionBoundary(t *testing.T) {
+	t.Run("margin below the oldest needed epoch's random acquisition", func(t *testing.T) {
+		fsm := &fakeFSM{current: 250, epochs: startedEpochs(223, 250)}
+
+		boundary, err := fspRetentionBoundary(context.Background(), fsm, 5)
+		require.NoError(t, err)
+		// history window starts at 246, metadata window two epochs earlier.
+		require.Equal(t, fsm.epochs[244].raTs-retentionMarginSeconds, boundary)
+	})
+
+	t.Run("delayed epoch start extends retention", func(t *testing.T) {
+		fsm := &fakeFSM{current: 250, epochs: startedEpochs(223, 250)}
+		delayed := fsm.epochs[244]
+		delayed.startTs += 500_000
+		delayed.startBlock += 500_000
+		fsm.epochs[244] = delayed
+
+		boundary, err := fspRetentionBoundary(context.Background(), fsm, 5)
+		require.NoError(t, err)
+		require.Equal(t, delayed.raTs-retentionMarginSeconds, boundary)
+	})
+
+	t.Run("epoch without random acquisition falls back to lead window", func(t *testing.T) {
+		fsm := &fakeFSM{current: 250, epochs: startedEpochs(223, 250)}
+
+		boundary, err := fspRetentionBoundary(context.Background(), fsm, 26)
+		require.NoError(t, err)
+		require.Equal(t, fsm.epochs[223].startTs-fspEventLeadSeconds-retentionMarginSeconds, boundary)
+	})
+
+	t.Run("history_epochs zero keeps the current epoch's window", func(t *testing.T) {
+		fsm := &fakeFSM{current: 250, epochs: startedEpochs(223, 250)}
+
+		boundary, err := fspRetentionBoundary(context.Background(), fsm, 0)
+		require.NoError(t, err)
+		require.Equal(t, fsm.epochs[248].raTs-retentionMarginSeconds, boundary)
+	})
+
+	t.Run("no epoch data deletes nothing", func(t *testing.T) {
+		fsm := &fakeFSM{current: 5, epochs: map[uint64]fakeEpoch{}}
+
+		boundary, err := fspRetentionBoundary(context.Background(), fsm, 3)
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), boundary)
+	})
+}
+
 func TestOldestEpochWithStartInfoAtEpochZero(t *testing.T) {
 	fsm := &fakeFSM{current: 3, epochs: startedEpochs(0, 3)}
 
