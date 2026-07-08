@@ -36,7 +36,7 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 		return 0, err
 	}
 
-	eventStartBlock, err := fspEventBackfillStartBlock(ctx, fsmCaller, startEpochID)
+	eventStartBlock, haveEventAnchor, err := fspEventBackfillAnchor(ctx, fsmCaller, startEpochID)
 	if err != nil {
 		return 0, errors.Wrap(err, "compute FSP event backfill start")
 	}
@@ -63,9 +63,10 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 
 	// FSP events from eventStartBlock up to the catchup start need a log-only
 	// backfill; catchup full-indexes everything from fullStartBlock onward. Skip
-	// it when that region is empty or already covered.
+	// it when there is no anchor to backfill from, or when that region is empty
+	// or already covered.
 	firstFspEvent := states[database.LogFloor]
-	backfillEvents := eventStartBlock < fullStartBlock &&
+	backfillEvents := haveEventAnchor && eventStartBlock < fullStartBlock &&
 		(!database.IsSet(firstFspEvent) || firstFspEvent.Index > eventStartBlock)
 
 	logger.Infof(

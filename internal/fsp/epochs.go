@@ -5,7 +5,6 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	systemcontract "github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 	"github.com/pkg/errors"
 )
 
@@ -83,11 +82,15 @@ func saturatingSub(a, b uint64) uint64 {
 	return a - b
 }
 
-// fspEventLeadBlocks is how far before the oldest reward epoch's start block the
-// FSP event backfill begins, to capture the signing-policy protocol that
-// precedes that epoch. Block offset sized for ~1s blocks (overestimates on
-// chains with slower blocks).
-const fspEventLeadBlocks = uint64(2 * 60 * 60) // ~2h
+// fspEventLeadBlocks / fspEventLeadSeconds approximate how far before a
+// reward epoch's start its signing-policy protocol begins (2h nominal lead,
+// blocks sized for ~1s block times). Used only as a fallback for epochs
+// without recorded random-acquisition data; everywhere else the anchor comes
+// from the exact values the contract recorded.
+const (
+	fspEventLeadBlocks  = uint64(2 * 60 * 60)
+	fspEventLeadSeconds = uint64(2 * 60 * 60)
+)
 
 func fspCurrentEpochID(
 	ctx context.Context,
@@ -104,30 +107,59 @@ func fspCurrentEpochID(
 	return epochIDBig.Uint64(), nil
 }
 
-// fspEventBackfillStartBlock returns the block from which to backfill FSP events.
-// It is ~fspEventLeadBlocks before the start of the oldest reward epoch we need
-// — two epochs before startEpochID, so consumers also have the boundary events
-// of the epoch preceding the oldest one they reconstruct. Events are then
-// scanned continuously from here up to where full-block catchup takes over; a
-// continuous range (not per-epoch windows) is required because community reward
-// offers can be submitted at any point during an epoch.
-func fspEventBackfillStartBlock(
-	ctx context.Context,
-	fsm *systemcontract.FlareSystemsManagerCaller,
-	startEpochID uint64,
-) (uint64, error) {
-	firstEpochID := uint64(0)
-	if startEpochID > 2 {
-		firstEpochID = startEpochID - 2
+// eventAnchor is the point from which an epoch's metadata-event window is
+// fully covered.
+type eventAnchor struct {
+	block     uint64
+	timestamp uint64
+}
+
+// fspEventAnchor resolves the oldest epoch in [lo, hi] with recorded start
+// data and returns the anchor of its metadata-event window: the recorded
+// RandomAcquisitionStarted block/timestamp — the first event of the epoch's
+// signing-policy protocol — which stays correct however long the epoch start
+// was delayed. Epochs without random-acquisition data (an FSM deployment's
+// bootstrap epoch) fall back to the nominal lead window below the epoch
+// start; ok is false when no epoch in range has start data.
+func fspEventAnchor(ctx context.Context, fsm fsmReader, lo, hi uint64) (eventAnchor, bool, error) {
+	epochID, startInfo, ok, err := oldestEpochWithStartInfo(ctx, fsm, lo, hi)
+	if err != nil || !ok {
+		return eventAnchor{}, false, err
 	}
 
-	info, err := fsm.GetRewardEpochStartInfo(&bind.CallOpts{Context: ctx}, new(big.Int).SetUint64(firstEpochID))
+	raInfo, err := fsm.GetRandomAcquisitionInfo(&bind.CallOpts{Context: ctx}, new(big.Int).SetUint64(epochID))
 	if err != nil {
-		return 0, errors.Wrapf(err, "getRewardEpochStartInfo(%d)", firstEpochID)
+		return eventAnchor{}, false, errors.Wrapf(err, "getRandomAcquisitionInfo(%d)", epochID)
+	}
+	if raInfo.RandomAcquisitionStartBlock != 0 {
+		return eventAnchor{
+			block:     raInfo.RandomAcquisitionStartBlock,
+			timestamp: raInfo.RandomAcquisitionStartTs,
+		}, true, nil
 	}
 
-	if info.RewardEpochStartBlock <= fspEventLeadBlocks {
-		return 0, nil
+	return eventAnchor{
+		block:     saturatingSub(startInfo.RewardEpochStartBlock, fspEventLeadBlocks),
+		timestamp: saturatingSub(startInfo.RewardEpochStartTs, fspEventLeadSeconds),
+	}, true, nil
+}
+
+// fspEventBackfillAnchor returns the block from which to backfill FSP events:
+// the event anchor of the epoch two before startEpochID, so consumers also
+// have the boundary events of the epoch preceding the oldest one they
+// reconstruct. Events are then scanned continuously from here up to where
+// full-block catchup takes over; a continuous range (not per-epoch windows)
+// is required because community reward offers can be submitted at any point
+// during an epoch. ok is false when no epoch in range has start data
+// (nothing to backfill).
+func fspEventBackfillAnchor(
+	ctx context.Context,
+	fsm fsmReader,
+	startEpochID uint64,
+) (uint64, bool, error) {
+	anchor, ok, err := fspEventAnchor(ctx, fsm, saturatingSub(startEpochID, 2), startEpochID)
+	if err != nil || !ok {
+		return 0, false, err
 	}
-	return info.RewardEpochStartBlock - fspEventLeadBlocks, nil
+	return anchor.block, true, nil
 }
