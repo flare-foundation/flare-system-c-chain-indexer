@@ -66,6 +66,11 @@ func TestNormalizeIndexerConfig_FspMergesDefaultAndUserCollectors(t *testing.T) 
 	if !containsLog(cfg.CollectLogs, "FlareSystemsManager", getTopic(system.FlareSystemsManagerMetaData, "RewardEpochStarted")) {
 		t.Fatalf("reward epoch log collector missing after merge")
 	}
+	for _, eventName := range []string{"SignUptimeVoteEnabled", "UptimeVoteSigned"} {
+		if !containsLog(cfg.CollectLogs, "FlareSystemsManager", getTopic(system.FlareSystemsManagerMetaData, eventName)) {
+			t.Fatalf("%s log collector missing after merge", eventName)
+		}
+	}
 }
 
 func TestNormalizeIndexerConfig_FullModeDoesNotInjectFspDefaults(t *testing.T) {

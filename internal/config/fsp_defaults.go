@@ -34,11 +34,14 @@ var fspCollectTransactions = []TransactionInfo{
 	},
 }
 
-// Events emitted during the Singing Policy protocol window, can use selective indexing
+// Reward-epoch metadata events (signing-policy protocol window plus epoch
+// lifecycle), can use selective indexing
 var rewardEpochLogs = []LogInfo{
 	{ContractName: "FlareSystemsManager", Topic: getTopic(system.FlareSystemsManagerMetaData, "VotePowerBlockSelected")},
 	{ContractName: "FlareSystemsManager", Topic: getTopic(system.FlareSystemsManagerMetaData, "RandomAcquisitionStarted")},
 	{ContractName: "FlareSystemsManager", Topic: getTopic(system.FlareSystemsManagerMetaData, "RewardEpochStarted")},
+	{ContractName: "FlareSystemsManager", Topic: getTopic(system.FlareSystemsManagerMetaData, "SignUptimeVoteEnabled")},
+	{ContractName: "FlareSystemsManager", Topic: getTopic(system.FlareSystemsManagerMetaData, "UptimeVoteSigned")},
 	{ContractName: "VoterRegistry", Topic: getTopic(registry.RegistryMetaData, "VoterRegistered")},
 	{ContractName: "FlareSystemsCalculator", Topic: getTopic(calculator.CalculatorMetaData, "VoterRegistrationInfo")},
 	{ContractName: "Relay", Topic: getTopic(relay.RelayMetaData, "SigningPolicyInitialized")},
