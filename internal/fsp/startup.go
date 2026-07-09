@@ -14,6 +14,14 @@ import (
 
 const fspFsmContractName = "FlareSystemsManager"
 
+// fspTxLookbackSeconds is how far the full-block window reaches below its
+// base (the confirmed tip for history_epochs=0, the oldest served epoch's
+// start otherwise): a heuristic sized to cover the last ~10 voting rounds of
+// transactions and round data, including rounds still completing across the
+// window edge. Signing-policy events and reward offers do not depend on it —
+// they ride the selective event backfill anchored on recorded epoch data.
+const fspTxLookbackSeconds = uint64(15 * 60)
+
 func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 	latestConfirmedNumber, latestConfirmedTimestamp, err := ci.FetchLastBlockIndex(ctx)
 	if err != nil {
@@ -153,7 +161,7 @@ func resolveFullStartBlock(
 		// start block, which would full-index from genesis.
 		logger.Warnf(
 			"Current reward epoch %d has no FSP start data yet; falling back to a %ds lookback from the confirmed tip",
-			currentEpochID, params.FspTxLookbackSeconds,
+			currentEpochID, fspTxLookbackSeconds,
 		)
 		startBlock, err := findStartBlockByLookback(ctx, ci, latestConfirmedTimestamp, latestConfirmedNumber)
 		if err != nil {
@@ -189,11 +197,7 @@ func findStartBlockByLookback(ctx context.Context, ci *core.Engine, baseTimestam
 		return 0, nil
 	}
 
-	params := ci.Params()
-	searchTimestamp := uint64(0)
-	if baseTimestamp > params.FspTxLookbackSeconds {
-		searchTimestamp = baseTimestamp - params.FspTxLookbackSeconds
-	}
+	searchTimestamp := saturatingSub(baseTimestamp, fspTxLookbackSeconds)
 
 	return chain.GetNearestBlockByTimestampFromChain(
 		ctx,

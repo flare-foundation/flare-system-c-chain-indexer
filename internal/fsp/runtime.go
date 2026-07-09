@@ -25,9 +25,8 @@ func RunIndexer(
 	resolver *contracts.ContractResolver,
 ) error {
 	logger.Infof(
-		"Starting indexer in FSP mode: history_epochs=%d, fsp_tx_lookback_seconds=%d, collect_transactions=%d, collect_logs=%d",
+		"Starting indexer in FSP mode: history_epochs=%d, collect_transactions=%d, collect_logs=%d",
 		cfg.Indexer.HistoryEpochs,
-		cfg.Indexer.FspTxLookbackSeconds,
 		len(cfg.Indexer.CollectTransactions),
 		len(cfg.Indexer.CollectLogs),
 	)
