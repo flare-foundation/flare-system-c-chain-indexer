@@ -143,7 +143,7 @@ func resolveFullStartBlock(
 	}
 
 	desiredEpochID := historyStartEpochID(currentEpochID, params.HistoryEpochs)
-	startEpochID, info, ok, err := oldestEpochWithStartInfo(ctx, fsm, desiredEpochID, currentEpochID)
+	startEpochID, info, ok, err := resolveStartEpoch(ctx, fsm, desiredEpochID, currentEpochID)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -152,8 +152,8 @@ func resolveFullStartBlock(
 		// epoch): fall back to the lookback window rather than resolving a zero
 		// start block, which would full-index from genesis.
 		logger.Warnf(
-			"No reward epoch in [%d, %d] has FSP start data; falling back to a %ds lookback from the confirmed tip",
-			desiredEpochID, currentEpochID, params.FspTxLookbackSeconds,
+			"Current reward epoch %d has no FSP start data yet; falling back to a %ds lookback from the confirmed tip",
+			currentEpochID, params.FspTxLookbackSeconds,
 		)
 		startBlock, err := findStartBlockByLookback(ctx, ci, latestConfirmedTimestamp, latestConfirmedNumber)
 		if err != nil {
@@ -163,8 +163,8 @@ func resolveFullStartBlock(
 		return startBlock, currentEpochID, nil
 	}
 	if startEpochID > desiredEpochID {
-		logger.Warnf(
-			"history_epochs=%d requests reward epoch %d, but the oldest epoch with FSP start data is %d; clamping",
+		logger.Errorf(
+			"history_epochs=%d requests reward epoch %d, but this FSM deployment's start data begins at epoch %d; catching up from there — lower history_epochs to fit the deployment",
 			params.HistoryEpochs, desiredEpochID, startEpochID,
 		)
 	}

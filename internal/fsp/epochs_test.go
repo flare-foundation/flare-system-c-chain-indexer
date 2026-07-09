@@ -19,8 +19,9 @@ type fakeEpoch struct {
 // fakeFSM serves epoch data from a map; epochs without an entry read as
 // zero-valued, matching the contract's bare storage reads.
 type fakeFSM struct {
-	current uint64
-	epochs  map[uint64]fakeEpoch
+	current        uint64
+	epochs         map[uint64]fakeEpoch
+	startInfoCalls int
 }
 
 func (f *fakeFSM) GetCurrentRewardEpochId(_ *bind.CallOpts) (*big.Int, error) {
@@ -28,6 +29,7 @@ func (f *fakeFSM) GetCurrentRewardEpochId(_ *bind.CallOpts) (*big.Int, error) {
 }
 
 func (f *fakeFSM) GetRewardEpochStartInfo(_ *bind.CallOpts, rewardEpochID *big.Int) (rewardEpochStartInfo, error) {
+	f.startInfoCalls++
 	e := f.epochs[rewardEpochID.Uint64()]
 	return rewardEpochStartInfo{
 		RewardEpochStartTs:    e.startTs,
@@ -83,24 +85,25 @@ func TestHistoryStartEpochID(t *testing.T) {
 	}
 }
 
-func TestOldestEpochWithStartInfo(t *testing.T) {
+func TestResolveStartEpoch(t *testing.T) {
 	fsm := &fakeFSM{current: 250, epochs: startedEpochs(223, 250)}
 
 	tests := []struct {
-		name   string
-		lo, hi uint64
-		wantID uint64
-		wantOk bool
+		name             string
+		desired, current uint64
+		wantID           uint64
+		wantOk           bool
 	}{
-		{name: "whole range has data", lo: 240, hi: 250, wantID: 240, wantOk: true},
-		{name: "clamps to oldest with data", lo: 100, hi: 250, wantID: 223, wantOk: true},
-		{name: "range below data", lo: 0, hi: 222, wantOk: false},
-		{name: "single epoch with data", lo: 223, hi: 223, wantID: 223, wantOk: true},
-		{name: "single epoch without data", lo: 5, hi: 5, wantOk: false},
+		{name: "desired epoch has data", desired: 240, current: 250, wantID: 240, wantOk: true},
+		{name: "shrinks the window to the oldest epoch with data", desired: 100, current: 250, wantID: 223, wantOk: true},
+		{name: "expired epochs still resolve", desired: 223, current: 250, wantID: 223, wantOk: true},
+		{name: "no epoch up to current has data", desired: 0, current: 222, wantOk: false},
+		{name: "desired equals current with data", desired: 250, current: 250, wantID: 250, wantOk: true},
+		{name: "desired equals current without data", desired: 5, current: 5, wantOk: false},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			id, info, ok, err := oldestEpochWithStartInfo(context.Background(), fsm, tc.lo, tc.hi)
+			id, info, ok, err := resolveStartEpoch(context.Background(), fsm, tc.desired, tc.current)
 			require.NoError(t, err)
 			require.Equal(t, tc.wantOk, ok)
 			if ok {
@@ -110,6 +113,15 @@ func TestOldestEpochWithStartInfo(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("steady state resolves with a single contract read", func(t *testing.T) {
+		fsm := &fakeFSM{current: 250, epochs: startedEpochs(223, 250)}
+
+		_, _, ok, err := resolveStartEpoch(context.Background(), fsm, 240, 250)
+		require.NoError(t, err)
+		require.True(t, ok)
+		require.Equal(t, 1, fsm.startInfoCalls)
+	})
 }
 
 func TestFspEventBackfillAnchor(t *testing.T) {
@@ -224,12 +236,24 @@ func TestFspRetentionBoundary(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, uint64(0), boundary)
 	})
+
+	t.Run("history window below data deletes nothing", func(t *testing.T) {
+		fsm := &fakeFSM{current: 250, epochs: startedEpochs(223, 250)}
+
+		// history window starts at 211, below the oldest epoch with data:
+		// retention keeps honoring the configured window rather than shrinking
+		// it like startup, so nothing is deleted until the window slides into
+		// recorded epochs.
+		boundary, err := fspRetentionBoundary(context.Background(), fsm, 40)
+		require.NoError(t, err)
+		require.Equal(t, uint64(0), boundary)
+	})
 }
 
-func TestOldestEpochWithStartInfoAtEpochZero(t *testing.T) {
+func TestResolveStartEpochAtEpochZero(t *testing.T) {
 	fsm := &fakeFSM{current: 3, epochs: startedEpochs(0, 3)}
 
-	id, _, ok, err := oldestEpochWithStartInfo(context.Background(), fsm, 0, 3)
+	id, _, ok, err := resolveStartEpoch(context.Background(), fsm, 0, 3)
 	require.NoError(t, err)
 	require.True(t, ok)
 	require.Equal(t, uint64(0), id)

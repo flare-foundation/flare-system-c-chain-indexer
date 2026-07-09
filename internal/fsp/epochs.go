@@ -43,36 +43,37 @@ func historyStartEpochID(currentEpochID, historyEpochs uint64) uint64 {
 	return currentEpochID - (historyEpochs - 1)
 }
 
-// oldestEpochWithStartInfo finds the lowest epoch in [lo, hi] with recorded
-// start data. The FSM writes start info at every epoch switchover, so within
-// one deployment it is zero up to some epoch (pre-FSP epochs, or everything
-// before a redeployed FSM's bootstrap epoch) and non-zero from there on —
-// the monotone split binary search requires.
-func oldestEpochWithStartInfo(
-	ctx context.Context, fsm fsmReader, lo, hi uint64,
+func epochStartInfo(ctx context.Context, fsm fsmReader, epochID uint64) (rewardEpochStartInfo, error) {
+	info, err := fsm.GetRewardEpochStartInfo(&bind.CallOpts{Context: ctx}, new(big.Int).SetUint64(epochID))
+	if err != nil {
+		return rewardEpochStartInfo{}, errors.Wrapf(err, "getRewardEpochStartInfo(%d)", epochID)
+	}
+	return info, nil
+}
+
+// resolveStartEpoch returns the reward epoch the indexer serves history from:
+// desiredEpochID when the FSM has start data recorded for it — a single read,
+// the steady-state path — otherwise the oldest epoch above it that does.
+// getRewardEpochStartInfo is a bare storage read that returns zeros for
+// epochs the current FSM deployment never started (pre-FSP epochs, or
+// anything before a redeployed FSM's bootstrap epoch), and the deployment
+// exposes no getter for where its data begins, so the fallback shrinks the
+// history window one epoch at a time until it reaches recorded data. ok is
+// false when no epoch up to currentEpochID has start data (a deployment
+// still in its bootstrap epoch).
+func resolveStartEpoch(
+	ctx context.Context, fsm fsmReader, desiredEpochID, currentEpochID uint64,
 ) (uint64, rewardEpochStartInfo, bool, error) {
-	var (
-		found     bool
-		foundID   uint64
-		foundInfo rewardEpochStartInfo
-	)
-	for lo <= hi {
-		mid := lo + (hi-lo)/2
-		info, err := fsm.GetRewardEpochStartInfo(&bind.CallOpts{Context: ctx}, new(big.Int).SetUint64(mid))
+	for epochID := desiredEpochID; epochID <= currentEpochID; epochID++ {
+		info, err := epochStartInfo(ctx, fsm, epochID)
 		if err != nil {
-			return 0, rewardEpochStartInfo{}, false, errors.Wrapf(err, "getRewardEpochStartInfo(%d)", mid)
+			return 0, rewardEpochStartInfo{}, false, err
 		}
 		if info.RewardEpochStartTs != 0 {
-			found, foundID, foundInfo = true, mid, info
-			if mid == 0 {
-				break
-			}
-			hi = mid - 1
-		} else {
-			lo = mid + 1
+			return epochID, info, true, nil
 		}
 	}
-	return foundID, foundInfo, found, nil
+	return 0, rewardEpochStartInfo{}, false, nil
 }
 
 func saturatingSub(a, b uint64) uint64 {
@@ -114,34 +115,44 @@ type eventAnchor struct {
 	timestamp uint64
 }
 
-// fspEventAnchor resolves the oldest epoch in [lo, hi] with recorded start
-// data and returns the anchor of its metadata-event window: the recorded
-// RandomAcquisitionStarted block/timestamp — the first event of the epoch's
-// signing-policy protocol — which stays correct however long the epoch start
-// was delayed. Epochs without random-acquisition data (an FSM deployment's
-// bootstrap epoch) fall back to the nominal lead window below the epoch
-// start; ok is false when no epoch in range has start data.
-func fspEventAnchor(ctx context.Context, fsm fsmReader, lo, hi uint64) (eventAnchor, bool, error) {
-	epochID, startInfo, ok, err := oldestEpochWithStartInfo(ctx, fsm, lo, hi)
-	if err != nil || !ok {
-		return eventAnchor{}, false, err
-	}
+// fspEventAnchor returns the anchor of the metadata-event window that serving
+// epochs from startEpochID requires: the recorded RandomAcquisitionStarted
+// block/timestamp — the first event of an epoch's signing-policy protocol,
+// correct however long the epoch start was delayed — of the epoch two before
+// startEpochID, so consumers also have the boundary events of the epochs
+// preceding the oldest one they reconstruct. When that epoch has no start
+// data (startEpochID sits within two epochs of the deployment's bootstrap),
+// the anchor walks up to the oldest epoch that does, at most startEpochID
+// itself. Epochs without random-acquisition data fall back to the nominal
+// lead window below the epoch start; ok is false when no probed epoch has
+// start data.
+func fspEventAnchor(ctx context.Context, fsm fsmReader, startEpochID uint64) (eventAnchor, bool, error) {
+	for epochID := saturatingSub(startEpochID, 2); epochID <= startEpochID; epochID++ {
+		startInfo, err := epochStartInfo(ctx, fsm, epochID)
+		if err != nil {
+			return eventAnchor{}, false, err
+		}
+		if startInfo.RewardEpochStartTs == 0 {
+			continue
+		}
 
-	raInfo, err := fsm.GetRandomAcquisitionInfo(&bind.CallOpts{Context: ctx}, new(big.Int).SetUint64(epochID))
-	if err != nil {
-		return eventAnchor{}, false, errors.Wrapf(err, "getRandomAcquisitionInfo(%d)", epochID)
-	}
-	if raInfo.RandomAcquisitionStartBlock != 0 {
+		raInfo, err := fsm.GetRandomAcquisitionInfo(&bind.CallOpts{Context: ctx}, new(big.Int).SetUint64(epochID))
+		if err != nil {
+			return eventAnchor{}, false, errors.Wrapf(err, "getRandomAcquisitionInfo(%d)", epochID)
+		}
+		if raInfo.RandomAcquisitionStartBlock != 0 {
+			return eventAnchor{
+				block:     raInfo.RandomAcquisitionStartBlock,
+				timestamp: raInfo.RandomAcquisitionStartTs,
+			}, true, nil
+		}
+
 		return eventAnchor{
-			block:     raInfo.RandomAcquisitionStartBlock,
-			timestamp: raInfo.RandomAcquisitionStartTs,
+			block:     saturatingSub(startInfo.RewardEpochStartBlock, fspEventLeadBlocks),
+			timestamp: saturatingSub(startInfo.RewardEpochStartTs, fspEventLeadSeconds),
 		}, true, nil
 	}
-
-	return eventAnchor{
-		block:     saturatingSub(startInfo.RewardEpochStartBlock, fspEventLeadBlocks),
-		timestamp: saturatingSub(startInfo.RewardEpochStartTs, fspEventLeadSeconds),
-	}, true, nil
+	return eventAnchor{}, false, nil
 }
 
 // retentionMarginSeconds keeps the history-drop boundary a safety margin
@@ -150,21 +161,25 @@ func fspEventAnchor(ctx context.Context, fsm fsmReader, lo, hi uint64) (eventAnc
 const retentionMarginSeconds = uint64(60 * 60)
 
 // fspRetentionBoundary returns the timestamp below which history drop may
-// delete: a safety margin below the event anchor of the oldest epoch whose
-// metadata the indexer must serve (two epochs before the history_epochs
-// window, matching the startup backfill). It is recomputed from chain state
-// on every call, so the retention window slides forward as epochs switch
-// over — and, because the anchor is recorded epoch data rather than
-// history_epochs times a nominal duration, it stays correct when an epoch
-// start is delayed. Returns 0 (delete nothing) while no epoch has start data.
+// delete: a safety margin below the event anchor of the configured
+// history_epochs window's start, via the same fspEventAnchor as the startup
+// backfill. It is recomputed from chain state on every call, so the
+// retention window slides forward as epochs switch over — and, because the
+// anchor is recorded epoch data rather than history_epochs times a nominal
+// duration, it stays correct when an epoch start is delayed. Returns 0
+// (delete nothing) while the window's start has no recorded data yet: unlike
+// startup, retention does not shrink the window to where data begins, so
+// after an FSM redeploy nothing is deleted until the configured window again
+// lies fully within recorded epochs. Startup's catchup anchor is always at
+// or above the configured window's, so retention never deletes a region the
+// backfill guaranteed.
 func fspRetentionBoundary(ctx context.Context, fsm fsmReader, historyEpochs uint64) (uint64, error) {
 	currentEpochID, err := fspCurrentEpochID(ctx, fsm)
 	if err != nil {
 		return 0, err
 	}
 
-	firstEpochID := saturatingSub(historyStartEpochID(currentEpochID, historyEpochs), 2)
-	anchor, ok, err := fspEventAnchor(ctx, fsm, firstEpochID, currentEpochID)
+	anchor, ok, err := fspEventAnchor(ctx, fsm, historyStartEpochID(currentEpochID, historyEpochs))
 	if err != nil || !ok {
 		return 0, err
 	}
@@ -185,7 +200,7 @@ func fspEventBackfillAnchor(
 	fsm fsmReader,
 	startEpochID uint64,
 ) (uint64, bool, error) {
-	anchor, ok, err := fspEventAnchor(ctx, fsm, saturatingSub(startEpochID, 2), startEpochID)
+	anchor, ok, err := fspEventAnchor(ctx, fsm, startEpochID)
 	if err != nil || !ok {
 		return 0, false, err
 	}
