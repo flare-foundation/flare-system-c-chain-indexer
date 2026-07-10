@@ -73,7 +73,11 @@ func RunIndexer(
 		db,
 		database.HistoryDropIntervalCheck,
 		func(ctx context.Context) (uint64, error) {
-			return fspRetentionBoundary(ctx, fsmCaller, cfg.Indexer.HistoryEpochs)
+			// Retried so a single transient RPC failure among the boundary's
+			// contract reads does not skip a whole drop iteration.
+			return boff.RetryWithMaxElapsed(ctx, func() (uint64, error) {
+				return fspRetentionBoundary(ctx, fsmCaller, cfg.Indexer.HistoryEpochs)
+			}, "fspRetentionBoundary")
 		},
 	)
 
