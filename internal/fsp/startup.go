@@ -100,6 +100,10 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 		if err := database.UpdateState(ci.DB(), database.LogFloor, eventStartBlock, eventStartTimestamp); err != nil {
 			return 0, errors.Wrap(err, "set first FSP event index state")
 		}
+	} else if !haveEventAnchor {
+		logger.Warnf("Skipping FSP event backfill: no reward epoch has FSP start data to anchor on")
+	} else if eventStartBlock >= fullStartBlock {
+		logger.Infof("Skipping FSP event backfill: event window is covered by the full catchup range")
 	} else {
 		logger.Infof("Skipping FSP event backfill, already indexed")
 	}
