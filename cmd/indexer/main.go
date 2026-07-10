@@ -89,7 +89,7 @@ func run(ctx context.Context) error {
 	logger.Infof("Connected to chain ID %s", chainID)
 
 	if cfg.Indexer.IsFspMode() {
-		return fsp.RunIndexer(ctx, cfg, db, ethClient, resolver, chainID)
+		return fsp.RunIndexer(ctx, cfg, db, ethClient, resolver)
 	}
 
 	historyDrop, err := cfg.DB.GetHistoryDrop(ctx, chainID)
@@ -192,9 +192,8 @@ func runIndexer(
 		go database.DropHistory(
 			ctx,
 			db,
-			historyDrop,
 			database.HistoryDropIntervalCheck,
-			ethClient,
+			database.TipAgeBoundary(ethClient, historyDrop),
 		)
 	}
 

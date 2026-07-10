@@ -2,19 +2,25 @@ package fsp
 
 import (
 	"context"
-	"math/big"
 
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/core"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	systemcontract "github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"
 )
 
 const fspFsmContractName = "FlareSystemsManager"
+
+// fspTxLookbackSeconds is how far the full-block window reaches below its
+// base (the confirmed tip for history_epochs=0, the oldest served epoch's
+// start otherwise): a heuristic sized to cover the last ~10 voting rounds of
+// transactions and round data, including rounds still completing across the
+// window edge. Signing-policy events and reward offers do not depend on it —
+// they ride the selective event backfill anchored on recorded epoch data.
+const fspTxLookbackSeconds = uint64(15 * 60)
 
 func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 	latestConfirmedNumber, latestConfirmedTimestamp, err := ci.FetchLastBlockIndex(ctx)
@@ -38,7 +44,7 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 		return 0, err
 	}
 
-	eventStartBlock, err := fspEventBackfillStartBlock(ctx, fsmCaller, startEpochID)
+	eventStartBlock, haveEventAnchor, err := fspEventBackfillAnchor(ctx, fsmCaller, startEpochID)
 	if err != nil {
 		return 0, errors.Wrap(err, "compute FSP event backfill start")
 	}
@@ -65,9 +71,10 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 
 	// FSP events from eventStartBlock up to the catchup start need a log-only
 	// backfill; catchup full-indexes everything from fullStartBlock onward. Skip
-	// it when that region is empty or already covered.
+	// it when there is no anchor to backfill from, or when that region is empty
+	// or already covered.
 	firstFspEvent := states[database.LogFloor]
-	backfillEvents := eventStartBlock < fullStartBlock &&
+	backfillEvents := haveEventAnchor && eventStartBlock < fullStartBlock &&
 		(!database.IsSet(firstFspEvent) || firstFspEvent.Index > eventStartBlock)
 
 	logger.Infof(
@@ -124,7 +131,7 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 func resolveFullStartBlock(
 	ctx context.Context,
 	ci *core.Engine,
-	fsm *systemcontract.FlareSystemsManagerCaller,
+	fsm fsmReader,
 	latestConfirmedNumber uint64,
 	latestConfirmedTimestamp uint64,
 ) (uint64, uint64, error) {
@@ -143,14 +150,31 @@ func resolveFullStartBlock(
 		return startBlock, currentEpochID, nil
 	}
 
-	startEpochID := uint64(0)
-	if params.HistoryEpochs-1 < currentEpochID {
-		startEpochID = currentEpochID - (params.HistoryEpochs - 1)
-	}
-
-	info, err := fsm.GetRewardEpochStartInfo(&bind.CallOpts{Context: ctx}, new(big.Int).SetUint64(startEpochID))
+	desiredEpochID := historyStartEpochID(currentEpochID, params.HistoryEpochs)
+	startEpochID, info, ok, err := resolveStartEpoch(ctx, fsm, desiredEpochID, currentEpochID)
 	if err != nil {
-		return 0, 0, errors.Wrapf(err, "getRewardEpochStartInfo(%d)", startEpochID)
+		return 0, 0, err
+	}
+	if !ok {
+		// No epoch has start data yet (an FSM deployment still in its bootstrap
+		// epoch): fall back to the lookback window rather than resolving a zero
+		// start block, which would full-index from genesis.
+		logger.Warnf(
+			"Current reward epoch %d has no FSP start data yet; falling back to a %ds lookback from the confirmed tip",
+			currentEpochID, fspTxLookbackSeconds,
+		)
+		startBlock, err := findStartBlockByLookback(ctx, ci, latestConfirmedTimestamp, latestConfirmedNumber)
+		if err != nil {
+			return 0, 0, errors.Wrap(err, "find FSP catchup start block by timestamp")
+		}
+
+		return startBlock, currentEpochID, nil
+	}
+	if startEpochID > desiredEpochID {
+		logger.Errorf(
+			"history_epochs=%d requests reward epoch %d, but this FSM deployment's start data begins at epoch %d; catching up from there — lower history_epochs to fit the deployment",
+			params.HistoryEpochs, desiredEpochID, startEpochID,
+		)
 	}
 
 	epochStartBlock := info.RewardEpochStartBlock
@@ -160,12 +184,7 @@ func resolveFullStartBlock(
 		return latestConfirmedNumber, startEpochID, nil
 	}
 
-	epochStartTimestamp, err := ci.FetchBlockTimestamp(ctx, epochStartBlock)
-	if err != nil {
-		return 0, 0, errors.Wrapf(err, "fetch start epoch timestamp for block %d", epochStartBlock)
-	}
-
-	startBlock, err := findStartBlockByLookback(ctx, ci, epochStartTimestamp, epochStartBlock)
+	startBlock, err := findStartBlockByLookback(ctx, ci, info.RewardEpochStartTs, epochStartBlock)
 	if err != nil {
 		return 0, 0, errors.Wrapf(err, "find start block from epoch %d with lookback", startEpochID)
 	}
@@ -178,11 +197,7 @@ func findStartBlockByLookback(ctx context.Context, ci *core.Engine, baseTimestam
 		return 0, nil
 	}
 
-	params := ci.Params()
-	searchTimestamp := uint64(0)
-	if baseTimestamp > params.FspTxLookbackSeconds {
-		searchTimestamp = baseTimestamp - params.FspTxLookbackSeconds
-	}
+	searchTimestamp := saturatingSub(baseTimestamp, fspTxLookbackSeconds)
 
 	return chain.GetNearestBlockByTimestampFromChain(
 		ctx,

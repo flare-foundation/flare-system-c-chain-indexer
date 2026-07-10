@@ -20,14 +20,13 @@ import (
 )
 
 const (
-	day                            time.Duration   = 24 * time.Hour
-	defaultConfirmations                           = 1
-	defaultChainType               chain.ChainType = chain.ChainTypeAvax
-	defaultIndexerMode                             = IndexerModeFull
-	defaultFspIndexLookbackSeconds                 = uint64(2 * time.Hour / time.Second)
-	defaultLogRange                                = uint64(1000)
-	defaultRpcConcurrency                          = 100
-	defaultBatchSize                               = uint64(1000)
+	day                   time.Duration   = 24 * time.Hour
+	defaultConfirmations                  = 1
+	defaultChainType      chain.ChainType = chain.ChainTypeAvax
+	defaultIndexerMode                    = IndexerModeFull
+	defaultLogRange                       = uint64(1000)
+	defaultRpcConcurrency                 = 100
+	defaultBatchSize                      = uint64(1000)
 	// maxHistoryEpochs guards against a config typo (e.g. an extra digit).
 	maxHistoryEpochs = 1000
 )
@@ -164,7 +163,8 @@ type IndexerConfig struct {
 	Mode       string `toml:"mode"`
 	// HistoryEpochs is FSP-mode only: number of past reward epochs whose
 	// metadata events are backfilled at startup and retained by history drop.
-	// 0 falls back to a short lookback window (see defaultFspIndexLookbackSeconds).
+	// 0 falls back to a short lookback window from the tip (see
+	// fsp.fspTxLookbackSeconds).
 	HistoryEpochs uint64 `toml:"history_epochs"`
 	// RpcConcurrency is the max number of simultaneous RPC calls of any kind —
 	// block, receipt and log (eth_getLogs) fetches, plus contract calls and
@@ -178,7 +178,6 @@ type IndexerConfig struct {
 	CollectLogs             []LogInfo         `toml:"collect_logs"`
 	Confirmations           uint64            `toml:"confirmations"`
 	NoNewBlocksDelayWarning float64           `toml:"no_new_blocks_delay_warning"`
-	FspTxLookbackSeconds    uint64            `toml:"fsp_tx_lookback_seconds"`
 }
 
 const (
@@ -215,12 +214,11 @@ func BuildConfig() (*Config, error) {
 	// Set default values for the config
 	cfg := &Config{
 		Indexer: IndexerConfig{
-			Confirmations:        defaultConfirmations,
-			Mode:                 defaultIndexerMode,
-			LogRange:             defaultLogRange,
-			RpcConcurrency:       defaultRpcConcurrency,
-			BatchSize:            defaultBatchSize,
-			FspTxLookbackSeconds: defaultFspIndexLookbackSeconds,
+			Confirmations:  defaultConfirmations,
+			Mode:           defaultIndexerMode,
+			LogRange:       defaultLogRange,
+			RpcConcurrency: defaultRpcConcurrency,
+			BatchSize:      defaultBatchSize,
 		},
 		Chain: ChainConfig{ChainType: defaultChainType},
 	}
@@ -270,10 +268,6 @@ func normalizeIndexerConfig(cfg *IndexerConfig) error {
 	if cfg.BatchSize == 0 {
 		cfg.BatchSize = defaultBatchSize
 	}
-	if cfg.FspTxLookbackSeconds == 0 {
-		cfg.FspTxLookbackSeconds = defaultFspIndexLookbackSeconds
-	}
-
 	return nil
 }
 

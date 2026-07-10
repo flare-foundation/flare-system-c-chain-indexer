@@ -19,23 +19,22 @@ const (
 	deleteBatchesPauseDuration = 100 * time.Millisecond
 )
 
-// DropHistory periodically deletes data older than intervalSeconds and raises
-// the coverage floors past the deletions. It must be started only after the
-// initial startup/catchup has written its floors (FSP backfill floor, first
-// committed batch): while running it assumes it is the only raiser of the
-// first_* states, and the boundary gate in dropAndRaiseFloor relies on the
-// floors it reads being final apart from its own writes.
+// DropHistory periodically deletes data older than the timestamp returned by
+// boundaryFn and raises the coverage floors past the deletions. It must be
+// started only after the initial startup/catchup has written its floors (FSP
+// backfill floor, first committed batch): while running it assumes it is the
+// only raiser of the first_* states, and the boundary gate in
+// dropAndRaiseFloor relies on the floors it reads being final apart from its
+// own writes.
 func DropHistory(
 	ctx context.Context,
 	db *gorm.DB,
-	intervalSeconds, checkInterval uint64,
-	client *chain.Client,
+	checkInterval uint64,
+	boundaryFn func(context.Context) (uint64, error),
 ) {
 	for {
-		logger.Infof("Starting history drop iteration")
-
 		startTime := time.Now()
-		err := dropHistoryIteration(ctx, db, intervalSeconds, client)
+		err := dropHistoryIteration(ctx, db, boundaryFn)
 		if err == nil {
 			logger.Infof("Finished history drop iteration: duration_ms=%d", time.Since(startTime).Milliseconds())
 		} else {
@@ -50,13 +49,27 @@ func DropHistory(
 // timeouts.
 const deleteBatchSize = 1000
 
-func dropHistoryIteration(ctx context.Context, db *gorm.DB, intervalSeconds uint64, client *chain.Client) error {
-	lastBlockTime, _, err := getBlockTimestamp(ctx, nil, client)
+func dropHistoryIteration(ctx context.Context, db *gorm.DB, boundaryFn func(context.Context) (uint64, error)) error {
+	boundary, err := boundaryFn(ctx)
 	if err != nil {
-		return errors.Wrap(err, "Failed to get the latest time")
+		return errors.Wrap(err, "resolve history drop boundary")
 	}
 
-	return dropHistoryBelow(ctx, db, safeDeleteBoundary(lastBlockTime, intervalSeconds))
+	logger.Infof("Starting history drop iteration: boundary=%d", boundary)
+	return dropHistoryBelow(ctx, db, boundary)
+}
+
+// TipAgeBoundary returns the full-mode drop boundary: intervalSeconds before
+// the latest chain block's timestamp.
+func TipAgeBoundary(client *chain.Client, intervalSeconds uint64) func(context.Context) (uint64, error) {
+	return func(ctx context.Context) (uint64, error) {
+		lastBlockTime, _, err := getBlockTimestamp(ctx, nil, client)
+		if err != nil {
+			return 0, errors.Wrap(err, "Failed to get the latest time")
+		}
+
+		return safeDeleteBoundary(lastBlockTime, intervalSeconds), nil
+	}
 }
 
 // safeDeleteBoundary returns lastBlockTime-intervalSeconds, saturating at 0
