@@ -59,3 +59,14 @@ func (r *ContractResolver) ResolveByName(ctx context.Context, contractName strin
 
 	return address, nil
 }
+
+// ResolveAllByName returns both deployments of a known upgraded FSP contract.
+// For all other contracts it returns the registry address.
+func (r *ContractResolver) ResolveAllByName(ctx context.Context, contractName string) ([]common.Address, error) {
+	address, err := r.ResolveByName(ctx, contractName)
+	if err != nil {
+		return nil, err
+	}
+
+	return addressesForUpgradedContract(strings.TrimSpace(contractName), address), nil
+}

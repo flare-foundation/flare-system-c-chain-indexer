@@ -66,6 +66,12 @@ func TestNormalizeIndexerConfig_FspMergesDefaultAndUserCollectors(t *testing.T) 
 	if !containsLog(cfg.CollectLogs, "FlareSystemsManager", getTopic(system.FlareSystemsManagerMetaData, "RewardEpochStarted")) {
 		t.Fatalf("reward epoch log collector missing after merge")
 	}
+	if !containsLog(cfg.CollectLogs, "VoterRegistry", "0xbfb6cd90b6e2668916d9e034926c84f40bcf94094b0d625ec8eecfdeb2150ae1") {
+		t.Fatalf("upgraded VoterRegistered topic missing after merge")
+	}
+	if !containsLog(cfg.CollectLogs, "FlareSystemsCalculator", "0xc49a5cabcc0776ace8cfd024e155bc303ee5e492b29d59f1ff7dbafa0b34a04b") {
+		t.Fatalf("upgraded VoterRegistrationInfo topic missing after merge")
+	}
 	for _, eventName := range []string{"SignUptimeVoteEnabled", "UptimeVoteSigned"} {
 		if !containsLog(cfg.CollectLogs, "FlareSystemsManager", getTopic(system.FlareSystemsManagerMetaData, eventName)) {
 			t.Fatalf("%s log collector missing after merge", eventName)
