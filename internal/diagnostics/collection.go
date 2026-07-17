@@ -2,6 +2,7 @@
 package diagnostics
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
@@ -54,10 +55,15 @@ func LogFspEventFilter(logs []config.LogInfo) {
 }
 
 func contractRef(name, address string) string {
-	if n := strings.TrimSpace(name); n != "" {
+	n := strings.TrimSpace(name)
+	a := strings.TrimSpace(address)
+	if n != "" && a != "" {
+		return fmt.Sprintf("%s (%s)", n, a)
+	}
+	if n != "" {
 		return n
 	}
-	if a := strings.TrimSpace(address); a != "" {
+	if a != "" {
 		return a
 	}
 	return "<any>"
