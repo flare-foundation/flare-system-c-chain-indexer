@@ -8,29 +8,43 @@ import (
 )
 
 func ResolveContractAddresses(ctx context.Context, cfg *Config, resolver *contracts.ContractResolver) error {
-	for i := range cfg.Indexer.CollectTransactions {
-		transaction := &cfg.Indexer.CollectTransactions[i]
+	transactions := make([]TransactionInfo, 0, len(cfg.Indexer.CollectTransactions))
+	for _, transaction := range cfg.Indexer.CollectTransactions {
+		if strings.TrimSpace(transaction.ContractAddress) != "" {
+			transactions = append(transactions, transaction)
+			continue
+		}
 
-		if strings.TrimSpace(transaction.ContractAddress) == "" {
-			contractAddress, err := resolver.ResolveByName(ctx, transaction.ContractName)
-			if err != nil {
-				return err
-			}
-			transaction.ContractAddress = contractAddress.Hex()
+		contractAddresses, err := resolver.ResolveAllByName(ctx, transaction.ContractName)
+		if err != nil {
+			return err
+		}
+		for _, contractAddress := range contractAddresses {
+			resolved := transaction
+			resolved.ContractAddress = contractAddress.Hex()
+			transactions = append(transactions, resolved)
 		}
 	}
+	cfg.Indexer.CollectTransactions = transactions
 
-	for i := range cfg.Indexer.CollectLogs {
-		log := &cfg.Indexer.CollectLogs[i]
+	logs := make([]LogInfo, 0, len(cfg.Indexer.CollectLogs))
+	for _, logInfo := range cfg.Indexer.CollectLogs {
+		if strings.TrimSpace(logInfo.ContractAddress) != "" {
+			logs = append(logs, logInfo)
+			continue
+		}
 
-		if strings.TrimSpace(log.ContractAddress) == "" {
-			contractAddress, err := resolver.ResolveByName(ctx, log.ContractName)
-			if err != nil {
-				return err
-			}
-			log.ContractAddress = contractAddress.Hex()
+		contractAddresses, err := resolver.ResolveAllByName(ctx, logInfo.ContractName)
+		if err != nil {
+			return err
+		}
+		for _, contractAddress := range contractAddresses {
+			resolved := logInfo
+			resolved.ContractAddress = contractAddress.Hex()
+			logs = append(logs, resolved)
 		}
 	}
+	cfg.Indexer.CollectLogs = logs
 
 	return nil
 }

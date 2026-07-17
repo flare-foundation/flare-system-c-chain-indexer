@@ -29,14 +29,16 @@ func resolveFspContractAddresses(
 			continue
 		}
 
-		address, err := resolver.ResolveByName(ctx, contractName)
+		addresses, err := resolver.ResolveAllByName(ctx, contractName)
 		if err != nil {
 			return nil, nil, err
 		}
 
-		if _, ok := seenAddresses[address]; !ok {
-			seenAddresses[address] = struct{}{}
-			logAddresses = append(logAddresses, address)
+		for _, address := range addresses {
+			if _, ok := seenAddresses[address]; !ok {
+				seenAddresses[address] = struct{}{}
+				logAddresses = append(logAddresses, address)
+			}
 		}
 
 		topic := strings.TrimSpace(logInfo.Topic)
