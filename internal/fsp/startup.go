@@ -16,11 +16,14 @@ const fspFsmContractName = "FlareSystemsManager"
 
 // fspTxLookbackSeconds is how far the full-block window reaches below its
 // base (the confirmed tip for history_epochs=0, the oldest served epoch's
-// start otherwise): a heuristic sized to cover the last ~10 voting rounds of
-// transactions and round data, including rounds still completing across the
-// window edge. Signing-policy events and reward offers do not depend on it —
-// they ride the selective event backfill anchored on recorded epoch data.
-const fspTxLookbackSeconds = uint64(15 * 60)
+// start otherwise). It must be large enough that reward calculation for the
+// oldest served epoch has its full submission data, which extends some way
+// before the epoch's first voting round. Sized generously — well beyond that
+// requirement — so it need not track the calculator's exact lookback, which
+// lives in another repo and may change independently. Signing-policy events
+// and reward offers do not depend on this window; they ride the selective
+// event backfill anchored on recorded epoch data.
+const fspTxLookbackSeconds = uint64(60 * 60)
 
 func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 	latestConfirmedNumber, latestConfirmedTimestamp, err := ci.FetchLastBlockIndex(ctx)
