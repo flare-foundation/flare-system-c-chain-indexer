@@ -508,7 +508,6 @@ func (ci *Engine) IndexContinuous(ctx context.Context, startIndex uint64) error 
 }
 
 func (ci *Engine) indexContinuousIteration(ctx context.Context, index uint64) error {
-	startTime := time.Now()
 	block, err := ci.fetchBlock(ctx, &index)
 	if err != nil {
 		return errors.Wrapf(err, "fetchBlock: block=%d", index)
@@ -548,11 +547,6 @@ func (ci *Engine) indexContinuousIteration(ctx context.Context, index uint64) er
 	if err := ci.saveData(data, index, indexTimestamp); err != nil {
 		return errors.Wrapf(err, "saveData: block=%d", index)
 	}
-
-	logger.Debugf(
-		"Indexed block: block=%d, transactions=%d, logs=%d, duration_ms=%d",
-		index, len(data.Transactions), len(data.Logs), time.Since(startTime).Milliseconds(),
-	)
 
 	if index%1000 == 0 {
 		logger.Infof("Continuous progress: block=%d", index)
