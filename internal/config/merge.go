@@ -71,6 +71,12 @@ func txDedupKey(tx *TransactionInfo) string {
 
 func logDedupKey(log *LogInfo) string {
 	topic := strings.ToLower(strings.TrimSpace(log.Topic))
+	topic = strings.TrimPrefix(topic, "0x")
+	// "undefined" and empty both mean "every topic" to the engine, so they must
+	// key alike or the same filter is issued twice.
+	if topic == undefined {
+		topic = ""
+	}
 	return contractDedupKey(log.ContractAddress, log.ContractName) + "|topic:" + topic
 }
 

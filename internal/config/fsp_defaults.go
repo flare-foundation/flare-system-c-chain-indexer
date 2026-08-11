@@ -66,6 +66,9 @@ var roundLogs = []LogInfo{
 const (
 	teeInstructionsSentTopic      = "0xf770e69a9fc05b7180797556ec4cedb6108ce2c56ffa76c84aa087efeb5e6963"
 	fdc2AttestationRequestedTopic = "0x57c4413905bb1b444f93a5eab5a942fae34c0fcaa1c25cc595ce0b990310f5de"
+
+	// undefined is the config sentinel for "match anything".
+	undefined = "undefined"
 )
 
 // FCC fee events, read by reward calculation. Round logs like the FdcHub ones

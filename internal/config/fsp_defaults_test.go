@@ -108,6 +108,55 @@ func TestApplyFspCollectors_NetworkRoundLogs(t *testing.T) {
 	}
 }
 
+// How a topic is spelled must not decide whether a filter is a duplicate: the
+// dedup key normalises the 0x prefix and treats "undefined" as the empty
+// catch-all, otherwise the same query is issued twice per batch.
+func TestApplyFspCollectors_DedupsRegardlessOfTopicSpelling(t *testing.T) {
+	songbirdTee := "0x5C2dE0DeFC3FDBbF8e12c12bD0b1629Ed37DC767"
+
+	for _, topic := range []string{
+		teeInstructionsSentTopic,
+		strings.TrimPrefix(teeInstructionsSentTopic, "0x"),
+		strings.ToUpper(strings.TrimPrefix(teeInstructionsSentTopic, "0x")),
+		"  " + teeInstructionsSentTopic + "  ",
+	} {
+		cfg := IndexerConfig{
+			Mode:        IndexerModeFsp,
+			CollectLogs: []LogInfo{{ContractAddress: songbirdTee, Topic: topic}},
+		}
+		ApplyFspCollectors(&cfg, chain.ChainIDSongbird)
+
+		if got := countLogAddress(cfg.CollectLogs, songbirdTee, teeInstructionsSentTopic); got != 1 {
+			t.Fatalf("topic %q: got %d FlareTeeManager filters, want 1", topic, got)
+		}
+	}
+
+	// "undefined" and an empty topic both mean every event, so a config restating
+	// a built-in catch-all must not add a second filter.
+	for _, topic := range []string{"undefined", "UNDEFINED", ""} {
+		cfg := IndexerConfig{
+			Mode:        IndexerModeFsp,
+			CollectLogs: []LogInfo{{ContractName: "FdcHub", Topic: topic}},
+		}
+		ApplyFspCollectors(&cfg, chain.ChainIDFlare)
+
+		count := 0
+		for _, l := range cfg.CollectLogs {
+			if l.ContractName == "FdcHub" && isCatchAll(l.Topic) {
+				count++
+			}
+		}
+		if count != 1 {
+			t.Fatalf("topic %q: got %d FdcHub catch-all filters, want 1", topic, count)
+		}
+	}
+}
+
+func isCatchAll(topic string) bool {
+	topic = strings.ToLower(strings.TrimSpace(topic))
+	return topic == "" || topic == undefined
+}
+
 func TestApplyFspCollectors_FullModeDoesNotInjectFspDefaults(t *testing.T) {
 	cfg := IndexerConfig{
 		Mode: IndexerModeFull,
