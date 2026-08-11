@@ -23,16 +23,17 @@ and this project adheres to
   signing-policy event metadata needed for those epochs. 
   In this mode `indexer.start_index` and `db.history_drop` are ignored.
   **`history_epochs = 0` is the recommended setting for FSP provider
-  operation**: the indexer fully indexes only the most recent blocks (~15
-  minutes, sized to the recent voting rounds) and backfills the FSP protocol
-  events needed for the recent reward epochs. Higher values are mainly useful
-  for reward calculation.
+  operation**: the indexer fully indexes only the most recent blocks (~1 hour,
+  sized to cover the recent voting rounds and the submission data that reward
+  calculation reads before an epoch's first voting round) and backfills the FSP
+  protocol events needed for the recent reward epochs. Higher values are mainly
+  useful for reward calculation.
 - Resolution of contract addresses by name via the on-chain ContractRegistry,
   removing the need to hardcode addresses in config.
 - `GET /health` endpoint on port 8080: returns 503 while startup catchup is in
   progress and 200 once the indexer reaches continuous-indexing mode. Suitable
   as a Docker / Kubernetes readiness probe.
-- New `first_database_fsp_event_block` state row exposed alongside
+- New `first_database_log_block` state row exposed alongside
   `first_database_block`, so clients can distinguish "earliest fully-indexed
   block" from "earliest block with FSP event coverage" and reason about
   available history.
@@ -51,7 +52,7 @@ and this project adheres to
 - Block-by-timestamp lookup uses heuristics to narrow the search window before
   binary search, avoiding requests for very old blocks when running against
   RPC nodes with limited history.
-- Minimum Go toolchain version raised to 1.24.
+- Minimum Go toolchain version raised to 1.25.
 - **`indexer.num_parallel_req` renamed to `indexer.rpc_concurrency`**. Configs
   using the old key now fail at startup with a message pointing to the new name.
 - **`timeout.timeout_millis` renamed to `timeout.rpc_timeout_millis`, and its

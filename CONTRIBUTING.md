@@ -35,7 +35,7 @@ also welcome.
 
 ## Dev environment
 
-The indexer is implemented using Go - it is recommended to use version 1.24 or later. An RPC connection URL and a MySQL database are required in order to run the main indexer. Configuration should be provided via a `config.toml` file - you can copy
+The indexer is implemented using Go - it is recommended to use version 1.25 or later. An RPC connection URL and a MySQL database are required in order to run the main indexer. Configuration should be provided via a `config.toml` file - you can copy
 `config.example.toml` and modify to connect to your specific RPC provider and database instance as well as set other
 parameters.
 
