@@ -3,6 +3,7 @@ package core
 import (
 	"testing"
 
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
 
 	"github.com/stretchr/testify/require"
@@ -30,6 +31,17 @@ func TestValidateCollectLogs(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			require.Error(t, validateCollectLogs([]config.LogInfo{tc.info}))
 		})
+	}
+}
+
+// The built-in FSP filters include hardcoded addresses and topic hashes, which
+// config parsing cannot check. Run them through the engine's own validation so a
+// typo fails here rather than at startup on the affected network.
+func TestValidateCollectLogsAcceptsFspDefaults(t *testing.T) {
+	for _, chainID := range []chain.ChainID{
+		chain.ChainIDFlare, chain.ChainIDSongbird, chain.ChainIDCoston, chain.ChainIDCoston2,
+	} {
+		require.NoError(t, validateCollectLogs(config.FspCollectLogs(chainID)), "chain %d", chainID)
 	}
 }
 

@@ -39,7 +39,7 @@ Use [`config.example.toml`](config.example.toml) as the single config template. 
 
 #### Contract addressing
 
-Contracts in `[[indexer.collect_transactions]]` and `[[indexer.collect_logs]]` can be specified either by `contract_address = "0x..."` or by `contract_name = "FlareSystemsManager"`. When a name is provided, the indexer resolves it to an address at startup via the on-chain ContractRegistry, so addresses that differ across networks (or change between deployments) do not need to be hardcoded in config. FSP mode's built-in collectors all use name-based resolution.
+Contracts in `[[indexer.collect_transactions]]` and `[[indexer.collect_logs]]` can be specified either by `contract_address = "0x..."` or by `contract_name = "FlareSystemsManager"`. When a name is provided, the indexer resolves it to an address at startup via the on-chain ContractRegistry, so addresses that differ across networks (or change between deployments) do not need to be hardcoded in config. Most FSP built-in collectors use name-based resolution. The exception is the FCC fee events (`FlareTeeManager.TeeInstructionsSent`, `Fdc2Hub.AttestationRequested`), which reward calculation reads: those two contracts are not in the ContractRegistry yet, so they are addressed explicitly per network — collected on Songbird, Coston and Coston2, and nowhere else until Flare has a deployment. They will move to name-based resolution once registered. Being round logs, they are indexed from the oldest epoch `indexer.history_epochs` serves onward, not backfilled deeper.
 
 #### Performance and RPC tuning
 

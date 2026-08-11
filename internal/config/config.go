@@ -248,13 +248,6 @@ func normalizeIndexerConfig(cfg *IndexerConfig) error {
 		)
 	}
 
-	if cfg.Mode == IndexerModeFsp {
-		cfg.CollectTransactions, cfg.CollectLogs = mergeFspCollectors(
-			cfg.CollectTransactions,
-			cfg.CollectLogs,
-		)
-	}
-
 	if cfg.HistoryEpochs > maxHistoryEpochs {
 		return errors.Errorf("indexer.history_epochs must be at most %d, got %d", maxHistoryEpochs, cfg.HistoryEpochs)
 	}

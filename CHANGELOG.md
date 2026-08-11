@@ -33,6 +33,12 @@ and this project adheres to
 - `GET /health` endpoint on port 8080: returns 503 while startup catchup is in
   progress and 200 once the indexer reaches continuous-indexing mode. Suitable
   as a Docker / Kubernetes readiness probe.
+- FSP mode now collects the FCC fee events reward calculation needs —
+  `FlareTeeManager.TeeInstructionsSent` and `Fdc2Hub.AttestationRequested` — on
+  Songbird, Coston and Coston2. Both contracts are addressed explicitly for now,
+  as neither is in the ContractRegistry yet, so Flare gets no filters until it
+  has a deployment. The built-in FSP collectors are consequently merged once the
+  chain ID is known rather than while parsing the config.
 - New `first_database_log_block` state row exposed alongside
   `first_database_block`, so clients can distinguish "earliest fully-indexed
   block" from "earliest block with FSP event coverage" and reason about

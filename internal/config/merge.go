@@ -1,9 +1,26 @@
 package config
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
+)
+
+// ApplyFspCollectors merges the built-in FSP collectors for chainID into cfg,
+// and is a no-op in full mode. Kept out of config parsing because some
+// built-ins are network-specific, and the chain ID is only known once the node
+// is reachable. Must run before contract names are resolved to addresses.
+func ApplyFspCollectors(cfg *IndexerConfig, chainID chain.ChainID) {
+	if !cfg.IsFspMode() {
+		return
+	}
+
+	cfg.CollectTransactions, cfg.CollectLogs = mergeFspCollectors(chainID, cfg.CollectTransactions, cfg.CollectLogs)
+}
 
 // mergeFspCollectors combines the default and user specified transaction and log configs
 func mergeFspCollectors(
+	chainID chain.ChainID,
 	userTxs []TransactionInfo,
 	userLogs []LogInfo,
 ) ([]TransactionInfo, []LogInfo) {
@@ -25,7 +42,7 @@ func mergeFspCollectors(
 		txs = append(txs, user)
 	}
 
-	logs := FspCollectLogs()
+	logs := FspCollectLogs(chainID)
 	logIx := make(map[string]int, len(logs))
 	for i := range logs {
 		logIx[logDedupKey(&logs[i])] = i
