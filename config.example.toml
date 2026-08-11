@@ -22,7 +22,6 @@ topic = "undefined" # topic0 filter; use "undefined" to index all events from th
 
 [logger]
 level = "INFO"
-file = "./logs/flare-cchain-indexer.log"
 console = true
 
 [chain]

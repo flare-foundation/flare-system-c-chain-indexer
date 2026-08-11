@@ -46,6 +46,9 @@ and this project adheres to
 
 ### Changed
 
+Breaking changes and a before/after config are collected under
+["Upgrading from 1.x to 2.0"](README.md#upgrading-from-1x-to-20) in the readme.
+
 - Repository structure refactored under `cmd/` and `internal/` to follow
   conventional Go layout. The runnable binary moved to `./cmd/indexer`.
 - **Binary renamed** to `flare-cchain-indexer` (previously
