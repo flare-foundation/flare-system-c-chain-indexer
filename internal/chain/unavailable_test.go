@@ -20,15 +20,19 @@ func TestIsBlockUnavailable(t *testing.T) {
 		{"coreth sentinel", interfaces.NotFound, true},
 		{"go-ethereum sentinel", ethereum.NotFound, true},
 		{"wrapped sentinel", fmt.Errorf("fetchBlockHeader: %w", interfaces.NotFound), true},
-		// Nodes that answer with an explicit JSON-RPC error instead.
-		{"explicit message", errors.New("requested block is not available: node was state synced"), true},
-		{"pruned message", errors.New("block 123 has been pruned"), true},
-		{"missing block message", errors.New("block not found"), true},
-		// Transient failures must stay retryable.
+
+		// Everything else must stay retryable, however much its prose sounds like
+		// absence. These read as a missing block to a substring match, and treating
+		// an outage as proof a block is gone would end startup on a blip.
+		{"service unavailable", errors.New("503 Service Unavailable"), false},
+		{"gateway timeout", errors.New("504 Gateway Timeout"), false},
+		{"bad gateway", errors.New("502 Bad Gateway"), false},
+		{"proxy path not found", errors.New("404 page not found"), false},
+		{"method name plus status", errors.New("eth_getBlockByNumber: 503 Service Unavailable"), false},
+		{"node phrasing without the sentinel", errors.New("requested block is not available"), false},
 		{"connection refused", errors.New("dial tcp 127.0.0.1:9650: connect: connection refused"), false},
 		{"timeout", errors.New("context deadline exceeded"), false},
 		{"rate limited", errors.New("429 Too Many Requests"), false},
-		{"server error", errors.New("502 Bad Gateway"), false},
 	}
 
 	for _, tc := range tests {

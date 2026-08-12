@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
-	"strings"
 
 	avxClient "github.com/ava-labs/coreth/ethclient"
 	"github.com/ava-labs/coreth/interfaces"
@@ -42,27 +41,15 @@ const (
 	ChainTypeEth
 )
 
-// IsBlockUnavailable reports whether err means the node does not have the block,
-// as opposed to a transient failure that is worth retrying. A null RPC result
-// surfaces as the client's NotFound sentinel; nodes that answer with an explicit
-// JSON-RPC error instead have to be matched on the message, as there is no error
-// code for it.
+// IsBlockUnavailable reports whether err is the node saying it does not have the
+// block: a null result, which both clients surface as their NotFound sentinel.
+// Callers use it to skip retrying an answer that cannot change.
+//
+// Error text is deliberately not matched, since transport failures carry prose
+// that reads like absence — "503 Service Unavailable", a proxy's "404 not found".
+// Such an error is simply retried instead.
 func IsBlockUnavailable(err error) bool {
-	if err == nil {
-		return false
-	}
-	if errors.Is(err, interfaces.NotFound) || errors.Is(err, ethereum.NotFound) {
-		return true
-	}
-
-	message := strings.ToLower(err.Error())
-	for _, phrase := range []string{"not found", "not available", "unavailable", "does not exist", "pruned"} {
-		if strings.Contains(message, phrase) {
-			return true
-		}
-	}
-
-	return false
+	return errors.Is(err, interfaces.NotFound) || errors.Is(err, ethereum.NotFound)
 }
 
 type Client struct {

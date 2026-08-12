@@ -212,16 +212,17 @@ func resolveStartPlan(
 	return fullStartBlock, eventStartBlock, nil
 }
 
-// ensureBlockAvailable fails, permanently, when the node cannot serve the oldest
-// block FSP mode needs. Nodes that were state synced discard the blocks before
-// their sync point, and without this check the missing data surfaces much later
-// as an opaque RPC error inside the startup retry loop, which retries it
-// forever. The block number comes from contract state, so it is known before any
-// historical data is read.
+// ensureBlockAvailable ends startup when the node cannot give us the oldest block
+// FSP mode needs. That number comes from contract state, so it is known before
+// any historical data is read; without the check, a state synced node's missing
+// history surfaced much later as an opaque error inside the startup retry loop,
+// which retried it forever and logged nothing above debug level.
 //
-// Transient failures are retried like any other RPC read and then returned as an
-// ordinary error, so the caller's retry loop keeps trying. Only a node that
-// answers "no such block" is fatal, and that answer is not retried at all.
+// Short outages are absorbed by the same retry as any other block read, and a
+// node answering "no such block" is not retried at all. Anything still failing
+// after that ends startup instead: the deployments run under
+// `restart: unless-stopped`, so restarting with the reason on stdout is the
+// better failure.
 func ensureBlockAvailable(
 	ctx context.Context, ci *core.Engine, block, startEpochID, historyEpochs uint64,
 ) error {
@@ -231,30 +232,29 @@ func ensureBlockAvailable(
 
 		header, err := ci.Client().HeaderByNumber(callCtx, new(big.Int).SetUint64(block))
 		if chain.IsBlockUnavailable(err) {
-			return nil, boff.Permanent(err)
+			return nil, boff.Permanent(err) // a definitive answer will not change
 		}
 
 		return header, err
 	}, "probeAnchorBlock")
-
-	switch {
-	case err == nil:
+	if err == nil {
 		return nil
-	case !chain.IsBlockUnavailable(err):
-		return errors.Wrapf(err, "probe block %d for reward epoch %d", block, startEpochID)
-	default:
-		return boff.Permanent(errors.Errorf(
-			"node cannot serve block %d, the oldest block FSP mode needs: it anchors the event backfill for reward epoch %d, "+
-				"required by indexer.history_epochs=%d. Use a node with history back to that block. Underlying error: %s",
-			block, startEpochID, historyEpochs, err,
-		))
 	}
+
+	return boff.Permanent(errors.Errorf(
+		"cannot read block %d, the oldest block FSP mode needs: it anchors the event backfill for reward epoch %d, "+
+			"required by indexer.history_epochs=%d. A node that was state synced keeps only the blocks after its "+
+			"sync point; use one with history back to that block. Underlying error: %s",
+		block, startEpochID, historyEpochs, err,
+	))
 }
 
-// findStartBlockByLookback resolves the full-indexing start: lookback seconds
-// below baseTimestamp. lowestBlock bounds the search from below — it is the
-// event anchor, which is always at or below the result and always required, so
-// the search cannot probe a block the node is not already expected to have.
+// findStartBlockByLookback resolves the full-indexing start: the block
+// fspTxLookbackSeconds below baseTimestamp. lowestBlock is the event anchor,
+// which the node has to have anyway, so bounding the search by it means the
+// search cannot probe a block the configuration does not require. It is clamped
+// to endBlockNumber, which only matters if a recorded epoch starts above the
+// confirmed tip.
 func findStartBlockByLookback(
 	ctx context.Context, ci *core.Engine, baseTimestamp, endBlockNumber, lowestBlock uint64,
 ) (uint64, error) {

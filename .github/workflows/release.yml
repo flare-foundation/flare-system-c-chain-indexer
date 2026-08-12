@@ -30,7 +30,10 @@ jobs:
         id: changelog
         run: |
           tag="${{ github.ref_name }}"
-          body=$(sed -n "/^\# .*\[${tag}\]/,/^\# .*\[v/{/^\# .*\[v/!p}" CHANGELOG.md || true)
+          # Headings here are "## \[[vX.Y.Z](...)\] - date", so the pattern has to
+          # allow more than one leading '#'. Matching exactly one extracted nothing,
+          # for any tag.
+          body=$(sed -n "/^#\\+ .*\\[${tag}\\]/,/^#\\+ .*\\[v/{/^#\\+ .*\\[v/!p}" CHANGELOG.md || true)
           cat >> "$GITHUB_OUTPUT" <<DELIM
           body<<EOF
           ${body}

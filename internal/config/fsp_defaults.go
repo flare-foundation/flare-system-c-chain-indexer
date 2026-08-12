@@ -1,6 +1,8 @@
 package config
 
 import (
+	"slices"
+
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -102,17 +104,6 @@ func FspRewardEpochLogs() []LogInfo {
 	return result
 }
 
-// FspRoundLogs returns the round events, including the ones specific to chainID.
-func FspRoundLogs(chainID chain.ChainID) []LogInfo {
-	networkLogs := networkRoundLogs[chainID]
-
-	result := make([]LogInfo, 0, len(roundLogs)+len(networkLogs))
-	result = append(result, roundLogs...)
-	result = append(result, networkLogs...)
-
-	return result
-}
-
 // FspCollectLogs combines Reward epoch metadata and round events for full indexing
 func FspCollectLogs(chainID chain.ChainID) []LogInfo {
 	logs := FspRewardEpochLogs()
@@ -121,7 +112,7 @@ func FspCollectLogs(chainID chain.ChainID) []LogInfo {
 		logIx[logDedupKey(&logs[i])] = i
 	}
 
-	for _, roundLog := range FspRoundLogs(chainID) {
+	for _, roundLog := range slices.Concat(roundLogs, networkRoundLogs[chainID]) {
 		key := logDedupKey(&roundLog)
 		if _, ok := logIx[key]; ok {
 			continue
