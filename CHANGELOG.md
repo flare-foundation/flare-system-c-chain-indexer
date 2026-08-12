@@ -46,8 +46,8 @@ and this project adheres to
 
 ### Changed
 
-Breaking changes and a before/after config are collected in
-[docs/migrations/1.x-to-2.0.md](docs/migrations/1.x-to-2.0.md).
+Every entry below that breaks an existing deployment is marked in bold. See
+[Upgrading](#upgrading) for the before and after config.
 
 - Repository structure refactored under `cmd/` and `internal/` to follow
   conventional Go layout. The runnable binary moved to `./cmd/indexer`.
@@ -64,9 +64,10 @@ Breaking changes and a before/after config are collected in
 - Minimum Go toolchain version raised to 1.25.
 - `states.name` now carries a unique index, so state writes are a single upsert.
   `AutoMigrate` creates it on an existing database and fails if that table holds
-  duplicate names, which would stop the indexer from starting; the migration
-  notes have the query to check beforehand. No other schema change: the only
-  removed model field is `transactions.signature`, whose column is left in place.
+  duplicate names, which would stop the indexer from starting; see
+  [Upgrading](#upgrading) for the query to check beforehand. No other schema
+  change: the only removed model field is `transactions.signature`, whose column
+  is left in place.
 - **`indexer.num_parallel_req` renamed to `indexer.rpc_concurrency`**. Configs
   using the old key now fail at startup with a message pointing to the new name.
 - **`indexer.rpc_concurrency` defaults to 25, down from 100.** It is now a single
@@ -117,6 +118,69 @@ Breaking changes and a before/after config are collected in
   needs history back to two reward epochs before the oldest epoch it serves
   (about 7 days on Flare and Songbird, 14 hours on Coston and Coston2), so a
   node synced more recently than that cannot serve it whatever the setting.
+
+### Upgrading
+
+Configs using the old key names fail at startup, so the two renames above are the
+only mandatory edit. Before upgrading, check that the `states` table holds no
+duplicate names, which would stop `AutoMigrate` from creating the new unique
+index:
+
+```sql
+SELECT name, COUNT(*) FROM states GROUP BY name HAVING COUNT(*) > 1;
+```
+
+An empty result means there is nothing to do; otherwise keep the row with the
+highest `index` per name and delete the rest.
+
+A 1.x full-mode config for the FSP provider stack, with legacy key names and
+every collector spelled out:
+
+```toml
+[indexer]
+num_parallel_req = 100
+batch_size = 1000
+log_range = 10
+new_block_check_millis = 1000
+
+[[indexer.collect_transactions]]
+contract_address = "0x2cA6571Daa15ce734Bbd0Bf27D5C9D16787fc33f" # Submission
+func_sig = "6c532fae"
+status = true
+
+# ... three more Submission/Relay transaction filters, and one
+# [[indexer.collect_logs]] block per contract: FlareSystemsManager,
+# VoterRegistry (plus the legacy deployment), FlareSystemsCalculator (plus the
+# legacy deployment), Relay, FtsoRewardOffersManager, FastUpdater,
+# FastUpdateIncentiveManager, FdcHub ...
+
+[db]
+history_drop = 3628800 # 42 days
+```
+
+The 2.0 equivalent in FSP mode. The collectors are built in and resolved by name
+against the ContractRegistry, so the address blocks — including the legacy
+VoterRegistry and FlareSystemsCalculator deployments — are no longer needed:
+
+```toml
+[indexer]
+mode = "fsp"
+history_epochs = 0
+rpc_concurrency = 25
+batch_size = 1000
+log_range = 1000
+new_block_check_millis = 1000
+
+[db]
+# history_drop is ignored in fsp mode; retention follows history_epochs
+```
+
+Staying on full mode is also supported: keep the collector blocks and
+`db.history_drop`, and apply only the renames. Note that the built-in FSP
+collectors are a narrower filter than `topic = "undefined"` on each contract —
+they pin the specific topics the FSP stack consumes. Extra
+`[[indexer.collect_transactions]]` and `[[indexer.collect_logs]]` entries are
+still merged with the built-ins if you need more.
 
 
 ## \[[v1.1.2](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v1.1.2)\] - 2025-11-03
