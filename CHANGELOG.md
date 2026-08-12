@@ -64,6 +64,11 @@ Breaking changes and a before/after config are collected under
 - Minimum Go toolchain version raised to 1.25.
 - **`indexer.num_parallel_req` renamed to `indexer.rpc_concurrency`**. Configs
   using the old key now fail at startup with a message pointing to the new name.
+- **`indexer.rpc_concurrency` defaults to 25, down from 100.** It is now a single
+  process-wide ceiling rather than a per-fan-out limit, so the old number means
+  considerably more simultaneous load on the node than it used to. 25 is sized
+  for a shared endpoint — a fresh FSP sync on Flare mainnet took 36s at that
+  value — and can be raised for a dedicated node.
 - **`timeout.timeout_millis` renamed to `timeout.rpc_timeout_millis`, and its
   default raised from 1s to 5s.** It bounds every individual RPC attempt (block,
   receipt, `eth_getLogs`, contract call). Configs using the old key now fail at
