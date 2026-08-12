@@ -93,6 +93,21 @@ Breaking changes and a before/after config are collected under
   continuous indexing, FSP metadata backfill, start-block search, contract
   calls, and the concurrent history-drop scan — rather than a per-fan-out cap.
 
+### Fixed
+
+- FSP mode no longer probes blocks it does not need when resolving where to
+  start. The start-block search is bounded by the event anchor — the oldest
+  block the configured `history_epochs` requires, known from contract state —
+  instead of stepping back from the tip in five-day windows. Nodes that were
+  state synced do not have those older blocks, and the resulting failure used
+  to be retried indefinitely with nothing logged above debug level, so the
+  indexer appeared to hang at startup. If the node cannot serve the anchor
+  block, startup now exits immediately naming the block, the reward epoch and
+  the `history_epochs` value that requires it. Note that FSP mode inherently
+  needs history back to two reward epochs before the oldest epoch it serves
+  (about 7 days on Flare and Songbird, 14 hours on Coston and Coston2), so a
+  node synced more recently than that cannot serve it whatever the setting.
+
 
 ## \[[v1.1.2](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v1.1.2)\] - 2025-11-03
 

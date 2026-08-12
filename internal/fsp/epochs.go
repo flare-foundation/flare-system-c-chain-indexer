@@ -193,16 +193,16 @@ func fspRetentionBoundary(ctx context.Context, fsm fsmReader, historyEpochs uint
 // reconstruct. Events are then scanned continuously from here up to where
 // full-block catchup takes over; a continuous range (not per-epoch windows)
 // is required because community reward offers can be submitted at any point
-// during an epoch. ok is false when no epoch in range has start data
+// during an epoch. The block is zero when no epoch in range has start data
 // (nothing to backfill).
 func fspEventBackfillAnchor(
 	ctx context.Context,
 	fsm fsmReader,
 	startEpochID uint64,
-) (uint64, bool, error) {
+) (uint64, error) {
 	anchor, ok, err := fspEventAnchor(ctx, fsm, startEpochID)
 	if err != nil || !ok {
-		return 0, false, err
+		return 0, err
 	}
-	return anchor.block, true, nil
+	return anchor.block, nil
 }

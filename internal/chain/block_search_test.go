@@ -19,6 +19,58 @@ func linearChain(maxBlock, baseTime uint64) blockTimeLookup {
 	}
 }
 
+// prunedChain is a linearChain whose blocks below earliest were discarded, as on
+// a state synced node.
+func prunedChain(earliest, maxBlock, baseTime uint64) blockTimeLookup {
+	full := linearChain(maxBlock, baseTime)
+	return func(ctx context.Context, n uint64) (uint64, error) {
+		if n < earliest {
+			return 0, fmt.Errorf("block %d is not available (node history starts at %d)", n, earliest)
+		}
+		return full(ctx, n)
+	}
+}
+
+// A start block bounds the search from below, so a node missing older blocks is
+// searched successfully as long as the caller only asks for blocks it requires.
+// FSP mode passes its event anchor here for exactly that reason.
+func TestNearestBlockByTimestampStaysAboveStartBlock(t *testing.T) {
+	const (
+		base     = 1000
+		earliest = 900_000
+		head     = 1_000_000
+	)
+
+	got, err := nearestBlockByTimestamp(
+		context.Background(), base+950_000, earliest, head,
+		prunedChain(earliest, head, base),
+	)
+	if err != nil {
+		t.Fatalf("search probed a block the node does not have: %v", err)
+	}
+	if want := uint64(950_000); got != want {
+		t.Fatalf("got block %d, want %d", got, want)
+	}
+}
+
+// Without that bound the descent steps below the node's history and fails. This
+// is the failure state synced nodes hit, and it is why the start block matters.
+func TestNearestBlockByTimestampFailsBelowPrunedHistory(t *testing.T) {
+	const (
+		base     = 1000
+		earliest = 900_000
+		head     = 1_000_000
+	)
+
+	_, err := nearestBlockByTimestamp(
+		context.Background(), base+950_000, 0, head,
+		prunedChain(earliest, head, base),
+	)
+	if err == nil {
+		t.Fatal("expected the unbounded search to probe below the node's history")
+	}
+}
+
 func TestNearestBlockByTimestamp(t *testing.T) {
 	const base = 1000
 

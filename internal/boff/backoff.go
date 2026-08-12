@@ -20,6 +20,13 @@ func Retry[T any](ctx context.Context, operation func() (T, error), name string)
 	return retry(ctx, operation, name, 0) // 0 means no max elapsed time
 }
 
+// Permanent marks an error as not worth retrying. The enclosing Retry stops
+// immediately and returns the wrapped error unchanged, which is what turns a
+// misconfiguration into a clean exit rather than an endless retry loop.
+func Permanent(err error) error {
+	return backoff.Permanent(err)
+}
+
 func RetryNoReturn(ctx context.Context, operation func() error, name string) error {
 	_, err := Retry(
 		ctx,

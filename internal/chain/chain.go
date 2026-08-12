@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"strings"
 
 	avxClient "github.com/ava-labs/coreth/ethclient"
 	"github.com/ava-labs/coreth/interfaces"
@@ -40,6 +41,29 @@ const (
 	ChainTypeAvax ChainType = iota + 1 // Add 1 to skip 0 - avoids the zero value defaulting to Avax
 	ChainTypeEth
 )
+
+// IsBlockUnavailable reports whether err means the node does not have the block,
+// as opposed to a transient failure that is worth retrying. A null RPC result
+// surfaces as the client's NotFound sentinel; nodes that answer with an explicit
+// JSON-RPC error instead have to be matched on the message, as there is no error
+// code for it.
+func IsBlockUnavailable(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, interfaces.NotFound) || errors.Is(err, ethereum.NotFound) {
+		return true
+	}
+
+	message := strings.ToLower(err.Error())
+	for _, phrase := range []string{"not found", "not available", "unavailable", "does not exist", "pruned"} {
+		if strings.Contains(message, phrase) {
+			return true
+		}
+	}
+
+	return false
+}
 
 type Client struct {
 	chain ChainType
