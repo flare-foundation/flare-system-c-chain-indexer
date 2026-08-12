@@ -55,8 +55,14 @@ test:
     - name: mysql:latest
       alias: mysql
   script:
+    # The integration packages need their own databases, so create every one the
+    # init script defines rather than relying on MYSQL_DATABASE, which makes only
+    # the first.
+    - apt-get update && apt-get install -y --no-install-recommends default-mysql-client
+    - until mysql -h mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e 'SELECT 1' >/dev/null 2>&1; do sleep 2; done
+    - mysql -h mysql -u root -p"${MYSQL_ROOT_PASSWORD}" < internal/database/docker/db_init/flare_ftso_indexer.sql
     - sed -i 's/test_host = "localhost"/test_host = "mysql"/' test/config_test.toml
-    - go test ./test
+    - go test ./...
 
 build-container:
   stage: build
