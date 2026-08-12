@@ -200,7 +200,7 @@ func resolveStartPlan(
 		return baseBlock, 0, nil
 	}
 
-	if err := ensureBlockAvailable(ctx, blockProbe(ci), eventStartBlock, startEpochID, params.HistoryEpochs); err != nil {
+	if err := ensureBlockAvailable(ctx, ci, eventStartBlock, startEpochID, params.HistoryEpochs); err != nil {
 		return 0, 0, err
 	}
 
@@ -212,27 +212,6 @@ func resolveStartPlan(
 	return fullStartBlock, eventStartBlock, nil
 }
 
-// blockProbe asks the node for a block header, retrying transient failures like
-// any other RPC read but giving up as soon as the node reports it does not have
-// the block, since no amount of retrying changes that answer.
-func blockProbe(ci *core.Engine) func(context.Context, uint64) error {
-	return func(ctx context.Context, block uint64) error {
-		_, err := boff.RetryWithMaxElapsed(ctx, func() (*chain.Header, error) {
-			callCtx, cancel := context.WithTimeout(ctx, config.RPCTimeout)
-			defer cancel()
-
-			header, err := ci.Client().HeaderByNumber(callCtx, new(big.Int).SetUint64(block))
-			if chain.IsBlockUnavailable(err) {
-				return nil, boff.Permanent(err)
-			}
-
-			return header, err
-		}, "probeAnchorBlock")
-
-		return err
-	}
-}
-
 // ensureBlockAvailable fails, permanently, when the node cannot serve the oldest
 // block FSP mode needs. Nodes that were state synced discard the blocks before
 // their sync point, and without this check the missing data surfaces much later
@@ -240,15 +219,24 @@ func blockProbe(ci *core.Engine) func(context.Context, uint64) error {
 // forever. The block number comes from contract state, so it is known before any
 // historical data is read.
 //
-// Only a node that answers "no such block" is fatal. A transient failure is
-// returned as an ordinary error so the caller's retry loop keeps trying until the
-// node either serves the block or says it does not have it.
+// Transient failures are retried like any other RPC read and then returned as an
+// ordinary error, so the caller's retry loop keeps trying. Only a node that
+// answers "no such block" is fatal, and that answer is not retried at all.
 func ensureBlockAvailable(
-	ctx context.Context,
-	probe func(context.Context, uint64) error,
-	block, startEpochID, historyEpochs uint64,
+	ctx context.Context, ci *core.Engine, block, startEpochID, historyEpochs uint64,
 ) error {
-	err := probe(ctx, block)
+	_, err := boff.RetryWithMaxElapsed(ctx, func() (*chain.Header, error) {
+		callCtx, cancel := context.WithTimeout(ctx, config.RPCTimeout)
+		defer cancel()
+
+		header, err := ci.Client().HeaderByNumber(callCtx, new(big.Int).SetUint64(block))
+		if chain.IsBlockUnavailable(err) {
+			return nil, boff.Permanent(err)
+		}
+
+		return header, err
+	}, "probeAnchorBlock")
+
 	switch {
 	case err == nil:
 		return nil
