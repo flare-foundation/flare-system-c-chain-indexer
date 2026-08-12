@@ -74,66 +74,6 @@ re-indexing from the new starting block. You can also set the `drop_table_at_sta
 true to have the indexer drop existing tables at startup and force re-indexing - though remember to
 set it back to false afterwards to avoid losing data on subsequent runs.
 
-### Upgrading from 1.x to 2.0
-
-#### Breaking changes
-
-- **`indexer.num_parallel_req` is now `indexer.rpc_concurrency`.** The old key fails at startup with a message pointing to the new one, rather than being silently ignored. It is also no longer a per-fan-out limit: it caps every simultaneous RPC call — blocks, receipts, `eth_getLogs`, contract calls, history-drop lookups — process-wide. Carrying an old value of 100 straight over therefore puts more load on the node than it used to; 20–50 is plenty (a fresh FSP sync on Flare mainnet took 36s at 25).
-- **`timeout.timeout_millis` is now `timeout.rpc_timeout_millis`**, and its default rose from 1s to 5s. Also fails at startup if the old key is present.
-- **`log_range` means max blocks per `eth_getLogs` request**, and log fetching is sequential per filter. It is no longer tied to `num_parallel_req`, `batch_size` or a parallel fan-out. A small value that worked in 1.x — the old suggestion was `batch_size / num_parallel_req` — now issues that many requests one after another, per configured filter: with `batch_size = 1000`, `log_range = 10` and 15 filters, a single batch makes ~1500 sequential requests. Set it to your RPC node's getLogs cap, commonly 1000–10000.
-- **The binary is `flare-cchain-indexer`** (was `flare_cchain_indexer`). Only matters if you override the container command or run the binary directly; the image's own `CMD` is updated.
-- **`states.name` gains a unique index.** If a 1.x database somehow holds two rows with the same state name, `AutoMigrate` fails and the indexer will not start. Check before upgrading:
-  ```sql
-  SELECT name, COUNT(*) FROM states GROUP BY name HAVING COUNT(*) > 1;
-  ```
-  An empty result means there is nothing to do. Otherwise keep the row with the highest `index` per name and delete the rest. Nothing else in the schema changes: the only removed model field is `transactions.signature`, and the column is left in place rather than dropped.
-- **In FSP mode `indexer.start_index` and `db.history_drop` are ignored** (the latter logs a warning). Retention follows `indexer.history_epochs`.
-
-#### Old and new configuration
-
-A 1.x full-mode config for the FSP provider stack — legacy key names, every collector spelled out:
-
-```toml
-[indexer]
-num_parallel_req = 100
-batch_size = 1000
-log_range = 10
-new_block_check_millis = 1000
-
-[[indexer.collect_transactions]]
-contract_address = "0x2cA6571Daa15ce734Bbd0Bf27D5C9D16787fc33f" # Submission
-func_sig = "6c532fae"
-status = true
-
-# ... three more Submission/Relay transaction filters, and one
-# [[indexer.collect_logs]] block per contract: FlareSystemsManager,
-# VoterRegistry (plus the legacy deployment), FlareSystemsCalculator (plus the
-# legacy deployment), Relay, FtsoRewardOffersManager, FastUpdater,
-# FastUpdateIncentiveManager, FdcHub ...
-
-[db]
-history_drop = 3628800 # 42 days
-```
-
-The 2.0 equivalent in FSP mode. The collectors are built in and resolved by name against the ContractRegistry, so the address blocks — including the legacy VoterRegistry and FlareSystemsCalculator deployments — are no longer needed:
-
-```toml
-[indexer]
-mode = "fsp"
-history_epochs = 0
-rpc_concurrency = 25
-batch_size = 1000
-log_range = 1000
-new_block_check_millis = 1000
-
-[db]
-# history_drop is ignored in FSP mode; retention follows history_epochs
-```
-
-Staying on full mode is also supported: keep the collector blocks and `db.history_drop`, and apply only the renames above.
-
-Note that the built-in FSP collectors are a narrower filter than `topic = "undefined"` on each contract — they pin the specific topics the FSP stack consumes. Extra `[[indexer.collect_transactions]]` and `[[indexer.collect_logs]]` entries are still merged with the built-ins if you need more.
-
 ### Database
 
 In `internal/database/docker` we provide a simple database. Navigate to the folder and run

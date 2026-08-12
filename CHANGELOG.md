@@ -46,8 +46,8 @@ and this project adheres to
 
 ### Changed
 
-Breaking changes and a before/after config are collected under
-["Upgrading from 1.x to 2.0"](README.md#upgrading-from-1x-to-20) in the readme.
+Breaking changes and a before/after config are collected in
+[docs/migrations/1.x-to-2.0.md](docs/migrations/1.x-to-2.0.md).
 
 - Repository structure refactored under `cmd/` and `internal/` to follow
   conventional Go layout. The runnable binary moved to `./cmd/indexer`.
@@ -62,6 +62,11 @@ Breaking changes and a before/after config are collected under
   binary search, avoiding requests for very old blocks when running against
   RPC nodes with limited history.
 - Minimum Go toolchain version raised to 1.25.
+- `states.name` now carries a unique index, so state writes are a single upsert.
+  `AutoMigrate` creates it on an existing database and fails if that table holds
+  duplicate names, which would stop the indexer from starting; the migration
+  notes have the query to check beforehand. No other schema change: the only
+  removed model field is `transactions.signature`, whose column is left in place.
 - **`indexer.num_parallel_req` renamed to `indexer.rpc_concurrency`**. Configs
   using the old key now fail at startup with a message pointing to the new name.
 - **`indexer.rpc_concurrency` defaults to 25, down from 100.** It is now a single
