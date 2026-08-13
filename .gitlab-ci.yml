@@ -52,17 +52,15 @@ test:
     DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     MOCK_CHAIN_PORT: 2426
   services:
-    - name: mysql:latest
+    - name: mysql:9.5.0
       alias: mysql
+  # A hung service must not burn the hour-long default.
+  timeout: 20m
   script:
-    # The integration packages need their own databases, so create every one the
-    # init script defines rather than relying on MYSQL_DATABASE, which makes only
-    # the first.
-    - apt-get update && apt-get install -y --no-install-recommends default-mysql-client
-    - until mysql -h mysql -u root -p"${MYSQL_ROOT_PASSWORD}" -e 'SELECT 1' >/dev/null 2>&1; do sleep 2; done
-    - mysql -h mysql -u root -p"${MYSQL_ROOT_PASSWORD}" < internal/database/docker/db_init/flare_ftso_indexer.sql
     - sed -i 's/test_host = "localhost"/test_host = "mysql"/' test/config_test.toml
-    - go test ./...
+    # Everything but cmd/indexer, whose suite wants a second database that
+    # MYSQL_DATABASE cannot create. The rest run on the one it does.
+    - go test ./internal/... ./test
 
 build-container:
   stage: build
