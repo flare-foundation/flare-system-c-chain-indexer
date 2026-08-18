@@ -15,7 +15,9 @@ file = "../logs/flare-cchain-indexer.log"
 console = true
 
 [chain]
-node_url = "https://songbird-node2.flare.space/ext/C/rpc"
+# Public Songbird endpoint; use a dedicated node for real numbers, since
+# rpc_concurrency below will be throttled by a shared one.
+node_url = "https://songbird-api.flare.network/ext/C/rpc"
 
 [indexer]
 start_index = 48800000

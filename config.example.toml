@@ -25,7 +25,8 @@ level = "INFO"
 console = true
 
 [chain]
-node_url = "http://coston2.test.aflabs.net:9650/ext/bc/C/rpc" # or NODE_URL environment variable
+# Public Coston2 endpoint as an example; set log_range to your node's getLogs cap.
+node_url = "https://coston2-api.flare.network/ext/bc/C/rpc" # or NODE_URL environment variable
 api_key = "" # or NODE_API_KEY environment variable
 chain_type = 1 # default Avalanche based chain=1, Ethereum based chain=2
 
