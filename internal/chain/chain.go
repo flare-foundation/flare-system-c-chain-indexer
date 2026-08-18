@@ -41,6 +41,17 @@ const (
 	ChainTypeEth
 )
 
+// IsBlockUnavailable reports whether err is the node saying it does not have the
+// block: a null result, which both clients surface as their NotFound sentinel.
+// Callers use it to skip retrying an answer that cannot change.
+//
+// Error text is deliberately not matched, since transport failures carry prose
+// that reads like absence — "503 Service Unavailable", a proxy's "404 not found".
+// Such an error is simply retried instead.
+func IsBlockUnavailable(err error) bool {
+	return errors.Is(err, interfaces.NotFound) || errors.Is(err, ethereum.NotFound)
+}
+
 type Client struct {
 	chain ChainType
 	eth   *ethClient.Client

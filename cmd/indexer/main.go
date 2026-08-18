@@ -64,6 +64,15 @@ func run(ctx context.Context) error {
 		return errors.Wrap(err, "Could not connect to the RPC nodes")
 	}
 
+	chainID, err := ethClient.ChainID(ctx)
+	if err != nil {
+		return errors.Wrap(err, "failed to get chain ID")
+	}
+
+	logger.Infof("Connected to chain ID %s", chainID)
+
+	config.ApplyFspCollectors(&cfg.Indexer, chain.ChainIDFromBigInt(chainID))
+
 	resolver, err := contracts.NewContractResolver(ethClient)
 	if err != nil {
 		return errors.Wrap(err, "Failed to initialize contract registry resolver")
@@ -80,13 +89,6 @@ func run(ctx context.Context) error {
 
 	ready.SetSynced(false)
 	health.Start()
-
-	chainID, err := ethClient.ChainID(ctx)
-	if err != nil {
-		return errors.Wrap(err, "failed to get chain ID")
-	}
-
-	logger.Infof("Connected to chain ID %s", chainID)
 
 	if cfg.Indexer.IsFspMode() {
 		return fsp.RunIndexer(ctx, cfg, db, ethClient, resolver)

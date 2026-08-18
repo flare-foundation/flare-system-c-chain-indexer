@@ -52,11 +52,15 @@ test:
     DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     MOCK_CHAIN_PORT: 2426
   services:
-    - name: mysql:latest
+    - name: mysql:9.5.0
       alias: mysql
+  # A hung service must not burn the hour-long default.
+  timeout: 20m
   script:
     - sed -i 's/test_host = "localhost"/test_host = "mysql"/' test/config_test.toml
-    - go test ./test
+    # Everything but cmd/indexer, whose suite wants a second database that
+    # MYSQL_DATABASE cannot create. The rest run on the one it does.
+    - go test ./internal/... ./test
 
 build-container:
   stage: build

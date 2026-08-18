@@ -2,8 +2,8 @@
 mode = "full" # "full" (default) or "fsp"
 start_index = 0 # start block; set only when history_drop = 0.
 stop_index = 0 # stop block; set 0 to index indefinitely
-history_epochs = 0 # FSP mode only: 0=last 15 minutes, >0=number of reward epochs to keep/index from
-rpc_concurrency = 100 # max simultaneous RPC calls of any kind (blocks, receipts, eth_getLogs, contract calls); raise for a dedicated node, lower if rate-limited
+history_epochs = 0 # FSP mode only: 0=last 1 hour, >0=number of reward epochs to keep/index from
+rpc_concurrency = 25 # max simultaneous RPC calls of any kind (blocks, receipts, eth_getLogs, contract calls) across the whole process; raise for a dedicated node, lower if rate-limited
 batch_size = 1000 # blocks fetched and committed per batch (one DB transaction); larger means fewer, larger commits and more memory. Most users leave this.
 log_range = 1000 # max blocks per eth_getLogs request; SET TO YOUR RPC's getLogs cap (commonly 1000-10000), or requests fail
 new_block_check_millis = 1000 # interval for checking for new blocks
@@ -22,11 +22,11 @@ topic = "undefined" # topic0 filter; use "undefined" to index all events from th
 
 [logger]
 level = "INFO"
-file = "./logs/flare-cchain-indexer.log"
 console = true
 
 [chain]
-node_url = "http://coston2.test.aflabs.net:9650/ext/bc/C/rpc" # or NODE_URL environment variable
+# Public Coston2 endpoint as an example; set log_range to your node's getLogs cap.
+node_url = "https://coston2-api.flare.network/ext/bc/C/rpc" # or NODE_URL environment variable
 api_key = "" # or NODE_API_KEY environment variable
 chain_type = 1 # default Avalanche based chain=1, Ethereum based chain=2
 

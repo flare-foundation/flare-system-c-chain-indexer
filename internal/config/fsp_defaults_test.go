@@ -1,13 +1,16 @@
 package config
 
 import (
+	"strings"
 	"testing"
+
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
 
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/fumanager"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 )
 
-func TestNormalizeIndexerConfig_FspMergesDefaultAndUserCollectors(t *testing.T) {
+func TestApplyFspCollectors_MergesDefaultAndUserCollectors(t *testing.T) {
 	cfg := IndexerConfig{
 		Mode: IndexerModeFsp,
 		CollectTransactions: []TransactionInfo{
@@ -34,9 +37,7 @@ func TestNormalizeIndexerConfig_FspMergesDefaultAndUserCollectors(t *testing.T) 
 		},
 	}
 
-	if err := normalizeIndexerConfig(&cfg); err != nil {
-		t.Fatalf("normalizeIndexerConfig: %v", err)
-	}
+	ApplyFspCollectors(&cfg, chain.ChainIDFlare)
 
 	if got, want := len(cfg.CollectTransactions), 5; got != want {
 		t.Fatalf("unexpected number of transaction collectors: got=%d want=%d", got, want)
@@ -79,7 +80,84 @@ func TestNormalizeIndexerConfig_FspMergesDefaultAndUserCollectors(t *testing.T) 
 	}
 }
 
-func TestNormalizeIndexerConfig_FullModeDoesNotInjectFspDefaults(t *testing.T) {
+// The FCC contracts are per-network round logs, so they follow the chain ID and
+// networks without a deployment must not inherit another network's addresses.
+func TestApplyFspCollectors_NetworkRoundLogs(t *testing.T) {
+	songbirdTee := "0x5C2dE0DeFC3FDBbF8e12c12bD0b1629Ed37DC767"
+
+	cfg := IndexerConfig{Mode: IndexerModeFsp}
+	ApplyFspCollectors(&cfg, chain.ChainIDSongbird)
+	if !containsLogAddress(cfg.CollectLogs, songbirdTee, teeInstructionsSentTopic) {
+		t.Fatalf("songbird FlareTeeManager filter missing after merge")
+	}
+
+	cfg = IndexerConfig{Mode: IndexerModeFsp}
+	ApplyFspCollectors(&cfg, chain.ChainIDFlare)
+	if containsLogAddress(cfg.CollectLogs, songbirdTee, teeInstructionsSentTopic) {
+		t.Fatalf("flare must not inherit songbird's FCC address")
+	}
+
+	// A hand-pinned entry must not be duplicated by the built-in.
+	cfg = IndexerConfig{
+		Mode:        IndexerModeFsp,
+		CollectLogs: []LogInfo{{ContractAddress: songbirdTee, Topic: teeInstructionsSentTopic}},
+	}
+	ApplyFspCollectors(&cfg, chain.ChainIDSongbird)
+	if got := countLogAddress(cfg.CollectLogs, songbirdTee, teeInstructionsSentTopic); got != 1 {
+		t.Fatalf("expected a single FlareTeeManager filter, got %d", got)
+	}
+}
+
+// How a topic is spelled must not decide whether a filter is a duplicate: the
+// dedup key normalises the 0x prefix and treats "undefined" as the empty
+// catch-all, otherwise the same query is issued twice per batch.
+func TestApplyFspCollectors_DedupsRegardlessOfTopicSpelling(t *testing.T) {
+	songbirdTee := "0x5C2dE0DeFC3FDBbF8e12c12bD0b1629Ed37DC767"
+
+	for _, topic := range []string{
+		teeInstructionsSentTopic,
+		strings.TrimPrefix(teeInstructionsSentTopic, "0x"),
+		strings.ToUpper(strings.TrimPrefix(teeInstructionsSentTopic, "0x")),
+		"  " + teeInstructionsSentTopic + "  ",
+	} {
+		cfg := IndexerConfig{
+			Mode:        IndexerModeFsp,
+			CollectLogs: []LogInfo{{ContractAddress: songbirdTee, Topic: topic}},
+		}
+		ApplyFspCollectors(&cfg, chain.ChainIDSongbird)
+
+		if got := countLogAddress(cfg.CollectLogs, songbirdTee, teeInstructionsSentTopic); got != 1 {
+			t.Fatalf("topic %q: got %d FlareTeeManager filters, want 1", topic, got)
+		}
+	}
+
+	// "undefined" and an empty topic both mean every event, so a config restating
+	// a built-in catch-all must not add a second filter.
+	for _, topic := range []string{"undefined", "UNDEFINED", ""} {
+		cfg := IndexerConfig{
+			Mode:        IndexerModeFsp,
+			CollectLogs: []LogInfo{{ContractName: "FdcHub", Topic: topic}},
+		}
+		ApplyFspCollectors(&cfg, chain.ChainIDFlare)
+
+		count := 0
+		for _, l := range cfg.CollectLogs {
+			if l.ContractName == "FdcHub" && isCatchAll(l.Topic) {
+				count++
+			}
+		}
+		if count != 1 {
+			t.Fatalf("topic %q: got %d FdcHub catch-all filters, want 1", topic, count)
+		}
+	}
+}
+
+func isCatchAll(topic string) bool {
+	topic = strings.ToLower(strings.TrimSpace(topic))
+	return topic == "" || topic == undefined
+}
+
+func TestApplyFspCollectors_FullModeDoesNotInjectFspDefaults(t *testing.T) {
 	cfg := IndexerConfig{
 		Mode: IndexerModeFull,
 		CollectTransactions: []TransactionInfo{
@@ -96,9 +174,7 @@ func TestNormalizeIndexerConfig_FullModeDoesNotInjectFspDefaults(t *testing.T) {
 		},
 	}
 
-	if err := normalizeIndexerConfig(&cfg); err != nil {
-		t.Fatalf("normalizeIndexerConfig: %v", err)
-	}
+	ApplyFspCollectors(&cfg, chain.ChainIDSongbird)
 
 	if got, want := len(cfg.CollectTransactions), 1; got != want {
 		t.Fatalf("full mode should keep custom tx collectors unchanged: got=%d want=%d", got, want)
@@ -124,4 +200,18 @@ func containsLog(logs []LogInfo, contractName, topic string) bool {
 		}
 	}
 	return false
+}
+
+func countLogAddress(logs []LogInfo, contractAddress, topic string) int {
+	count := 0
+	for _, log := range logs {
+		if strings.EqualFold(log.ContractAddress, contractAddress) && strings.EqualFold(log.Topic, topic) {
+			count++
+		}
+	}
+	return count
+}
+
+func containsLogAddress(logs []LogInfo, contractAddress, topic string) bool {
+	return countLogAddress(logs, contractAddress, topic) > 0
 }
