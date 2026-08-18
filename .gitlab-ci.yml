@@ -61,17 +61,3 @@ test:
     # Everything but cmd/indexer, whose suite wants a second database that
     # MYSQL_DATABASE cannot create. The rest run on the one it does.
     - go test ./internal/... ./test
-
-build-container:
-  stage: build
-  needs: []
-  image:
-    name: registry.gitlab.com/flarenetwork/infra-public/pipeliner/kaniko-executor-stbl:v1.23.2-debug
-    entrypoint: [""]
-  script:
-    - >-
-      args="--context ${CI_PROJECT_DIR}/.
-        --cache=true
-        --registry-mirror mirror.gcr.io
-        --destination ${CI_REGISTRY_IMAGE}:$CI_COMMIT_SHA"
-    - /kaniko/executor $args
