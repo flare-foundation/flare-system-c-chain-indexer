@@ -7,6 +7,17 @@ and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## Unreleased
+
+### Fixed
+
+- Continuous indexing no longer issues one `eth_getLogs` per `collect_logs` filter serially.
+  Each filter is a separate request, so indexing a single block cost one RPC round trip per filter — 21 filters on Flare, 23 on Songbird, Coston and Coston2 once FSP mode resolves them.
+  Once per-call latency passed roughly the block time divided by the filter count — around 40 ms on a one-second chain with 23 filters — a block cost more than the interval between blocks, and the indexer drifted further behind the chain every few seconds with nothing logged, since every request succeeded.
+  The filters are now fetched concurrently, which cuts the log phase from one round trip per filter to roughly one: the node receives the same number of requests and `rpc_concurrency` still caps how many are in flight, but continuous mode goes from one request at a time to up to one per filter.
+  Indexing still advances one block per iteration, so a slow enough endpoint can still fall behind.
+
+
 ## \[[v2.0.0](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v2.0.0)\] - 2026-08-18
 
 2.0 adds a dedicated FSP mode that indexes selectively instead of fully indexing every block in a wall-clock retention window: a recent window of blocks is indexed in full, and further back only the reward epoch metadata the FSP stack needs is backfilled, with both boundaries derived from on-chain reward epochs rather than a configured duration.
@@ -133,17 +144,6 @@ Note that the built-in FSP collectors are narrower than `topic = "undefined"` on
 
 - Continuous indexing resumes from the latest persisted block on retry instead of the block height captured at startup.
   A transient error used to rewind ingestion to the startup tip and re-process everything indexed since, stalling ingestion while history drop kept pruning by wall-clock retention — which can drain the recent window.
-
-### Fixed
-
-- Continuous indexing no longer falls permanently behind the chain. Each
-  `collect_logs` filter is a separate `eth_getLogs` request, and they were
-  issued one after another, so indexing a single block cost one RPC round trip
-  per filter. In FSP mode, which builds in well over a dozen filters, that put
-  a block's wall-clock cost above the block time on any non-local node, and the
-  lag grew without bound. The filters are now fetched concurrently. The number
-  of RPC requests is unchanged and `rpc_concurrency` still bounds how many are
-  in flight, so the node sees no additional load.
 
 
 ## \[[v1.1.2](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v1.1.2)\] - 2025-11-03

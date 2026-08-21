@@ -336,10 +336,12 @@ func (ci *Engine) obtainLogsBatch(
 
 	// Every collect_logs filter is an independent eth_getLogs stream, so fetch
 	// them concurrently. Serialized, a batch costs one RPC round trip per
-	// filter, which for a short range dominates everything else - FSP mode
-	// builds in well over a dozen. SetLimit bounds goroutine fan-out; the
-	// real RPC concurrency cap is enforced globally in chain.Client, so this
-	// does not raise the load the node sees. Each requestLogs walks
+	// filter, which for a short range dominates everything else — FSP mode
+	// resolves to more than twenty, enough to put a single block past the block
+	// time. SetLimit bounds goroutine fan-out; the RPC concurrency cap stays
+	// enforced globally in chain.Client, so neither the request count nor the
+	// in-flight ceiling changes here, only how tightly the requests are packed.
+	// Each requestLogs walks
 	// [batchIx, lastBlockNumInRound] stepping by LogRange, so LogRange is simply
 	// the max number of blocks per eth_getLogs request.
 	eg, ctx := errgroup.WithContext(ctx)
