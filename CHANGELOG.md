@@ -134,6 +134,17 @@ Note that the built-in FSP collectors are narrower than `topic = "undefined"` on
 - Continuous indexing resumes from the latest persisted block on retry instead of the block height captured at startup.
   A transient error used to rewind ingestion to the startup tip and re-process everything indexed since, stalling ingestion while history drop kept pruning by wall-clock retention — which can drain the recent window.
 
+### Fixed
+
+- Continuous indexing no longer falls permanently behind the chain. Each
+  `collect_logs` filter is a separate `eth_getLogs` request, and they were
+  issued one after another, so indexing a single block cost one RPC round trip
+  per filter. In FSP mode, which builds in well over a dozen filters, that put
+  a block's wall-clock cost above the block time on any non-local node, and the
+  lag grew without bound. The filters are now fetched concurrently. The number
+  of RPC requests is unchanged and `rpc_concurrency` still bounds how many are
+  in flight, so the node sees no additional load.
+
 
 ## \[[v1.1.2](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v1.1.2)\] - 2025-11-03
 

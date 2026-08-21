@@ -334,20 +334,32 @@ func (ci *Engine) obtainLogsBatch(
 	lgBatch := new(logsBatch)
 	startTime := time.Now()
 
-	// Fetch logs sequentially, one filter at a time. requestLogs walks
+	// Every collect_logs filter is an independent eth_getLogs stream, so fetch
+	// them concurrently. Serialized, a batch costs one RPC round trip per
+	// filter, which for a short range dominates everything else - FSP mode
+	// builds in well over a dozen. SetLimit bounds goroutine fan-out; the
+	// real RPC concurrency cap is enforced globally in chain.Client, so this
+	// does not raise the load the node sees. Each requestLogs walks
 	// [batchIx, lastBlockNumInRound] stepping by LogRange, so LogRange is simply
 	// the max number of blocks per eth_getLogs request.
+	eg, ctx := errgroup.WithContext(ctx)
+	eg.SetLimit(ci.params.RpcConcurrency)
+
 	for _, logInfo := range ci.params.CollectLogs {
-		if err := ci.requestLogs(
-			ctx,
-			lgBatch,
-			logInfo,
-			batchIx,
-			lastBlockNumInRound+1,
-			lastBlockNumInRound,
-		); err != nil {
-			return nil, err
-		}
+		eg.Go(func() error {
+			return ci.requestLogs(
+				ctx,
+				lgBatch,
+				logInfo,
+				batchIx,
+				lastBlockNumInRound+1,
+				lastBlockNumInRound,
+			)
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return nil, err
 	}
 
 	logger.Debugf(
@@ -523,12 +535,12 @@ func (ci *Engine) indexContinuousIteration(ctx context.Context, index uint64) er
 		return errors.Wrapf(err, "getTransactionsReceipt: block=%d", index)
 	}
 
-	logsBatch := new(logsBatch)
-	for _, logInfo := range ci.params.CollectLogs {
-		err = ci.requestLogs(ctx, logsBatch, logInfo, index, index+1, index)
-		if err != nil {
-			return errors.Wrapf(err, "requestLogs: block=%d", index)
-		}
+	// Share the batch path's log fetching rather than walking the filters one
+	// at a time: every filter is a separate eth_getLogs request, so serially
+	// this cost one RPC round trip per filter for a single block.
+	logsBatch, err := ci.obtainLogsBatch(ctx, index, index)
+	if err != nil {
+		return errors.Wrapf(err, "requestLogs: block=%d", index)
 	}
 
 	data := newDatabaseStructData()
