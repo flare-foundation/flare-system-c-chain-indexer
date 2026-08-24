@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"
 )
 
@@ -205,4 +206,41 @@ func fspEventBackfillAnchor(
 		return 0, err
 	}
 	return anchor.block, nil
+}
+
+// lookbackBase returns the epoch the indexer serves history from and the block
+// the full-block window is measured back from.
+func lookbackBase(
+	ctx context.Context, fsm fsmReader, historyEpochs, tip, tipTimestamp uint64,
+) (startEpoch, baseBlock, baseTimestamp uint64, err error) {
+	currentEpoch, err := fspCurrentEpochID(ctx, fsm)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	if historyEpochs == 0 {
+		return currentEpoch, tip, tipTimestamp, nil
+	}
+
+	desired := historyStartEpochID(currentEpoch, historyEpochs)
+	resolved, info, ok, err := resolveStartEpoch(ctx, fsm, desired, currentEpoch)
+	if err != nil {
+		return 0, 0, 0, err
+	}
+	if !ok {
+		// A zero start block would full-index from genesis.
+		logger.Warnf("Reward epoch %d has no FSP start data yet; using the confirmed tip", currentEpoch)
+
+		return currentEpoch, tip, tipTimestamp, nil
+	}
+	if resolved > desired {
+		logger.Errorf(
+			"history_epochs=%d requests reward epoch %d, but this deployment's data begins at epoch %d; catching up from there",
+			historyEpochs, desired, resolved,
+		)
+	}
+	if info.RewardEpochStartBlock > tip {
+		return resolved, tip, tipTimestamp, nil
+	}
+
+	return resolved, info.RewardEpochStartBlock, info.RewardEpochStartTs, nil
 }

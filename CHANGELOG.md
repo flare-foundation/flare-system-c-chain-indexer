@@ -17,6 +17,12 @@ and this project adheres to
   The filters are now fetched concurrently, which cuts the log phase from one round trip per filter to roughly one: the node receives the same number of requests and `rpc_concurrency` still caps how many are in flight, but continuous mode goes from one request at a time to up to one per filter.
   Indexing still advances one block per iteration, so a slow enough endpoint can still fall behind.
 
+- FSP startup no longer asks the node for history the database already holds.
+  The start plan probed the event anchor and searched for the full-indexing start block before reading the coverage states, so an indexer whose database already held the FSP events and the recent block window refused to start against a freshly state synced node — the history it demanded was already indexed.
+  Startup now reads the coverage states first and skips each read once the corresponding region is covered: the log floor at or below the event anchor, and the block floor at or below the lookback target, compared by timestamp because the target is a timestamp.
+  A node that cannot serve the block indexing resumes from is still a hard failure, named at startup rather than surfacing deep inside catchup, and only a definitively missing block ends startup now: a timeout or a rate limit that outlasts the backoff stays retryable.
+  Event coverage is the log floor alone, since a fully indexed range only proves coverage for the collectors that filled it, and the backfill runs up to where catchup starts rather than to the window floor, so the log floor it records is a claim the indexer has made good on.
+
 
 ## \[[v2.0.0](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v2.0.0)\] - 2026-08-18
 

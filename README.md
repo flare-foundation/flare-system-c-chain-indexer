@@ -39,7 +39,9 @@ Use [`config.example.toml`](config.example.toml) as the single config template. 
 
 #### Node history (FSP mode)
 
-FSP mode backfills metadata events from two reward epochs before the oldest epoch it serves, so the node needs block history reaching back that far — roughly 7 days on Flare and Songbird, 14 hours on Coston and Coston2, regardless of `indexer.history_epochs`. A node that was state synced more recently keeps only the blocks after its sync point; startup detects that and exits naming the block it needs, instead of failing later during the backfill.
+FSP mode backfills metadata events from two reward epochs before the oldest epoch it serves, so filling an empty database needs a node with block history reaching back that far — roughly 7 days on Flare and Songbird, 14 hours on Coston and Coston2, regardless of `indexer.history_epochs`. A node that was state synced more recently keeps only the blocks after its sync point, and startup exits naming the block it needs rather than failing later during the backfill.
+
+Once that history is indexed the node no longer has to serve it. Startup reads the coverage states first and asks the node only for what the database does not already have, so an indexer whose recorded floors reach far enough back — the log floor at or below the event anchor, the block floor at or below the full-indexing window — can be repointed at a freshly state synced node. One without those floors, or filled in full mode, still needs the deeper history: a fully indexed range only proves coverage for the collectors that filled it, so startup re-backfills the events it cannot vouch for. What is needed either way is the block indexing resumes from — if the node's history starts above the indexed range the blocks in between would be lost, so startup exits naming that block instead.
 
 #### Contract addressing
 

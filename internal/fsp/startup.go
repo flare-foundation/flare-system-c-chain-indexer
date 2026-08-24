@@ -17,214 +17,225 @@ import (
 
 const fspFsmContractName = "FlareSystemsManager"
 
-// fspTxLookbackSeconds is how far the full-block window reaches below its
-// base (the confirmed tip for history_epochs=0, the oldest served epoch's
-// start otherwise). It must be large enough that reward calculation for the
-// oldest served epoch has its full submission data, which extends some way
-// before the epoch's first voting round. Sized generously — well beyond that
-// requirement — so it need not track the calculator's exact lookback, which
-// lives in another repo and may change independently. Signing-policy events
-// and reward offers do not depend on this window; they ride the selective
-// event backfill anchored on recorded epoch data.
+// fspTxLookbackSeconds is how far full-block indexing reaches below its base —
+// the confirmed tip, or the oldest served epoch's start. Sized generously so
+// reward calculation for that epoch has all of its submission data.
 const fspTxLookbackSeconds = uint64(60 * 60)
 
+// historyHint says what a missing block means for the node in use.
+const historyHint = "use a node with history back to it"
+
+// startPlan is what startup does: full-index from catchupFrom, and backfill FSP
+// event logs over [eventsFrom, eventsTo] when eventsFrom is set.
+type startPlan struct {
+	catchupFrom uint64
+	eventsFrom  uint64 // 0 when the events are already indexed
+	eventsTo    uint64
+}
+
+// IndexStartup catches the database up to the chain tip and returns the last
+// indexed block.
 func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
-	latestConfirmedNumber, latestConfirmedTimestamp, err := ci.FetchLastBlockIndex(ctx)
+	tip, tipTimestamp, err := ci.FetchLastBlockIndex(ctx)
 	if err != nil {
-		return 0, errors.Wrap(err, "ci.FetchLastBlockIndex")
+		return 0, errors.Wrap(err, "fetch last block")
 	}
 
-	fsmAddress, err := ci.ContractResolver().ResolveByName(ctx, fspFsmContractName)
-	if err != nil {
-		return 0, err
-	}
-	fsmCaller, err := systemcontract.NewFlareSystemsManagerCaller(fsmAddress, ci.Client())
-	if err != nil {
-		return 0, errors.Wrap(err, "bind FlareSystemsManager caller")
-	}
-
-	// eventStartBlock is zero when no epoch has recorded start data to anchor on.
-	fullStartBlock, eventStartBlock, err := resolveStartPlan(
-		ctx, ci, fsmCaller, latestConfirmedNumber, latestConfirmedTimestamp,
-	)
+	fsm, err := newFsmCaller(ctx, ci)
 	if err != nil {
 		return 0, err
 	}
 
+	// What the database covers decides how much history the node has to serve.
 	states, err := database.GetStates(
-		ci.DB().WithContext(ctx),
-		database.BlockFloor,
-		database.LastIndexed,
-		database.LogFloor,
+		ci.DB().WithContext(ctx), database.BlockFloor, database.LastIndexed, database.LogFloor,
 	)
 	if err != nil {
-		return 0, errors.Wrap(err, "database.GetStates")
+		return 0, errors.Wrap(err, "read states")
 	}
 
-	// Catchup start: continue from where we left off if existing data covers
-	// the target start; otherwise (re)start from fullStartBlock.
-	catchupFromBlock := fullStartBlock
-	firstDb := states[database.BlockFloor]
-	lastDb := states[database.LastIndexed]
-	if database.IsSet(firstDb) && database.IsSet(lastDb) &&
-		firstDb.Index <= fullStartBlock && lastDb.Index >= fullStartBlock {
-		catchupFromBlock = lastDb.Index + 1
-	}
+	cov := coverage(states)
 
-	// FSP events from eventStartBlock up to the catchup start need a log-only
-	// backfill; catchup full-indexes everything from fullStartBlock onward. Skip
-	// it when there is no anchor to backfill from, or when that region is empty
-	// or already covered.
-	firstFspEvent := states[database.LogFloor]
-	backfillEvents := eventStartBlock > 0 && eventStartBlock < fullStartBlock &&
-		(!database.IsSet(firstFspEvent) || firstFspEvent.Index > eventStartBlock)
+	plan, err := planStartup(ctx, ci, fsm, cov, tip, tipTimestamp)
+	if err != nil {
+		return 0, err
+	}
 
 	logger.Infof(
-		"FSP startup plan: catchup_from=%d, latest_confirmed=%d, backfill_events=%t, event_start=%d",
-		catchupFromBlock,
-		latestConfirmedNumber,
-		backfillEvents,
-		eventStartBlock,
+		"FSP startup plan: catchup_from=%d, events=[%d, %d], latest_confirmed=%d",
+		plan.catchupFrom, plan.eventsFrom, plan.eventsTo, tip,
 	)
 
-	if backfillEvents {
-		logAddresses, logTopics, err := resolveFspContractAddresses(ctx, ci.ContractResolver())
-		if err != nil {
+	if plan.eventsFrom > 0 {
+		if err := backfillEvents(ctx, ci, plan.eventsFrom, plan.eventsTo); err != nil {
 			return 0, err
 		}
-		if err := backfillFspEventLogs(ctx, ci, eventStartBlock, fullStartBlock-1, logAddresses, logTopics); err != nil {
-			return 0, errors.Wrap(err, "backfill FSP events")
-		}
-		eventStartTimestamp, err := ci.FetchBlockTimestamp(ctx, eventStartBlock)
-		if err != nil {
-			return 0, errors.Wrapf(err, "fetch FSP event-start timestamp for block %d", eventStartBlock)
-		}
-		if err := database.UpdateState(ci.DB(), database.LogFloor, eventStartBlock, eventStartTimestamp); err != nil {
-			return 0, errors.Wrap(err, "set first FSP event index state")
-		}
-	} else if eventStartBlock == 0 {
-		logger.Warnf("Skipping FSP event backfill: no reward epoch has FSP start data to anchor on")
-	} else if eventStartBlock >= fullStartBlock {
-		logger.Infof("Skipping FSP event backfill: event window is covered by the full catchup range")
-	} else {
-		logger.Infof("Skipping FSP event backfill, already indexed")
 	}
 
-	lastIndexed := latestConfirmedNumber
-	if catchupFromBlock <= latestConfirmedNumber {
-		lastIndexed, err = ci.IndexHistory(ctx, catchupFromBlock)
-		if err != nil {
-			return 0, errors.Wrap(err, "backfill FSP catchup range")
+	lastIndexed := tip
+	if plan.catchupFrom <= tip {
+		if err := probeBlock(
+			ctx, ci, plan.catchupFrom, "block %d unavailable; %s", plan.catchupFrom, historyHint,
+		); err != nil {
+			return 0, err
 		}
-	} else {
-		logger.Infof(
-			"Skipping FSP catchup block backfill: start=%d, latest_confirmed=%d",
-			catchupFromBlock,
-			latestConfirmedNumber,
-		)
+
+		if lastIndexed, err = ci.IndexHistory(ctx, plan.catchupFrom); err != nil {
+			return 0, errors.Wrap(err, "catchup")
+		}
 	}
 
-	logger.Infof(
-		"FSP startup backfill complete: target_full_start=%d, target_event_start=%d, last_indexed=%d",
-		fullStartBlock,
-		eventStartBlock,
-		lastIndexed,
-	)
+	logger.Infof("FSP startup complete: last_indexed=%d", lastIndexed)
 
 	return lastIndexed, nil
 }
 
-// resolveStartPlan works out the epoch window first, then the event anchor, and
-// only then searches for the full-indexing start block. That order matters: the
-// anchor is the oldest block FSP mode needs, it comes from contract state rather
-// than block history, and it bounds the timestamp search below so the search
-// never probes blocks the configuration does not require.
-//
-// The returned eventStartBlock is zero when no epoch has recorded start data to
-// anchor on, in which case there is nothing to backfill.
-func resolveStartPlan(
+// planStartup resolves the start blocks, reading from the node only what the
+// database does not already cover.
+func planStartup(
 	ctx context.Context,
 	ci *core.Engine,
 	fsm fsmReader,
-	latestConfirmedNumber uint64,
-	latestConfirmedTimestamp uint64,
-) (fullStartBlock, eventStartBlock uint64, err error) {
-	currentEpochID, err := fspCurrentEpochID(ctx, fsm)
+	cov coverage,
+	tip, tipTimestamp uint64,
+) (startPlan, error) {
+	historyEpochs := ci.Params().HistoryEpochs
+
+	startEpoch, baseBlock, baseTimestamp, err := lookbackBase(ctx, fsm, historyEpochs, tip, tipTimestamp)
 	if err != nil {
-		return 0, 0, err
+		return startPlan{}, err
 	}
 
-	// Base of the full-block lookback window: the oldest served epoch's start,
-	// or the confirmed tip when serving only the current epoch.
-	baseTimestamp, baseBlock := latestConfirmedTimestamp, latestConfirmedNumber
-	startEpochID := currentEpochID
-	params := ci.Params()
+	// The anchor is the oldest block FSP mode needs, known from contract state
+	// before any history is read.
+	anchor, err := fspEventBackfillAnchor(ctx, fsm, startEpoch)
+	if err != nil {
+		return startPlan{}, errors.Wrap(err, "resolve event anchor")
+	}
+	if anchor == 0 {
+		logger.Warnf("No reward epoch has FSP start data to anchor on; skipping the event backfill")
 
-	if params.HistoryEpochs > 0 {
-		desiredEpochID := historyStartEpochID(currentEpochID, params.HistoryEpochs)
-		resolvedEpochID, info, ok, err := resolveStartEpoch(ctx, fsm, desiredEpochID, currentEpochID)
+		return startPlan{catchupFrom: cov.catchupFrom(baseBlock)}, nil
+	}
+
+	lookback := saturatingSub(baseTimestamp, fspTxLookbackSeconds)
+	floor, blocksIndexed := cov.blockFloor(lookback)
+	eventsIndexed := cov.eventsIndexed(anchor)
+
+	// With both regions indexed nothing below the indexed range is read, so a
+	// node without that history is fine.
+	if !blocksIndexed || !eventsIndexed {
+		if err := probeBlock(
+			ctx, ci, anchor,
+			"event anchor %d for reward epoch %d (history_epochs=%d) unavailable; %s",
+			anchor, startEpoch, historyEpochs, historyHint,
+		); err != nil {
+			return startPlan{}, err
+		}
+	}
+
+	fullStart := floor
+	if !blocksIndexed && baseBlock > 0 {
+		// The anchor bounds the search from below, so it never probes a block the
+		// configuration does not require; a zero bound would widen the search past
+		// it.
+		fullStart, err = chain.GetNearestBlockByTimestampFromChain(
+			ctx, lookback, ci.Client(), min(anchor, baseBlock), baseBlock,
+		)
 		if err != nil {
-			return 0, 0, err
-		}
-
-		if !ok {
-			// An FSM deployment still in its bootstrap epoch: fall back to the tip
-			// rather than resolving a zero start block, which would full-index from
-			// genesis.
-			logger.Warnf("Current reward epoch %d has no FSP start data yet; falling back to the confirmed tip", currentEpochID)
-		} else {
-			startEpochID = resolvedEpochID
-			if resolvedEpochID > desiredEpochID {
-				logger.Errorf(
-					"history_epochs=%d requests reward epoch %d, but this FSM deployment's start data begins at epoch %d; catching up from there — lower history_epochs to fit the deployment",
-					params.HistoryEpochs, desiredEpochID, resolvedEpochID,
-				)
-			}
-			// Base the lookback on the epoch's start once it is confirmed; until then
-			// the tip is as far as indexing can go anyway.
-			if info.RewardEpochStartBlock <= latestConfirmedNumber {
-				baseTimestamp, baseBlock = info.RewardEpochStartTs, info.RewardEpochStartBlock
-			}
+			return startPlan{}, errors.Wrapf(err, "find start block for epoch %d", startEpoch)
 		}
 	}
 
-	eventStartBlock, err = fspEventBackfillAnchor(ctx, fsm, startEpochID)
-	if err != nil {
-		return 0, 0, errors.Wrap(err, "compute FSP event backfill start")
+	// Backfill up to where catchup starts, not to the window floor: blocks below
+	// that are the ones nobody fetches now, and their events are only covered if
+	// FSP's collectors filled them, which is what the log floor records. An anchor
+	// at or above the catchup start needs no backfill because catchup covers it,
+	// so no log floor is recorded this run; the next start, by which point the
+	// anchor sits below the indexed range, records one.
+	plan := startPlan{catchupFrom: cov.catchupFrom(fullStart)}
+	if !eventsIndexed && anchor < plan.catchupFrom {
+		plan.eventsFrom, plan.eventsTo = anchor, plan.catchupFrom-1
 	}
 
-	if eventStartBlock == 0 {
-		// No recorded epoch data means no older block can be required, so there is
-		// nothing to look back for and nothing to bound a search with. The caller
-		// logs the skipped backfill.
-		return baseBlock, 0, nil
-	}
-
-	if err := ensureBlockAvailable(ctx, ci, eventStartBlock, startEpochID, params.HistoryEpochs); err != nil {
-		return 0, 0, err
-	}
-
-	fullStartBlock, err = findStartBlockByLookback(ctx, ci, baseTimestamp, baseBlock, eventStartBlock)
-	if err != nil {
-		return 0, 0, errors.Wrapf(err, "find start block for epoch %d with lookback", startEpochID)
-	}
-
-	return fullStartBlock, eventStartBlock, nil
+	return plan, nil
 }
 
-// ensureBlockAvailable ends startup when the node cannot give us the oldest block
-// FSP mode needs. That number comes from contract state, so it is known before
-// any historical data is read; without the check, a state synced node's missing
-// history surfaced much later as an opaque error inside the startup retry loop,
-// which retried it forever and logged nothing above debug level.
-//
-// Short outages are absorbed by the same retry as any other block read, and a
-// node answering "no such block" is not retried at all. Anything still failing
-// after that ends startup instead: the deployments run under
-// `restart: unless-stopped`, so restarting with the reason on stdout is the
-// better failure.
-func ensureBlockAvailable(
-	ctx context.Context, ci *core.Engine, block, startEpochID, historyEpochs uint64,
+// coverage is what the database guarantees, and decides how much history the
+// node has to serve.
+type coverage map[database.StateName]database.State
+
+// catchupFrom returns the first block to index: after the indexed range when it
+// already reaches fullStart, otherwise fullStart itself.
+func (c coverage) catchupFrom(fullStart uint64) uint64 {
+	floor, last := c[database.BlockFloor], c[database.LastIndexed]
+	if database.IsSet(floor) && database.IsSet(last) &&
+		floor.Index <= fullStart && last.Index >= fullStart {
+		return last.Index + 1
+	}
+
+	return fullStart
+}
+
+// blockFloor reports the indexed block floor, and whether it reaches at or below
+// lookbackTimestamp. Compared by timestamp because the lookback target is one,
+// and resolving it to a block is the search this decision skips.
+func (c coverage) blockFloor(lookbackTimestamp uint64) (uint64, bool) {
+	floor, last := c[database.BlockFloor], c[database.LastIndexed]
+	indexed := database.IsSet(floor) && database.IsSet(last) &&
+		last.Index >= floor.Index && floor.BlockTimestamp > 0 &&
+		floor.BlockTimestamp <= lookbackTimestamp
+
+	return floor.Index, indexed
+}
+
+// eventsIndexed reports whether FSP event logs are indexed from block or below.
+// Only the log floor answers this: a fully indexed range proves coverage for
+// the collectors that filled it, which need not have been FSP's.
+func (c coverage) eventsIndexed(block uint64) bool {
+	floor := c[database.LogFloor]
+
+	return database.IsSet(floor) && floor.Index <= block
+}
+
+// backfillEvents indexes FSP event logs over [from, to] and records the floor.
+func backfillEvents(ctx context.Context, ci *core.Engine, from, to uint64) error {
+	addresses, topics, err := resolveFspContractAddresses(ctx, ci.ContractResolver())
+	if err != nil {
+		return err
+	}
+	if err := backfillFspEventLogs(ctx, ci, from, to, addresses, topics); err != nil {
+		return errors.Wrap(err, "backfill FSP events")
+	}
+
+	timestamp, err := ci.FetchBlockTimestamp(ctx, from)
+	if err != nil {
+		return errors.Wrapf(err, "fetch timestamp of block %d", from)
+	}
+
+	return database.LowerStateFloor(ci.DB(), database.LogFloor, from, timestamp)
+}
+
+// probeError ends startup when the block is definitively missing; anything else
+// — a timeout, a 503, a rate limit — stays retryable. The re-check is load
+// bearing: backoff.Retry unwraps the loop's PermanentError before returning it.
+func probeError(err error, format string, args ...any) error {
+	if err == nil {
+		return nil
+	}
+
+	wrapped := errors.Wrapf(err, format, args...)
+	if chain.IsBlockUnavailable(err) {
+		return boff.Permanent(wrapped)
+	}
+
+	return wrapped
+}
+
+// probeBlock checks that the node serves the block, describing a failure with
+// format. "No such block" is not retried: it will not become available.
+func probeBlock(
+	ctx context.Context, ci *core.Engine, block uint64, format string, args ...any,
 ) error {
 	_, err := boff.RetryWithMaxElapsed(ctx, func() (*chain.Header, error) {
 		callCtx, cancel := context.WithTimeout(ctx, config.RPCTimeout)
@@ -232,43 +243,26 @@ func ensureBlockAvailable(
 
 		header, err := ci.Client().HeaderByNumber(callCtx, new(big.Int).SetUint64(block))
 		if chain.IsBlockUnavailable(err) {
-			return nil, boff.Permanent(err) // a definitive answer will not change
+			return nil, boff.Permanent(err)
 		}
 
 		return header, err
-	}, "probeAnchorBlock")
-	if err == nil {
-		return nil
-	}
+	}, "probeBlock")
 
-	return boff.Permanent(errors.Errorf(
-		"cannot read block %d, the oldest block FSP mode needs: it anchors the event backfill for reward epoch %d, "+
-			"required by indexer.history_epochs=%d. A node that was state synced keeps only the blocks after its "+
-			"sync point; use one with history back to that block. Underlying error: %s",
-		block, startEpochID, historyEpochs, err,
-	))
+	return probeError(err, format, args...)
 }
 
-// findStartBlockByLookback resolves the full-indexing start: the block
-// fspTxLookbackSeconds below baseTimestamp. lowestBlock is the event anchor,
-// which the node has to have anyway, so bounding the search by it means the
-// search cannot probe a block the configuration does not require. It is clamped
-// to endBlockNumber, which only matters if a recorded epoch starts above the
-// confirmed tip.
-func findStartBlockByLookback(
-	ctx context.Context, ci *core.Engine, baseTimestamp, endBlockNumber, lowestBlock uint64,
-) (uint64, error) {
-	if endBlockNumber == 0 {
-		return 0, nil
+// newFsmCaller binds the FlareSystemsManager reader.
+func newFsmCaller(ctx context.Context, ci *core.Engine) (*systemcontract.FlareSystemsManagerCaller, error) {
+	address, err := ci.ContractResolver().ResolveByName(ctx, fspFsmContractName)
+	if err != nil {
+		return nil, err
 	}
 
-	searchTimestamp := saturatingSub(baseTimestamp, fspTxLookbackSeconds)
+	caller, err := systemcontract.NewFlareSystemsManagerCaller(address, ci.Client())
+	if err != nil {
+		return nil, errors.Wrap(err, "bind FlareSystemsManager")
+	}
 
-	return chain.GetNearestBlockByTimestampFromChain(
-		ctx,
-		searchTimestamp,
-		ci.Client(),
-		min(lowestBlock, endBlockNumber),
-		endBlockNumber,
-	)
+	return caller, nil
 }
