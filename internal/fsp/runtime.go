@@ -11,7 +11,6 @@ import (
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/ready"
 
-	systemcontract "github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -49,13 +48,9 @@ func RunIndexer(
 		return errors.Wrap(err, "FSP startup backfill fatal error")
 	}
 
-	fsmAddress, err := cIndexer.ContractResolver().ResolveByName(ctx, fspFsmContractName)
+	fsmCaller, err := newFsmCaller(ctx, cIndexer)
 	if err != nil {
-		return errors.Wrap(err, "resolve FlareSystemsManager for history drop")
-	}
-	fsmCaller, err := systemcontract.NewFlareSystemsManagerCaller(fsmAddress, cIndexer.Client())
-	if err != nil {
-		return errors.Wrap(err, "bind FlareSystemsManager caller for history drop")
+		return errors.Wrap(err, "FlareSystemsManager for history drop")
 	}
 
 	logger.Infof(

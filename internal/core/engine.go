@@ -364,10 +364,14 @@ func (ci *Engine) obtainLogsBatch(
 		return nil, err
 	}
 
-	logger.Debugf(
-		"Fetched logs: count=%d, duration_ms=%d",
-		len(lgBatch.logs), time.Since(startTime).Milliseconds(),
-	)
+	// Continuous indexing calls this once per block, where a line per block is
+	// pure noise; only report a range worth reporting.
+	if lastBlockNumInRound > batchIx {
+		logger.Debugf(
+			"Fetched logs: count=%d, duration_ms=%d",
+			len(lgBatch.logs), time.Since(startTime).Milliseconds(),
+		)
+	}
 
 	return lgBatch, nil
 }

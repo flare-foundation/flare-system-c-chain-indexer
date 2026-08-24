@@ -256,3 +256,77 @@ func TestResolveStartEpochAtEpochZero(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, uint64(0), id)
 }
+
+func TestLookbackBase(t *testing.T) {
+	const (
+		tip         = uint64(9000)
+		tipTs       = uint64(90000)
+		startBlock  = uint64(5000)
+		startTs     = uint64(50000)
+		futureBlock = tip + 100
+	)
+
+	tests := []struct {
+		name          string
+		historyEpochs uint64
+		fsm           *fakeFSM
+		wantEpoch     uint64
+		wantBlock     uint64
+		wantTimestamp uint64
+	}{
+		{
+			name:          "history_epochs=0 measures back from the tip",
+			historyEpochs: 0,
+			fsm:           &fakeFSM{current: 10, epochs: startedEpochs(1, 10)},
+			wantEpoch:     10,
+			wantBlock:     tip,
+			wantTimestamp: tipTs,
+		},
+		{
+			name:          "a served epoch measures back from its start",
+			historyEpochs: 2,
+			fsm: &fakeFSM{current: 10, epochs: map[uint64]fakeEpoch{
+				9:  {startTs: startTs, startBlock: startBlock},
+				10: {startTs: startTs + 1000, startBlock: startBlock + 100},
+			}},
+			wantEpoch:     9,
+			wantBlock:     startBlock,
+			wantTimestamp: startTs,
+		},
+		{
+			name:          "no recorded start data falls back to the tip",
+			historyEpochs: 2,
+			fsm:           &fakeFSM{current: 10, epochs: map[uint64]fakeEpoch{}},
+			wantEpoch:     10,
+			wantBlock:     tip,
+			wantTimestamp: tipTs,
+		},
+		{
+			name:          "an unconfirmed epoch start falls back to the tip",
+			historyEpochs: 2,
+			fsm: &fakeFSM{current: 10, epochs: map[uint64]fakeEpoch{
+				9: {startTs: startTs, startBlock: futureBlock},
+			}},
+			wantEpoch:     9,
+			wantBlock:     tip,
+			wantTimestamp: tipTs,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			epoch, block, timestamp, err := lookbackBase(
+				context.Background(), test.fsm, test.historyEpochs, tip, tipTs,
+			)
+			if err != nil {
+				t.Fatalf("lookbackBase: %v", err)
+			}
+			if epoch != test.wantEpoch || block != test.wantBlock || timestamp != test.wantTimestamp {
+				t.Errorf(
+					"got epoch=%d block=%d timestamp=%d, want epoch=%d block=%d timestamp=%d",
+					epoch, block, timestamp, test.wantEpoch, test.wantBlock, test.wantTimestamp,
+				)
+			}
+		})
+	}
+}
