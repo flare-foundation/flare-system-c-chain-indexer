@@ -4,7 +4,7 @@ A minimal end-to-end check that the indexer builds, starts, connects to a live
 C-chain node, and indexes data — intended for local verification and CI.
 
 It builds the image from source, runs it in FSP mode (`history_epochs = 0`, so
-only the last ~2 hours of blocks) against a C-chain RPC node, and asserts that
+only the last ~1 hour of blocks) against a C-chain RPC node, and asserts that
 the indexer reaches its synced state (`GET /health` → `200`) and has written
 transactions and logs to a throwaway MySQL. The stack is torn down
 automatically.
