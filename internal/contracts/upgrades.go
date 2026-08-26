@@ -8,18 +8,13 @@ type upgradedContract struct {
 	new  common.Address
 }
 
-// fspUpgradedContracts keeps both deployments of upgraded voter contracts
-// indexed.
+// fspUpgradedContracts keeps both deployments of a redeployed contract indexed.
 var fspUpgradedContracts = []upgradedContract{
-	// Songbird
-	{"VoterPreRegistry", common.HexToAddress("0x9Ba9A142FD5B2953667B03dB40D1d77c83F225a2"), common.HexToAddress("0xD8957603dE539118898BA2C321a1001d062Be7Ae")},
-	{"FlareSystemsCalculator", common.HexToAddress("0x126FAeEc75601dA3354c0b5Cc0b60C85fCbC3A5e"), common.HexToAddress("0x31a5B8E7ca6dFC7B963f5D029F0884ef19E53A24")},
-	{"VoterRegistry", common.HexToAddress("0x31B9EC65C731c7D973a33Ef3FC83B653f540dC8D"), common.HexToAddress("0xd23FAE88c09e6A77dD9eFcc29D6bBC55D2e74310")},
-
-	// Flare
-	{"VoterPreRegistry", common.HexToAddress("0xeFDBf6F31Aa46c62414Aee82aF43036d16885b48"), common.HexToAddress("0x76D49E62B07e52A13b7FBB4602eD942f812c87e2")},
-	{"FlareSystemsCalculator", common.HexToAddress("0x67c4B11c710D35a279A41cff5eb089Fe72748CF8"), common.HexToAddress("0xf9cCe0Bd286bb38A9A0cD15fDDC5431F03568Db0")},
-	{"VoterRegistry", common.HexToAddress("0x2580101692366e2f331e891180d9ffdF861Fce83"), common.HexToAddress("0xA480457953Af3583E54DCd630b219353B8FC9Af7")},
+	// Relay
+	{"Relay", common.HexToAddress("0xCcF30790A93F15e24EB909548a2C58a9b0a7FBd4"), common.HexToAddress("0x5A2Eb0cdB4Aa8253924a488A77EdfD24Bb64407f")}, // Flare
+	{"Relay", common.HexToAddress("0xCB86E8Be709001e01897Bf59847406853da8f14b"), common.HexToAddress("0xc1BC89b717Af42AE27497C9FFb996002D3AC5031")}, // Songbird
+	{"Relay", common.HexToAddress("0x051f214D346Cfd97B107BECb87E2B35D1b4287E9"), common.HexToAddress("0xEcD0B60Ea5E01e4D0bFd621c8920B40A32389b83")}, // Coston
+	{"Relay", common.HexToAddress("0xa10B672D1c62e5457b17af63d4302add6A99d7dE"), common.HexToAddress("0x5017728F117501A24EF9C3756C07f0d564598596")}, // Coston2
 }
 
 func addressesForUpgradedContract(contractName string, current common.Address) []common.Address {
