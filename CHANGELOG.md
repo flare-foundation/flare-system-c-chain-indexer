@@ -7,6 +7,14 @@ and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## \[[v2.0.2](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v2.0.2)\] - 2026-09-04
+
+### Changed
+
+- `Relay` is now indexed at both deployments on Flare, Songbird, Coston and Coston2, ahead of the redeploy.
+  Signing policies and finalizations span the two addresses across the cutover, so indexing only the address the ContractRegistry currently returns would leave a gap on either side of it.
+
+
 ## \[[v2.0.1](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v2.0.1)\] - 2026-08-25
 
 ### Fixed
