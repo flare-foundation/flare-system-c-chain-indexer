@@ -11,6 +11,9 @@ and this project adheres to
 
 ### Added
 
+- Startup issues one `eth_getLogs` over `indexer.log_range` blocks and fails if the node rejects it, with the node's message and the key to lower.
+  A `log_range` above the node's limit used to fail every log request and be retried forever, with `/health` at 503.
+
 - Continuous indexing exits once an indexed block is `indexer.max_lag_seconds` of chain time behind the chain tip (60 by default, 0 disables, off when `indexer.stop_index` is set).
   Falling behind was silent: every request succeeded and `/health` stayed 200 while the database drifted.
   The exit is logged at FATAL with the block, the tip and the lag. The restart catches up in batch mode, which is far faster per block than continuous indexing.
