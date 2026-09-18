@@ -398,21 +398,6 @@ func (ci *Engine) getIndexRange(
 	return &indexRange{start: startIndex, end: lastIndex}, nil
 }
 
-func (ci *Engine) updateLastIndexContinuous(
-	ctx context.Context, ixRange *indexRange,
-) (*indexRange, error) {
-	lastIndex, lastChainTimestamp, err := ci.fetchLastBlockIndex(ctx)
-	if err != nil {
-		return nil, errors.Wrap(err, "ci.fetchLastBlockIndex")
-	}
-
-	if err := database.UpdateState(ci.db, database.ChainTip, lastIndex, lastChainTimestamp); err != nil {
-		return nil, errors.Wrap(err, "database.UpdateState")
-	}
-
-	return &indexRange{start: ixRange.start, end: lastIndex}, nil
-}
-
 func (ci *Engine) processAndSave(
 	bBatch *blockBatch,
 	txBatch *transactionsBatch,
@@ -489,34 +474,34 @@ func (ci *Engine) IndexContinuous(ctx context.Context, startIndex uint64) error 
 
 	logger.Infof("Starting continuous indexing: from=%d", ixRange.start)
 
-	// Request blocks one by one
-	blockNum := ixRange.start
-	lastProcessedBlockTime := [2]time.Time{time.Now(), time.Now()}
-	for blockNum <= ci.params.StopIndex {
-		if blockNum > ixRange.end {
-			time.Sleep(time.Millisecond * time.Duration(ci.params.NewBlockCheckMillis))
+	watcher, stopWatcher := ci.watchTip(ctx, ixRange.end)
+	defer stopWatcher()
 
-			ixRange, err = ci.updateLastIndexContinuous(ctx, ixRange)
-			if err != nil {
+	maxLag := ci.maxLag()
+	idle := newIdleWarner(ci.params.NoNewBlocksDelayWarning)
+
+	blockNum := ixRange.start
+	for blockNum <= ci.params.StopIndex {
+		tip := watcher.tip()
+		if blockNum > tip {
+			if err := sleepCtx(ctx, ci.pollInterval()); err != nil {
 				return err
 			}
-
-			elapsed := time.Since(lastProcessedBlockTime[0]).Seconds()
-			delay := ci.params.NoNewBlocksDelayWarning
-			if delay != 0 && elapsed > delay {
-				logger.Warnf("No new blocks: elapsed_seconds=%.2f", time.Since(lastProcessedBlockTime[1]).Seconds())
-				lastProcessedBlockTime[0] = time.Now()
-			}
+			idle.warnIfDue(tip)
 
 			continue
 		}
 
-		err = ci.indexContinuousIteration(ctx, blockNum)
+		blockTimestamp, err := ci.indexContinuousIteration(ctx, blockNum)
 		if err != nil {
 			return err
 		}
 
-		lastProcessedBlockTime = [2]time.Time{time.Now(), time.Now()}
+		if err := watcher.checkLag(maxLag, blockNum, blockTimestamp); err != nil {
+			return err
+		}
+
+		idle.blockIndexed()
 		blockNum++
 	}
 
@@ -525,10 +510,36 @@ func (ci *Engine) IndexContinuous(ctx context.Context, startIndex uint64) error 
 	return nil
 }
 
-func (ci *Engine) indexContinuousIteration(ctx context.Context, index uint64) error {
+// sleepCtx sleeps for d, or returns ctx's error as soon as ctx is done.
+func sleepCtx(ctx context.Context, d time.Duration) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-time.After(d):
+		return nil
+	}
+}
+
+// pollInterval is how often continuous indexing looks for new blocks.
+func (ci *Engine) pollInterval() time.Duration {
+	return time.Duration(ci.params.NewBlockCheckMillis) * time.Millisecond
+}
+
+// maxLag is indexer.max_lag_seconds as a duration, or zero (check off) when
+// indexer.stop_index is set.
+func (ci *Engine) maxLag() time.Duration {
+	if ci.params.StopIndex != ^uint64(0) {
+		return 0
+	}
+
+	return time.Duration(ci.params.MaxLagSeconds * float64(time.Second))
+}
+
+// indexContinuousIteration indexes one block and returns its timestamp.
+func (ci *Engine) indexContinuousIteration(ctx context.Context, index uint64) (uint64, error) {
 	block, err := ci.fetchBlock(ctx, &index)
 	if err != nil {
-		return errors.Wrapf(err, "fetchBlock: block=%d", index)
+		return 0, errors.Wrapf(err, "fetchBlock: block=%d", index)
 	}
 
 	bBatch := &blockBatch{blocks: []*chain.Block{block}}
@@ -538,7 +549,7 @@ func (ci *Engine) indexContinuousIteration(ctx context.Context, index uint64) er
 
 	err = ci.getTransactionsReceipt(ctx, txBatch, 0, len(txBatch.transactions))
 	if err != nil {
-		return errors.Wrapf(err, "getTransactionsReceipt: block=%d", index)
+		return 0, errors.Wrapf(err, "getTransactionsReceipt: block=%d", index)
 	}
 
 	// Share the batch path's log fetching rather than walking the filters one
@@ -546,29 +557,29 @@ func (ci *Engine) indexContinuousIteration(ctx context.Context, index uint64) er
 	// this cost one RPC round trip per filter for a single block.
 	logsBatch, err := ci.obtainLogsBatch(ctx, index, index)
 	if err != nil {
-		return errors.Wrapf(err, "requestLogs: block=%d", index)
+		return 0, errors.Wrapf(err, "requestLogs: block=%d", index)
 	}
 
 	data := newDatabaseStructData()
 	data.Blocks = ci.convertBlocksToDB(bBatch)
 
 	if err := ci.processTransactions(txBatch, data); err != nil {
-		return errors.Wrapf(err, "processTransactions: block=%d", index)
+		return 0, errors.Wrapf(err, "processTransactions: block=%d", index)
 	}
 
 	err = ci.processLogs(logsBatch, bBatch, index, data)
 	if err != nil {
-		return errors.Wrapf(err, "processLogs: block=%d", index)
+		return 0, errors.Wrapf(err, "processLogs: block=%d", index)
 	}
 
 	indexTimestamp := bBatch.blocks[0].Time()
 	if err := ci.saveData(data, index, indexTimestamp); err != nil {
-		return errors.Wrapf(err, "saveData: block=%d", index)
+		return 0, errors.Wrapf(err, "saveData: block=%d", index)
 	}
 
 	if index%1000 == 0 {
 		logger.Infof("Continuous progress: block=%d", index)
 	}
 
-	return nil
+	return indexTimestamp, nil
 }

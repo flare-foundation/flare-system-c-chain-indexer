@@ -20,11 +20,13 @@ import (
 )
 
 const (
-	day                  time.Duration   = 24 * time.Hour
-	defaultConfirmations                 = 1
-	defaultChainType     chain.ChainType = chain.ChainTypeAvax
-	defaultIndexerMode                   = IndexerModeFull
-	defaultLogRange                      = uint64(1000)
+	day                            time.Duration   = 24 * time.Hour
+	defaultConfirmations                           = 1
+	defaultMaxLagSeconds                           = float64(60)
+	defaultNoNewBlocksDelayWarning                 = float64(60)
+	defaultChainType               chain.ChainType = chain.ChainTypeAvax
+	defaultIndexerMode                             = IndexerModeFull
+	defaultLogRange                                = uint64(1000)
 	// defaultRpcConcurrency is a process-wide ceiling on in-flight RPC calls, so
 	// it is set for a shared endpoint rather than a dedicated node. Measured at
 	// this value, a fresh FSP sync on Flare mainnet took 36s.
@@ -175,12 +177,19 @@ type IndexerConfig struct {
 	RpcConcurrency int `toml:"rpc_concurrency"`
 	// LogRange is the max blocks per eth_getLogs (FilterLogs) request,
 	// bounded by the RPC node's getLogs cap (typically 100-10000).
-	LogRange                uint64            `toml:"log_range"`
-	NewBlockCheckMillis     int               `toml:"new_block_check_millis"`
-	CollectTransactions     []TransactionInfo `toml:"collect_transactions"`
-	CollectLogs             []LogInfo         `toml:"collect_logs"`
-	Confirmations           uint64            `toml:"confirmations"`
-	NoNewBlocksDelayWarning float64           `toml:"no_new_blocks_delay_warning"`
+	LogRange            uint64            `toml:"log_range"`
+	NewBlockCheckMillis int               `toml:"new_block_check_millis"`
+	CollectTransactions []TransactionInfo `toml:"collect_transactions"`
+	CollectLogs         []LogInfo         `toml:"collect_logs"`
+	Confirmations       uint64            `toml:"confirmations"`
+	// NoNewBlocksDelayWarning is how long the chain tip may stand still before
+	// a warning is logged, and repeated at that interval while it does. 0
+	// disables the warning.
+	NoNewBlocksDelayWarning float64 `toml:"no_new_blocks_delay_warning"`
+	// MaxLagSeconds is how far, in chain time, continuous indexing may fall
+	// behind the observed chain tip before the indexer exits so that its restart
+	// catches up in batch mode. 0 disables the check.
+	MaxLagSeconds float64 `toml:"max_lag_seconds"`
 }
 
 const (
@@ -212,16 +221,20 @@ type LogInfo struct {
 }
 
 func BuildConfig() (*Config, error) {
-	cfgFileName := *CfgFlag
+	return buildConfig(*CfgFlag)
+}
 
+func buildConfig(cfgFileName string) (*Config, error) {
 	// Set default values for the config
 	cfg := &Config{
 		Indexer: IndexerConfig{
-			Confirmations:  defaultConfirmations,
-			Mode:           defaultIndexerMode,
-			LogRange:       defaultLogRange,
-			RpcConcurrency: defaultRpcConcurrency,
-			BatchSize:      defaultBatchSize,
+			Confirmations:           defaultConfirmations,
+			MaxLagSeconds:           defaultMaxLagSeconds,
+			NoNewBlocksDelayWarning: defaultNoNewBlocksDelayWarning,
+			Mode:                    defaultIndexerMode,
+			LogRange:                defaultLogRange,
+			RpcConcurrency:          defaultRpcConcurrency,
+			BatchSize:               defaultBatchSize,
 		},
 		Chain: ChainConfig{ChainType: defaultChainType},
 	}
