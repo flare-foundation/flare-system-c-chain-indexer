@@ -7,6 +7,23 @@ and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## Unreleased
+
+### Added
+
+- Continuous indexing exits once an indexed block is `indexer.max_lag_seconds` of chain time behind the chain tip (60 by default, 0 disables, off when `indexer.stop_index` is set).
+  Falling behind was silent: every request succeeded and `/health` stayed 200 while the database drifted.
+  The exit is logged at FATAL with the block, the tip and the lag. The restart catches up in batch mode, which is far faster per block than continuous indexing.
+
+### Changed
+
+- The chain tip is polled in its own goroutine.
+  `last_chain_block` stays current while indexing is behind, and indexing a block no longer waits on a tip read.
+
+- `indexer.no_new_blocks_delay_warning` defaults to 60 seconds. It was off when the key was absent, and every deployment template leaves it out.
+  The warning now names the tip and how long it has stood still.
+
+
 ## \[[v2.0.2](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v2.0.2)\] - 2026-09-04
 
 ### Changed

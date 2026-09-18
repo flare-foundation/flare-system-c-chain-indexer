@@ -81,3 +81,26 @@ func TestParseConfigFileAcceptsCurrentTimeoutKey(t *testing.T) {
 		t.Fatalf("rpc_timeout_millis not decoded: got %d", cfg.Timeout.RPCTimeoutMillis)
 	}
 }
+
+// max_lag_seconds defaults to 60 when absent and an explicit 0 disables the
+// check, so normalizeIndexerConfig must not treat 0 as "unset" for this key.
+func TestMaxLagSecondsDefaultAndDisable(t *testing.T) {
+	cfg, err := buildConfig(writeTempConfig(t, "[indexer]\nconfirmations = 1\n"))
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if cfg.Indexer.MaxLagSeconds != 60 {
+		t.Errorf("absent max_lag_seconds = %v, want the default 60", cfg.Indexer.MaxLagSeconds)
+	}
+	if cfg.Indexer.NoNewBlocksDelayWarning != 60 {
+		t.Errorf("absent no_new_blocks_delay_warning = %v, want the default 60", cfg.Indexer.NoNewBlocksDelayWarning)
+	}
+
+	cfg, err = buildConfig(writeTempConfig(t, "[indexer]\nmax_lag_seconds = 0\n"))
+	if err != nil {
+		t.Fatalf("unexpected error: %s", err)
+	}
+	if cfg.Indexer.MaxLagSeconds != 0 {
+		t.Errorf("explicit max_lag_seconds = 0 must stay 0 (disabled), got %v", cfg.Indexer.MaxLagSeconds)
+	}
+}

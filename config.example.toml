@@ -8,7 +8,8 @@ batch_size = 1000 # blocks fetched and committed per batch (one DB transaction);
 log_range = 1000 # max blocks per eth_getLogs request; SET TO YOUR RPC's getLogs cap (commonly 1000-10000), or requests fail
 new_block_check_millis = 1000 # interval for checking for new blocks
 confirmations = 1 # number of confirmations for latest block queries
-no_new_blocks_delay_warning = 60 # max allowed delay between consecutive processed blocks before warning; 0 disables warning
+no_new_blocks_delay_warning = 60 # how long the chain tip may stand still before a warning; 0 disables the warning
+max_lag_seconds = 60 # how far behind the chain tip, in chain time, continuous indexing may fall before the indexer exits, so its restart catches up in batch mode; 0 disables the check
 
 [[indexer.collect_transactions]]
 contract_address = "0x2cA6571Daa15ce734Bbd0Bf27D5C9D16787fc33f" # example target contract; alternatively use contract_name
