@@ -14,6 +14,7 @@ import (
 	"github.com/ava-labs/coreth/core/types"
 	"github.com/ava-labs/coreth/interfaces"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 )
 
 // rangeRejection is how the node words a rejected eth_getLogs block range.
@@ -66,4 +67,40 @@ func rangeLimit(err error) (limit uint64, rejected bool) {
 	_, scanErr := fmt.Sscanf(err.Error(), rangeRejection, &from, &to, &limit)
 
 	return limit, scanErr == nil
+}
+
+// blockError ends startup when the block is definitively missing; anything else
+// — a timeout, a 503, a rate limit — stays retryable. The re-check is load
+// bearing: backoff.Retry unwraps the loop's PermanentError before returning it.
+func blockError(err error, format string, args ...any) error {
+	if err == nil {
+		return nil
+	}
+
+	wrapped := errors.Wrapf(err, format, args...)
+	if chain.IsBlockUnavailable(err) {
+		return boff.Permanent(wrapped)
+	}
+
+	return wrapped
+}
+
+// Block checks that the node serves the block, describing a failure with
+// format. "No such block" is not retried: it will not become available.
+func Block(
+	ctx context.Context, client *chain.Client, block uint64, format string, args ...any,
+) error {
+	_, err := boff.RetryWithMaxElapsed(ctx, func() (*chain.Header, error) {
+		callCtx, cancel := context.WithTimeout(ctx, config.RPCTimeout)
+		defer cancel()
+
+		header, err := client.HeaderByNumber(callCtx, new(big.Int).SetUint64(block))
+		if chain.IsBlockUnavailable(err) {
+			return nil, boff.Permanent(err)
+		}
+
+		return header, err
+	}, "probeBlock")
+
+	return blockError(err, format, args...)
 }

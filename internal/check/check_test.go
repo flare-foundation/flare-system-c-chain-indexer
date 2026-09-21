@@ -3,6 +3,9 @@ package check
 import (
 	"errors"
 	"testing"
+
+	"github.com/cenkalti/backoff/v5"
+	"github.com/ethereum/go-ethereum"
 )
 
 func TestRangeLimit(t *testing.T) {
@@ -15,5 +18,16 @@ func TestRangeLimit(t *testing.T) {
 	}
 	if _, rejected := rangeLimit(nil); rejected {
 		t.Error("nil is not a range rejection")
+	}
+}
+
+func TestBlockError(t *testing.T) {
+	var permanent *backoff.PermanentError
+
+	if err := blockError(ethereum.NotFound, "block %d", 7); !errors.As(err, &permanent) {
+		t.Error("a missing block should end startup")
+	}
+	if err := blockError(errors.New("503 Service Unavailable"), "block %d", 7); errors.As(err, &permanent) {
+		t.Error("a transient failure should stay retryable")
 	}
 }
