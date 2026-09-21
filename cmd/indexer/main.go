@@ -11,6 +11,7 @@ import (
 
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/boff"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/check"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/contracts"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/core"
@@ -80,6 +81,14 @@ func run(ctx context.Context) error {
 
 	if err := config.ResolveContractAddresses(ctx, cfg, resolver); err != nil {
 		return errors.Wrap(err, "Failed to resolve configured contract addresses")
+	}
+
+	if len(cfg.Indexer.CollectLogs) > 0 {
+		if err := check.LogRange(ctx, ethClient, cfg.Indexer.LogRange); err != nil {
+			return err
+		}
+
+		logger.Infof("RPC node serves eth_getLogs over indexer.log_range=%d blocks", cfg.Indexer.LogRange)
 	}
 
 	db, err := database.ConnectAndInitialize(ctx, &cfg.DB)

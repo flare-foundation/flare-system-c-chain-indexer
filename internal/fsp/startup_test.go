@@ -1,16 +1,10 @@
 package fsp
 
 import (
-	"errors"
 	"testing"
 
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
-
-	"github.com/cenkalti/backoff/v5"
-	"github.com/ethereum/go-ethereum"
 )
-
-var errTransient = errors.New("context deadline exceeded")
 
 func states(rows map[database.StateName][2]uint64) coverage {
 	out := make(coverage, len(rows))
@@ -121,17 +115,6 @@ func TestCoverageEventsIndexed(t *testing.T) {
 				t.Errorf("eventsIndexed = %t, want %t", got, test.want)
 			}
 		})
-	}
-}
-
-func TestProbeError(t *testing.T) {
-	var permanent *backoff.PermanentError
-
-	if err := probeError(ethereum.NotFound, "block %d", 7); !errors.As(err, &permanent) {
-		t.Error("a missing block should end startup")
-	}
-	if err := probeError(errTransient, "block %d", 7); errors.As(err, &permanent) {
-		t.Error("a transient failure should stay retryable")
 	}
 }
 

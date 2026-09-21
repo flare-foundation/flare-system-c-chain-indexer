@@ -2,11 +2,9 @@ package fsp
 
 import (
 	"context"
-	"math/big"
 
-	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/boff"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
-	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
+	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/check"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/core"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 
@@ -74,8 +72,8 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 
 	lastIndexed := tip
 	if plan.catchupFrom <= tip {
-		if err := probeBlock(
-			ctx, ci, plan.catchupFrom, "block %d unavailable; %s", plan.catchupFrom, historyHint,
+		if err := check.Block(
+			ctx, ci.Client(), plan.catchupFrom, "block %d unavailable; %s", plan.catchupFrom, historyHint,
 		); err != nil {
 			return 0, err
 		}
@@ -125,8 +123,8 @@ func planStartup(
 	// With both regions indexed nothing below the indexed range is read, so a
 	// node without that history is fine.
 	if !blocksIndexed || !eventsIndexed {
-		if err := probeBlock(
-			ctx, ci, anchor,
+		if err := check.Block(
+			ctx, ci.Client(), anchor,
 			"event anchor %d for reward epoch %d (history_epochs=%d) unavailable; %s",
 			anchor, startEpoch, historyEpochs, historyHint,
 		); err != nil {
@@ -214,42 +212,6 @@ func backfillEvents(ctx context.Context, ci *core.Engine, from, to uint64) error
 	}
 
 	return database.LowerStateFloor(ci.DB(), database.LogFloor, from, timestamp)
-}
-
-// probeError ends startup when the block is definitively missing; anything else
-// — a timeout, a 503, a rate limit — stays retryable. The re-check is load
-// bearing: backoff.Retry unwraps the loop's PermanentError before returning it.
-func probeError(err error, format string, args ...any) error {
-	if err == nil {
-		return nil
-	}
-
-	wrapped := errors.Wrapf(err, format, args...)
-	if chain.IsBlockUnavailable(err) {
-		return boff.Permanent(wrapped)
-	}
-
-	return wrapped
-}
-
-// probeBlock checks that the node serves the block, describing a failure with
-// format. "No such block" is not retried: it will not become available.
-func probeBlock(
-	ctx context.Context, ci *core.Engine, block uint64, format string, args ...any,
-) error {
-	_, err := boff.RetryWithMaxElapsed(ctx, func() (*chain.Header, error) {
-		callCtx, cancel := context.WithTimeout(ctx, config.RPCTimeout)
-		defer cancel()
-
-		header, err := ci.Client().HeaderByNumber(callCtx, new(big.Int).SetUint64(block))
-		if chain.IsBlockUnavailable(err) {
-			return nil, boff.Permanent(err)
-		}
-
-		return header, err
-	}, "probeBlock")
-
-	return probeError(err, format, args...)
 }
 
 // newFsmCaller binds the FlareSystemsManager reader.
