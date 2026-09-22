@@ -7,7 +7,7 @@ and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## Unreleased
+## \[[v2.0.3](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v2.0.3)\] - 2026-09-22
 
 ### Added
 
