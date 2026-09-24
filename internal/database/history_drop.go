@@ -9,6 +9,7 @@ import (
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
 
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"github.com/pkg/errors"
 	"gorm.io/gorm"
@@ -194,14 +195,16 @@ func DeleteInBatches(db *gorm.DB, deleteStartTime uint64, entity interface{}) er
 	}
 }
 
+// getBlockTimestamp returns a block's timestamp and number, read from its
+// header rather than the whole block.
 func getBlockTimestamp(ctx context.Context, index *big.Int, client *chain.Client) (uint64, uint64, error) {
-	block, err := boff.RetryWithMaxElapsed(
+	header, err := boff.RetryWithMaxElapsed(
 		ctx,
-		func() (*chain.Block, error) {
+		func() (*types.Header, error) {
 			ctx, cancelFunc := context.WithTimeout(ctx, config.RPCTimeout)
 			defer cancelFunc()
 
-			return client.BlockByNumber(ctx, index)
+			return client.HeaderByNumber(ctx, index)
 		},
 		"getBlockTimestamp",
 	)
@@ -210,5 +213,5 @@ func getBlockTimestamp(ctx context.Context, index *big.Int, client *chain.Client
 		return 0, 0, errors.Wrap(err, "getBlockByTimestamp")
 	}
 
-	return block.Time(), block.Number().Uint64(), nil
+	return header.Time, header.Number.Uint64(), nil
 }

@@ -120,11 +120,13 @@ func binarySearchBlockByTimestamp(
 	return low, nil
 }
 
+// blockTimestampByNumber reads a block's timestamp from its header, so the
+// search does not pull whole block bodies over RPC to compare one number.
 func blockTimestampByNumber(ctx context.Context, client *Client, blockNumber uint64) (uint64, error) {
-	block, err := client.BlockByNumber(ctx, new(big.Int).SetUint64(blockNumber))
+	header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNumber))
 	if err != nil {
 		return 0, err
 	}
 
-	return block.Time(), nil
+	return header.Time, nil
 }
