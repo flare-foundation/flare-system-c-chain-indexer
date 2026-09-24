@@ -9,7 +9,6 @@ require (
 	github.com/ethereum/go-ethereum v1.14.12
 	github.com/flare-foundation/go-flare-common v1.2.1
 	github.com/go-sql-driver/mysql v1.9.3
-	github.com/gorilla/mux v1.8.1
 	github.com/joho/godotenv v1.5.1
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.11.1
