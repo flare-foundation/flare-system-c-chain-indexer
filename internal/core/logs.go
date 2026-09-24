@@ -12,9 +12,9 @@ import (
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 
-	"github.com/ava-labs/coreth/core/types"
-	"github.com/ava-labs/coreth/interfaces"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 )
 
@@ -102,7 +102,7 @@ func (ci *Engine) fetchLogsChunk(
 		return nil, err
 	}
 
-	query := interfaces.FilterQuery{
+	query := ethereum.FilterQuery{
 		FromBlock: new(big.Int).SetUint64(fromBlock),
 		ToBlock:   new(big.Int).SetUint64(toBlock),
 		Addresses: addresses,

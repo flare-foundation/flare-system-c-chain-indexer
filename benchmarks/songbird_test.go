@@ -23,7 +23,6 @@ func BenchmarkBlockRequests(b *testing.B) {
 
 	tCfg := benchmarksConfig{}
 	tCfg.Indexer.Confirmations = 1
-	tCfg.Chain.ChainType = 1
 	_, err := toml.DecodeFile("config_benchmark.toml", &tCfg)
 	if err != nil {
 		logger.Fatalf("Config error: %s", err)
@@ -45,7 +44,7 @@ func BenchmarkBlockRequests(b *testing.B) {
 			logger.Fatalf("Invalid node URL in config: %s", err)
 		}
 
-		ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType, cfg.Indexer.RpcConcurrency)
+		ethClient, err := chain.DialRPCNode(nodeURL, cfg.Indexer.RpcConcurrency)
 		if err != nil {
 			logger.Fatalf("Eth client error: %s", err)
 		}

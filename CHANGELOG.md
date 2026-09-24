@@ -7,6 +7,19 @@ and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## Unreleased
+
+### Changed
+
+- The indexer talks to the node through go-ethereum only, so coreth and avalanchego are gone from the dependency tree.
+  Fetching a block still costs one `eth_getBlockByNumber` call, and the block hash now comes from the node rather than being computed from the header.
+  Flare headers carry extra fields, so a computed hash never matched the chain. That is what coreth was there for.
+
+### Removed
+
+- `chain.chain_type`. There is one client now, so the key selects nothing. A config that still sets it starts, and the key is named in the log.
+
+
 ## \[[v2.0.3](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v2.0.3)\] - 2026-09-22
 
 ### Added

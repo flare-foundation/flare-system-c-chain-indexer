@@ -10,9 +10,9 @@ import (
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/core"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 
-	avxTypes "github.com/ava-labs/coreth/core/types"
-	"github.com/ava-labs/coreth/interfaces"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -67,8 +67,8 @@ func fetchEventRangeLogsChunk(
 	toBlock uint64,
 	logAddresses []common.Address,
 	logTopics []common.Hash,
-) ([]avxTypes.Log, error) {
-	query := interfaces.FilterQuery{
+) ([]types.Log, error) {
+	query := ethereum.FilterQuery{
 		FromBlock: new(big.Int).SetUint64(fromBlock),
 		ToBlock:   new(big.Int).SetUint64(toBlock),
 		Addresses: logAddresses,
@@ -83,7 +83,7 @@ func fetchEventRangeLogsChunk(
 
 	logs, err := boff.RetryWithMaxElapsed(
 		ctx,
-		func() ([]avxTypes.Log, error) {
+		func() ([]types.Log, error) {
 			ctx, cancelFunc := context.WithTimeout(ctx, config.RPCTimeout)
 			defer cancelFunc()
 
@@ -101,7 +101,7 @@ func fetchEventRangeLogsChunk(
 func buildDBLogs(
 	ctx context.Context,
 	ci *core.Engine,
-	logs []avxTypes.Log,
+	logs []types.Log,
 ) ([]*database.Log, error) {
 	dbLogs := make([]*database.Log, 0, len(logs))
 	blockTimestamps := make(map[uint64]uint64)

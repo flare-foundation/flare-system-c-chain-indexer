@@ -12,6 +12,7 @@ import (
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 )
 
@@ -39,12 +40,12 @@ func (ci *Engine) fetchBlock(ctx context.Context, index *uint64) (*chain.Block, 
 	)
 }
 
-func (ci *Engine) fetchBlockHeader(ctx context.Context, index *uint64) (*chain.Header, error) {
+func (ci *Engine) fetchBlockHeader(ctx context.Context, index *uint64) (*types.Header, error) {
 	indexBigInt := indexToBigInt(index)
 
 	return boff.RetryWithMaxElapsed(
 		ctx,
-		func() (*chain.Header, error) {
+		func() (*types.Header, error) {
 			ctx, cancelFunc := context.WithTimeout(ctx, config.RPCTimeout)
 			defer cancelFunc()
 
@@ -68,7 +69,7 @@ func (ci *Engine) fetchLastBlockIndex(ctx context.Context) (uint64, uint64, erro
 		return 0, 0, errors.Wrap(err, "fetchBlockHeader last")
 	}
 
-	lastBlockNumber := lastBlock.Number().Uint64()
+	lastBlockNumber := lastBlock.Number.Uint64()
 	if lastBlockNumber < ci.params.Confirmations {
 		return 0, 0, fmt.Errorf("not enough confirmations for, latest block %d, confirmations required %d", lastBlockNumber, ci.params.Confirmations)
 	}
@@ -79,7 +80,7 @@ func (ci *Engine) fetchLastBlockIndex(ctx context.Context) (uint64, uint64, erro
 		return 0, 0, errors.Wrap(err, "fetchBlockHeader latestConfirmed")
 	}
 
-	return latestConfirmedNumber, latestConfirmedHeader.Time(), nil
+	return latestConfirmedNumber, latestConfirmedHeader.Time, nil
 }
 
 func (ci *Engine) fetchBlockTimestamp(ctx context.Context, index uint64) (uint64, error) {
@@ -88,7 +89,7 @@ func (ci *Engine) fetchBlockTimestamp(ctx context.Context, index uint64) (uint64
 		return 0, errors.Wrap(err, "fetchBlockHeader")
 	}
 
-	return lastBlock.Time(), nil
+	return lastBlock.Time, nil
 }
 
 func (ci *Engine) processBlocks(
