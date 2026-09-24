@@ -14,6 +14,7 @@ and this project adheres to
 - The indexer talks to the node through go-ethereum only, so coreth and avalanchego are gone from the dependency tree.
   Fetching a block still costs one `eth_getBlockByNumber` call, and the block hash now comes from the node rather than being computed from the header.
   Flare headers carry extra fields, so a computed hash never matched the chain. That is what coreth was there for.
+- go-flare-common moves from v1.0.2 to v1.2.1, and go-ethereum with it from v1.13.15 to v1.14.12.
 
 ### Removed
 

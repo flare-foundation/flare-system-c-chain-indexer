@@ -73,7 +73,9 @@ func (ci *Engine) fetchReceiptAt(
 	ctx context.Context, txBatch *transactionsBatch, i int,
 ) error {
 	txBatch.mu.RLock()
-	tx := *txBatch.transactions[i]
+	// The transaction is taken by pointer: it caches its hash, sender and
+	// size in atomics, which a copy must not duplicate.
+	tx := txBatch.transactions[i]
 	policy := txBatch.policies[i]
 	txBatch.mu.RUnlock()
 
