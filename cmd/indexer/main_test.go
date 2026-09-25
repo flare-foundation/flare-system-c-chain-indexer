@@ -230,9 +230,8 @@ func initConfig(tCfg testConfig, history bool) config.Config {
 			NoNewBlocksDelayWarning: 60,
 		},
 		Chain: config.ChainConfig{
-			NodeURL:   tCfg.NodeURL,
-			APIKey:    tCfg.NodeAPIKey,
-			ChainType: chain.ChainTypeAvax,
+			NodeURL: tCfg.NodeURL,
+			APIKey:  tCfg.NodeAPIKey,
 		},
 		Logger: config.LoggerConfig{
 			Level:       "DEBUG",
@@ -263,7 +262,7 @@ func createIndexer(cfg *config.Config, db *gorm.DB) (*core.Engine, error) {
 		return nil, errors.Wrap(err, "Invalid node URL in config")
 	}
 
-	ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType, cfg.Indexer.RpcConcurrency)
+	ethClient, err := chain.DialRPCNode(nodeURL, cfg.Indexer.RpcConcurrency)
 	if err != nil {
 		return nil, errors.Wrap(err, "Could not connect to the RPC nodes")
 	}

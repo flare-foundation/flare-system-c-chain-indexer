@@ -47,7 +47,7 @@ func TestIndexer(t *testing.T) {
 
 	// set configuration parameters
 	mockChainAddress := fmt.Sprintf("http://localhost:%d", tCfg.MockChainPort)
-	cfgChain := config.ChainConfig{NodeURL: mockChainAddress, ChainType: chain.ChainTypeAvax}
+	cfgChain := config.ChainConfig{NodeURL: mockChainAddress}
 
 	// for the test we do not use finalizations
 	collectTransactions := []config.TransactionInfo{
@@ -179,7 +179,7 @@ func runIndexer(ctx context.Context, mockChain *MockChain, db *gorm.DB, cfg *con
 		logger.Fatalf("Invalid node URL in config: %s", err)
 	}
 
-	ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType, cfg.Indexer.RpcConcurrency)
+	ethClient, err := chain.DialRPCNode(nodeURL, cfg.Indexer.RpcConcurrency)
 	if err != nil {
 		logger.Fatalf("Could not connect to the Ethereum node: %s", err)
 	}

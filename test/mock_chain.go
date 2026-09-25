@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/flare-foundation/go-flare-common/pkg/logger"
-	"github.com/gorilla/mux"
 )
 
 type MockChain struct {
@@ -39,24 +38,22 @@ func NewMockChain(port int, responsesFile string, recorderNodeURL string) (*Mock
 		responsesFile:   responsesFile,
 	}
 
-	r := mux.NewRouter()
-
+	// The mock answers every request the same way, so it is one handler
+	// rather than a router.
 	if recorderNodeURL == "" {
 		logger.Infof("running in test mode")
 		if err := mock.loadResponses(); err != nil {
 			return nil, err
 		}
 
-		r.HandleFunc("/", mock.ChainMockResponses)
+		mock.server.Handler = http.HandlerFunc(mock.ChainMockResponses)
 	} else {
 		logger.Infof("running in recorder mode with node %s", recorderNodeURL)
 		mock.client = new(http.Client)
 		mock.responses = make(map[[sha256.Size]byte][]byte)
 
-		r.HandleFunc("/", mock.RecordResponses)
+		mock.server.Handler = http.HandlerFunc(mock.RecordResponses)
 	}
-
-	mock.server.Handler = r
 
 	return mock, nil
 }

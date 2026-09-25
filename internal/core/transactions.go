@@ -13,24 +13,24 @@ import (
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/database"
 
-	"github.com/ava-labs/coreth/core/types"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 )
 
 type transactionsBatch struct {
-	transactions []*chain.Transaction
+	transactions []*types.Transaction
 	blocks       []*chain.Block
 	indices      []uint64
-	receipts     []*chain.Receipt
+	receipts     []*types.Receipt
 	policies     []transactionsPolicy
 	mu           sync.RWMutex
 }
 
 func (tb *transactionsBatch) Add(
-	tx *chain.Transaction,
+	tx *types.Transaction,
 	block *chain.Block,
 	index uint64,
-	receipt *chain.Receipt,
+	receipt *types.Receipt,
 	policy transactionsPolicy,
 ) {
 	tb.mu.Lock()
@@ -73,7 +73,9 @@ func (ci *Engine) fetchReceiptAt(
 	ctx context.Context, txBatch *transactionsBatch, i int,
 ) error {
 	txBatch.mu.RLock()
-	tx := *txBatch.transactions[i]
+	// The transaction is taken by pointer: it caches its hash, sender and
+	// size in atomics, which a copy must not duplicate.
+	tx := txBatch.transactions[i]
 	policy := txBatch.policies[i]
 	txBatch.mu.RUnlock()
 
@@ -83,7 +85,7 @@ func (ci *Engine) fetchReceiptAt(
 
 	receipt, err := boff.RetryWithMaxElapsed(
 		ctx,
-		func() (*chain.Receipt, error) {
+		func() (*types.Receipt, error) {
 			ctx, cancelFunc := context.WithTimeout(ctx, config.RPCTimeout)
 			defer cancelFunc()
 
@@ -123,7 +125,7 @@ func (ci *Engine) processTransactions(txBatch *transactionsBatch, data *database
 
 		// if it was chosen to get the logs of the transaction we process it
 		if receipt != nil && policy.collectEvents {
-			for _, log := range receipt.Logs() {
+			for _, log := range receipt.Logs {
 				dbLog, err := buildDBLog(dbTx, log, block)
 				if err != nil {
 					return err
@@ -141,7 +143,7 @@ func (ci *Engine) processTransactions(txBatch *transactionsBatch, data *database
 }
 
 func buildDBTx(
-	tx *chain.Transaction, receipt *chain.Receipt, block *chain.Block, txIndex uint64,
+	tx *types.Transaction, receipt *types.Receipt, block *chain.Block, txIndex uint64,
 ) (*database.Transaction, error) {
 	txData := hex.EncodeToString(tx.Data())
 	// Guard against tx data shorter than a 4-byte selector (e.g. plain transfers)
@@ -151,14 +153,14 @@ func buildDBTx(
 		funcSig = funcSig[:8]
 	}
 
-	fromAddress, err := tx.FromAddress() // todo: this is a bit slow
+	fromAddress, err := types.Sender(types.LatestSignerForChainID(tx.ChainId()), tx)
 	if err != nil {
 		return nil, errors.Wrap(err, "types.Sender")
 	}
 
 	status := uint64(2)
 	if receipt != nil {
-		status = receipt.Status()
+		status = receipt.Status
 	}
 
 	base := database.BaseEntity{ID: database.TransactionId.Load()}

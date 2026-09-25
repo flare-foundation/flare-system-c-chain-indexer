@@ -20,13 +20,12 @@ import (
 )
 
 const (
-	day                            time.Duration   = 24 * time.Hour
-	defaultConfirmations                           = 1
-	defaultMaxLagSeconds                           = float64(60)
-	defaultNoNewBlocksDelayWarning                 = float64(60)
-	defaultChainType               chain.ChainType = chain.ChainTypeAvax
-	defaultIndexerMode                             = IndexerModeFull
-	defaultLogRange                                = uint64(1000)
+	day                            time.Duration = 24 * time.Hour
+	defaultConfirmations                         = 1
+	defaultMaxLagSeconds                         = float64(60)
+	defaultNoNewBlocksDelayWarning               = float64(60)
+	defaultIndexerMode                           = IndexerModeFull
+	defaultLogRange                              = uint64(1000)
 	// defaultRpcConcurrency is a process-wide ceiling on in-flight RPC calls, so
 	// it is set for a shared endpoint rather than a dedicated node. Measured at
 	// this value, a fresh FSP sync on Flare mainnet took 36s.
@@ -151,9 +150,8 @@ func (db *DBConfig) GetHistoryDrop(ctx context.Context, chainIDBig *big.Int) (ui
 }
 
 type ChainConfig struct {
-	NodeURL   string          `toml:"node_url"`
-	APIKey    string          `toml:"api_key"`
-	ChainType chain.ChainType `toml:"chain_type"`
+	NodeURL string `toml:"node_url"`
+	APIKey  string `toml:"api_key"`
 }
 
 type IndexerConfig struct {
@@ -236,7 +234,6 @@ func buildConfig(cfgFileName string) (*Config, error) {
 			RpcConcurrency:          defaultRpcConcurrency,
 			BatchSize:               defaultBatchSize,
 		},
-		Chain: ChainConfig{ChainType: defaultChainType},
 	}
 
 	err := parseConfigFile(cfg, cfgFileName)
@@ -294,9 +291,20 @@ func parseConfigFile(cfg *Config, fileName string) error {
 		"indexer.num_parallel_req": "indexer.rpc_concurrency",
 		"timeout.timeout_millis":   "timeout.rpc_timeout_millis",
 	}
+	// Keys the indexer no longer reads. Setting one changes nothing, so it
+	// is reported at startup and otherwise left alone.
+	removedKeys := map[string]string{
+		"chain.chain_type": "the client no longer differs by chain",
+	}
+
+	// A renamed key is rejected because its value would otherwise drop to a
+	// default without notice.
 	for _, key := range md.Undecoded() {
 		if newName, ok := renamedKeys[key.String()]; ok {
 			return fmt.Errorf("config key %q has been renamed to %q", key.String(), newName)
+		}
+		if reason, ok := removedKeys[key.String()]; ok {
+			logger.Infof("Config key %q is ignored: %s. It can be removed from the config", key.String(), reason)
 		}
 	}
 	return nil

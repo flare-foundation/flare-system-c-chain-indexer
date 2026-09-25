@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ava-labs/coreth/interfaces"
 	"github.com/ethereum/go-ethereum"
 )
 
@@ -16,10 +15,9 @@ func TestIsBlockUnavailable(t *testing.T) {
 		want bool
 	}{
 		{"no error", nil, false},
-		// A null RPC result is how both clients report a block they do not have.
-		{"coreth sentinel", interfaces.NotFound, true},
-		{"go-ethereum sentinel", ethereum.NotFound, true},
-		{"wrapped sentinel", fmt.Errorf("fetchBlockHeader: %w", interfaces.NotFound), true},
+		// A null RPC result is how the client reports a block it does not have.
+		{"sentinel", ethereum.NotFound, true},
+		{"wrapped sentinel", fmt.Errorf("fetchBlockHeader: %w", ethereum.NotFound), true},
 
 		// Everything else must stay retryable, however much its prose sounds like
 		// absence. These read as a missing block to a substring match, and treating

@@ -60,7 +60,7 @@ func run(ctx context.Context) error {
 		return errors.Wrap(err, "Invalid node URL in config")
 	}
 
-	ethClient, err := chain.DialRPCNode(nodeURL, cfg.Chain.ChainType, cfg.Indexer.RpcConcurrency)
+	ethClient, err := chain.DialRPCNode(nodeURL, cfg.Indexer.RpcConcurrency)
 	if err != nil {
 		return errors.Wrap(err, "Could not connect to the RPC nodes")
 	}

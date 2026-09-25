@@ -11,9 +11,9 @@ import (
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/chain"
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
 
-	"github.com/ava-labs/coreth/core/types"
-	"github.com/ava-labs/coreth/interfaces"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 )
 
@@ -34,8 +34,8 @@ func LogRange(ctx context.Context, client *chain.Client, logRange uint64) error 
 			return nil, err
 		}
 
-		tip := header.Number().Uint64()
-		logs, err := client.FilterLogs(callCtx, interfaces.FilterQuery{
+		tip := header.Number.Uint64()
+		logs, err := client.FilterLogs(callCtx, ethereum.FilterQuery{
 			FromBlock: new(big.Int).SetUint64(tip - min(tip, logRange-1)),
 			ToBlock:   new(big.Int).SetUint64(tip),
 			Topics:    [][]common.Hash{{{}}},
@@ -90,7 +90,7 @@ func blockError(err error, format string, args ...any) error {
 func Block(
 	ctx context.Context, client *chain.Client, block uint64, format string, args ...any,
 ) error {
-	_, err := boff.RetryWithMaxElapsed(ctx, func() (*chain.Header, error) {
+	_, err := boff.RetryWithMaxElapsed(ctx, func() (*types.Header, error) {
 		callCtx, cancel := context.WithTimeout(ctx, config.RPCTimeout)
 		defer cancel()
 
