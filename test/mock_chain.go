@@ -41,14 +41,14 @@ func NewMockChain(port int, responsesFile string, recorderNodeURL string) (*Mock
 	// The mock answers every request the same way, so it is one handler
 	// rather than a router.
 	if recorderNodeURL == "" {
-		logger.Infof("running in test mode")
+		logger.Infow("Running in test mode")
 		if err := mock.loadResponses(); err != nil {
 			return nil, err
 		}
 
 		mock.server.Handler = http.HandlerFunc(mock.ChainMockResponses)
 	} else {
-		logger.Infof("running in recorder mode with node %s", recorderNodeURL)
+		logger.Infow("Running in recorder mode", "node", recorderNodeURL)
 		mock.client = new(http.Client)
 		mock.responses = make(map[[sha256.Size]byte][]byte)
 
@@ -59,7 +59,7 @@ func NewMockChain(port int, responsesFile string, recorderNodeURL string) (*Mock
 }
 
 func (m *MockChain) Run(ctx context.Context) error {
-	logger.Infof("Mock server starting")
+	logger.Infow("Mock chain server starting")
 	err := m.server.ListenAndServe()
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil
@@ -78,7 +78,7 @@ func (m *MockChain) Stop() error {
 		return err
 	}
 
-	logger.Infof("mock chain server shutdown")
+	logger.Infow("Mock chain server stopped")
 
 	if m.recorderNodeURL != "" {
 		if err := m.writeResponses(); err != nil {
@@ -86,7 +86,7 @@ func (m *MockChain) Stop() error {
 		}
 	}
 
-	logger.Infof("written updated responses")
+	logger.Infow("Recorded responses written")
 
 	return nil
 }
@@ -103,7 +103,7 @@ func (m *MockChain) ChainMockResponses(
 	defer func() {
 		err := request.Body.Close()
 		if err != nil {
-			logger.Errorf("error closing request body: %v", err)
+			logger.Errorw("Closing the request body failed", "error", err)
 		}
 	}()
 
@@ -120,7 +120,7 @@ func (m *MockChain) ChainMockResponses(
 	}
 
 	if len(m.responses) == 0 {
-		logger.Fatalf("no responses loaded")
+		logger.Fatalw("No responses loaded")
 	}
 
 	m.mu.Lock()
@@ -134,7 +134,7 @@ func (m *MockChain) ChainMockResponses(
 	writer.Header().Add("Content-Type", "application/json")
 	_, err = writer.Write(rspData)
 	if err != nil {
-		logger.Errorf("error writing response: %v", err)
+		logger.Errorw("Writing the response failed", "error", err)
 	}
 }
 
@@ -145,7 +145,7 @@ func (m *MockChain) RecordResponses(
 	defer func() {
 		err := request.Body.Close()
 		if err != nil {
-			logger.Errorf("error closing request body: %v", err)
+			logger.Errorw("Closing the request body failed", "error", err)
 		}
 	}()
 
@@ -178,7 +178,7 @@ func (m *MockChain) RecordResponses(
 	defer func() {
 		err := rsp.Body.Close()
 		if err != nil {
-			logger.Errorf("error closing response body: %v", err)
+			logger.Errorw("Closing the response body failed", "error", err)
 		}
 	}()
 
@@ -200,7 +200,7 @@ func (m *MockChain) RecordResponses(
 	writer.Header().Add("Content-Type", "application/json")
 	_, err = writer.Write(rspBody)
 	if err != nil {
-		logger.Errorf("error writing rsp body: %v", err)
+		logger.Errorw("Writing the response body failed", "error", err)
 	}
 }
 
@@ -221,7 +221,7 @@ func getRequestHash(reqBody []byte) ([sha256.Size]byte, error) {
 }
 
 func (m *MockChain) loadResponses() error {
-	logger.Infof("opening %s", m.responsesFile)
+	logger.Infow("Opening the responses file", "file", m.responsesFile)
 
 	file, err := os.ReadFile(m.responsesFile)
 	if err != nil {

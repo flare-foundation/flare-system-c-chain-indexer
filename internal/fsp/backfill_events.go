@@ -32,7 +32,7 @@ func backfillFspEventLogs(
 
 	start := time.Now()
 	inserted := 0
-	logger.Infof("FSP event indexing started: from=%d, to=%d", fromBlock, toBlock)
+	logger.Infow("Event backfill started", "from_block", fromBlock, "to_block", toBlock)
 
 	for blockStart := fromBlock; blockStart <= toBlock; blockStart += chunkRange {
 		blockEnd := min(blockStart+chunkRange-1, toBlock)
@@ -53,10 +53,8 @@ func backfillFspEventLogs(
 		inserted += len(dbLogs)
 	}
 
-	logger.Infof(
-		"FSP event indexing completed: from=%d, to=%d, inserted=%d, duration_ms=%d",
-		fromBlock, toBlock, inserted, time.Since(start).Milliseconds(),
-	)
+	logger.Infow("Event backfill finished",
+		"from_block", fromBlock, "to_block", toBlock, "inserted", inserted, "took", time.Since(start))
 	return nil
 }
 

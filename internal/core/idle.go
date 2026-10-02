@@ -35,10 +35,10 @@ func (w *idleWarner) warnIfDue(tip uint64) {
 		return
 	}
 
-	logger.Warnf(
-		"Chain tip has not advanced: chain_tip=%d, idle_seconds=%d. "+
-			"The node is not producing new confirmed blocks: check that it is synced and healthy",
-		tip, int64(time.Since(w.lastBlock).Seconds()),
+	logger.Warnw(
+		"Chain tip has not advanced: the node is not producing new confirmed blocks, check that it is synced and healthy",
+		"chain_tip", tip,
+		"idle_seconds", int64(time.Since(w.lastBlock).Seconds()),
 	)
 	w.lastWarning = time.Now()
 }

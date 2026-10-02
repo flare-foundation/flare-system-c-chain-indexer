@@ -234,10 +234,7 @@ func initConfig(tCfg testConfig, history bool) config.Config {
 			APIKey:  tCfg.NodeAPIKey,
 		},
 		Logger: config.LoggerConfig{
-			Level:       "DEBUG",
-			File:        "../../logs/flare-indexer-inttest.log",
-			MaxFileSize: 10,
-			Console:     true,
+			Level: "DEBUG",
 		},
 		DB: config.DBConfig{
 			Host:             tCfg.DBHost,

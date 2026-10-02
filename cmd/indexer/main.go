@@ -26,10 +26,8 @@ import (
 )
 
 func main() {
-	defer logger.SyncFileLogger()
-
 	if err := run(context.Background()); err != nil {
-		logger.Fatalf("Fatal error: %s", err)
+		logger.Fatalw("Indexer stopped", "error", err)
 	}
 }
 
@@ -45,13 +43,11 @@ func run(ctx context.Context) error {
 
 	config.GlobalConfigCallback.Call(cfg)
 
-	// Sync logger when docker container stops or Ctrl+C is pressed
 	signalChan := make(chan os.Signal, 1)
 	signal.Notify(signalChan, syscall.SIGTERM, syscall.SIGINT)
 	go func() {
 		sig := <-signalChan
-		logger.Infof("Received signal: %v", sig)
-		logger.SyncFileLogger()
+		logger.Infow("Shutting down", "signal", sig.String())
 		os.Exit(0)
 	}()
 
@@ -70,7 +66,7 @@ func run(ctx context.Context) error {
 		return errors.Wrap(err, "failed to get chain ID")
 	}
 
-	logger.Infof("Connected to chain ID %s", chainID)
+	logger.Infow("Connected to the RPC node", "target", nodeURL.Host, "chain_id", chainID)
 
 	config.ApplyFspCollectors(&cfg.Indexer, chain.ChainIDFromBigInt(chainID))
 
@@ -88,7 +84,7 @@ func run(ctx context.Context) error {
 			return err
 		}
 
-		logger.Infof("RPC node serves eth_getLogs over indexer.log_range=%d blocks", cfg.Indexer.LogRange)
+		logger.Infow("Range check for eth_getLogs passed", "log_range", cfg.Indexer.LogRange)
 	}
 
 	db, err := database.ConnectAndInitialize(ctx, &cfg.DB)
@@ -97,7 +93,12 @@ func run(ctx context.Context) error {
 	}
 
 	ready.SetSynced(false)
-	health.Start()
+
+	// Without a health endpoint the indexer cannot be probed, so a port it
+	// cannot bind is a startup failure.
+	if err := health.Start(); err != nil {
+		return errors.Wrap(err, "start the health endpoint")
+	}
 
 	if cfg.Indexer.IsFspMode() {
 		return fsp.RunIndexer(ctx, cfg, db, ethClient, resolver)
@@ -110,12 +111,12 @@ func run(ctx context.Context) error {
 
 	historyDropDays := (float64(historyDrop) * float64(time.Second)) / float64(24*time.Hour)
 	if cfg.DB.HistoryDrop == nil {
-		logger.Infof("Using default history drop value of %.1f days", historyDropDays)
+		logger.Infow("History drop uses the default", "days", historyDropDays)
 	} else {
 		if *cfg.DB.HistoryDrop == 0 {
-			logger.Infof("History drop disabled")
+			logger.Infow("History drop disabled")
 		} else {
-			logger.Infof("Using configured history drop value of %.1f days", historyDropDays)
+			logger.Infow("History drop configured", "days", historyDropDays)
 		}
 	}
 
@@ -141,7 +142,7 @@ func getStartIndex(
 
 	// If a latest indexed block is found, return the next block number
 	if err == nil {
-		logger.Infof("Starting after latest indexed block from DB: %d", latestIndexedBlock.Number)
+		logger.Infow("Resuming after the last indexed block", "from_block", latestIndexedBlock.Number+1)
 		return latestIndexedBlock.Number + 1, nil
 	}
 
@@ -153,7 +154,7 @@ func getStartIndex(
 	// No blocks are indexed yet
 	// If history drop is disabled, return the configured start index
 	if historyDrop == 0 {
-		logger.Infof("No indexed blocks found in DB, starting from configured start index: %d", cfg.Indexer.StartIndex)
+		logger.Infow("Empty database, starting from indexer.start_index", "from_block", cfg.Indexer.StartIndex)
 		return cfg.Indexer.StartIndex, nil
 	}
 
@@ -171,7 +172,7 @@ func getStartIndex(
 		return 0, errors.Wrap(err, "GetStartBlock error")
 	}
 
-	logger.Infof("No indexed blocks found in DB, starting from calculated start index based on history drop: %d", firstBlockNumber)
+	logger.Infow("Empty database, starting from the history drop boundary", "from_block", firstBlockNumber)
 	return firstBlockNumber, nil
 }
 
@@ -227,7 +228,7 @@ func runIndexer(
 		return errors.Wrap(err, "Index continuous fatal error")
 	}
 
-	logger.Infof("Finished indexing")
+	logger.Infow("Indexing finished")
 
 	return nil
 }

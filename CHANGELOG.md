@@ -9,8 +9,15 @@ and this project adheres to
 
 ## Unreleased
 
+### Added
+
+- JSON logs for log shippers, with `logger.format = "json"`. Console output stays the default.
+
 ### Changed
 
+- Logging is structured. Each line has a fixed message, and values such as block numbers are separate fields.
+- A failure the indexer cannot handle is logged once at FATAL, with its cause chain in `error`.
+  The health endpoint failing to bind now ends startup instead of being logged and ignored.
 - The indexer talks to the node through go-ethereum only, so coreth and avalanchego are gone from the dependency tree.
   Fetching a block still costs one `eth_getBlockByNumber` call, and the block hash now comes from the node rather than being computed from the header.
   Flare headers carry extra fields, so a computed hash never matched the chain. That is what coreth was there for.
@@ -18,6 +25,7 @@ and this project adheres to
 ### Removed
 
 - `chain.chain_type`. There is one client now, so the key selects nothing. A config that still sets it starts, and the key is named in the log.
+- `logger.file`, `logger.max_file_size` and `logger.console`. Logs go to standard output only. A config that still sets them starts, and each key is named in the log.
 
 
 ## \[[v2.0.3](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v2.0.3)\] - 2026-09-22

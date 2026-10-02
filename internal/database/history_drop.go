@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -34,14 +35,7 @@ func DropHistory(
 	boundaryFn func(context.Context) (uint64, error),
 ) {
 	for {
-		startTime := time.Now()
-		err := dropHistoryIteration(ctx, db, boundaryFn)
-		if err == nil {
-			logger.Infof("Finished history drop iteration: duration_ms=%d", time.Since(startTime).Milliseconds())
-		} else {
-			logger.Errorf("History drop error: %s", err)
-		}
-
+		dropHistoryIteration(ctx, db, boundaryFn)
 		time.Sleep(time.Duration(checkInterval) * time.Second)
 	}
 }
@@ -50,14 +44,26 @@ func DropHistory(
 // timeouts.
 const deleteBatchSize = 1000
 
-func dropHistoryIteration(ctx context.Context, db *gorm.DB, boundaryFn func(context.Context) (uint64, error)) error {
+// dropHistoryIteration runs one drop and logs its outcome. A failed drop is
+// retried at the next interval.
+func dropHistoryIteration(ctx context.Context, db *gorm.DB, boundaryFn func(context.Context) (uint64, error)) {
+	startTime := time.Now()
+
 	boundary, err := boundaryFn(ctx)
 	if err != nil {
-		return errors.Wrap(err, "resolve history drop boundary")
+		logger.Errorw("History drop failed, retrying at the next interval", "error", errors.Wrap(err, "resolve history drop boundary"))
+		return
 	}
 
-	logger.Infof("Starting history drop iteration: boundary=%d", boundary)
-	return dropHistoryBelow(ctx, db, boundary)
+	log := logger.With("boundary_timestamp", boundary)
+	log.Infow("History drop started")
+
+	if err := dropHistoryBelow(ctx, db, boundary); err != nil {
+		log.Errorw("History drop failed, retrying at the next interval", "error", err)
+		return
+	}
+
+	log.Infow("History drop finished", "took", time.Since(startTime))
 }
 
 // TipAgeBoundary returns the full-mode drop boundary: intervalSeconds before
@@ -189,7 +195,7 @@ func DeleteInBatches(db *gorm.DB, deleteStartTime uint64, entity interface{}) er
 		// Take a rest every so often to avoid locking up the database too much
 		batchCount++
 		if batchCount%deleteBatchesPauseAfter == 0 {
-			logger.Debugf("History drop progress: entity=%T, deleted=%d", entity, batchCount*deleteBatchSize)
+			logger.Debugw("History drop progress", "table", fmt.Sprintf("%T", entity), "deleted", batchCount*deleteBatchSize)
 			time.Sleep(deleteBatchesPauseDuration)
 		}
 	}

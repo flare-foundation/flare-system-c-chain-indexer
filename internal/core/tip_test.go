@@ -48,8 +48,8 @@ func TestTipWatcherCheckLag(t *testing.T) {
 	if !errors.Is(err, ErrBehind) {
 		t.Fatalf("at the limit is behind, got %v", err)
 	}
-	want := "indexing fell behind the chain: block=100, chain_tip=160, lag_seconds=60, max_lag_seconds=60. " +
-		"The indexer exits so that its restart catches up in batch mode. " +
+	want := "indexing fell behind the chain at block 100, chain tip 160, 60s behind with indexer.max_lag_seconds = 60: " +
+		"the indexer exits so that its restart catches up in batch mode. " +
 		"If this repeats, the RPC node is too slow for continuous indexing: " +
 		"use a closer or less loaded node, or raise indexer.max_lag_seconds"
 	if err.Error() != want {

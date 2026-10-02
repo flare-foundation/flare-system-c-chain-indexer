@@ -228,14 +228,16 @@ func lookbackBase(
 	}
 	if !ok {
 		// A zero start block would full-index from genesis.
-		logger.Warnf("Reward epoch %d has no FSP start data yet; using the confirmed tip", currentEpoch)
+		logger.Warnw("Reward epoch has no FSP start data yet, anchoring on the confirmed tip", "reward_epoch", currentEpoch)
 
 		return currentEpoch, tip, tipTimestamp, nil
 	}
 	if resolved > desired {
-		logger.Errorf(
-			"history_epochs=%d requests reward epoch %d, but this deployment's data begins at epoch %d; catching up from there",
-			historyEpochs, desired, resolved,
+		logger.Warnw(
+			"Configured indexer.history_epochs reaches before this deployment's first reward epoch, catching up from there",
+			"history_epochs", historyEpochs,
+			"requested_epoch", desired,
+			"first_epoch", resolved,
 		)
 	}
 	if info.RewardEpochStartBlock > tip {

@@ -58,12 +58,12 @@ func (w *tipWatcher) run(ctx context.Context, ci *Engine, interval time.Duration
 		case ctx.Err() != nil:
 			return
 		case err != nil:
-			logger.Warnf("Cannot read the chain tip: %s", err)
+			logger.Warnw("Cannot read the chain tip", "dependency", "rpc", "error", err)
 		default:
 			w.set(number, timestamp)
 
 			if err := database.UpdateState(ci.db, database.ChainTip, number, timestamp); err != nil {
-				logger.Warnf("Could not record the chain tip: %s", err)
+				logger.Warnw("Cannot record the chain tip", "dependency", "database", "chain_tip", number, "error", err)
 			}
 		}
 
@@ -104,8 +104,8 @@ func (w *tipWatcher) checkLag(maxLag time.Duration, block, blockTimestamp uint64
 	}
 
 	return boff.Permanent(fmt.Errorf(
-		"%w: block=%d, chain_tip=%d, lag_seconds=%d, max_lag_seconds=%d. "+
-			"The indexer exits so that its restart catches up in batch mode. "+
+		"%w at block %d, chain tip %d, %ds behind with indexer.max_lag_seconds = %d: "+
+			"the indexer exits so that its restart catches up in batch mode. "+
 			"If this repeats, the RPC node is too slow for continuous indexing: "+
 			"use a closer or less loaded node, or raise indexer.max_lag_seconds",
 		ErrBehind, block, last.number, int64(lag.Seconds()), int64(maxLag.Seconds()),

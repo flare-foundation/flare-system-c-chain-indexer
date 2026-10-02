@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -72,15 +71,18 @@ func init() {
 		}
 
 		loggerCfg := config.LoggerConfig()
-		if loggerCfg.File != "" {
-			_ = os.MkdirAll(filepath.Dir(loggerCfg.File), 0o755)
-		}
 		logger.Set(logger.Config{
-			Level:       loggerCfg.Level,
-			File:        loggerCfg.File,
-			MaxFileSize: loggerCfg.MaxFileSize,
-			Console:     loggerCfg.Console,
+			Level:  loggerCfg.Level,
+			Format: loggerCfg.Format,
 		})
+
+		// Parsing happens before this, so the notices wait here for the
+		// logger the config asked for, rather than going out in whatever
+		// the default was.
+		for _, k := range deprecatedKeys {
+			logger.Infow("Ignoring deprecated config key", "key", k.key, "reason", k.reason)
+		}
+		deprecatedKeys = nil
 	})
 }
 
@@ -98,10 +100,8 @@ type Config struct {
 }
 
 type LoggerConfig struct {
-	Level       string `toml:"level"` // valid values are: DEBUG, INFO, WARN, ERROR, DPANIC, PANIC, FATAL (zap)
-	File        string `toml:"file"`
-	MaxFileSize int    `toml:"max_file_size"` // In megabytes
-	Console     bool   `toml:"console"`
+	Level  string `toml:"level"`  // DEBUG (default), INFO, WARN, ERROR or FATAL
+	Format string `toml:"format"` // console (default) or json
 }
 
 type DBConfig struct {
@@ -277,6 +277,16 @@ func normalizeIndexerConfig(cfg *IndexerConfig) error {
 	return nil
 }
 
+// deprecatedKey is a retired config key a config still sets, waiting to be
+// reported. The config is parsed before the logger is configured, and a
+// startup notice belongs in the encoding the operator asked for.
+type deprecatedKey struct {
+	key    string
+	reason string
+}
+
+var deprecatedKeys []deprecatedKey
+
 func parseConfigFile(cfg *Config, fileName string) error {
 	content, err := os.ReadFile(fileName)
 	if err != nil {
@@ -292,9 +302,12 @@ func parseConfigFile(cfg *Config, fileName string) error {
 		"timeout.timeout_millis":   "timeout.rpc_timeout_millis",
 	}
 	// Keys the indexer no longer reads. Setting one changes nothing, so it
-	// is reported at startup and otherwise left alone.
+	// is reported once the logger is configured, and otherwise left alone.
 	removedKeys := map[string]string{
-		"chain.chain_type": "the client no longer differs by chain",
+		"chain.chain_type":     "the client no longer differs by chain",
+		"logger.file":          "logs go to standard output",
+		"logger.max_file_size": "logs go to standard output",
+		"logger.console":       "logger.format selects the output",
 	}
 
 	// A renamed key is rejected because its value would otherwise drop to a
@@ -304,7 +317,7 @@ func parseConfigFile(cfg *Config, fileName string) error {
 			return fmt.Errorf("config key %q has been renamed to %q", key.String(), newName)
 		}
 		if reason, ok := removedKeys[key.String()]; ok {
-			logger.Infof("Config key %q is ignored: %s. It can be removed from the config", key.String(), reason)
+			deprecatedKeys = append(deprecatedKeys, deprecatedKey{key: key.String(), reason: reason})
 		}
 	}
 	return nil

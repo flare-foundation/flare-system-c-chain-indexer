@@ -39,20 +39,20 @@ func RetryNoReturn(ctx context.Context, operation func() error, name string) err
 	return err
 }
 
+// retry runs operation with exponential backoff. Each failed attempt is a
+// handled failure and is logged at WARN as it is retried. An exhausted budget
+// is not logged here: the caller decides what the failure means and logs it
+// once, at that layer.
 func retry[T any](ctx context.Context, operation func() (T, error), name string, maxElapsedTime time.Duration) (T, error) {
-	result, err := backoff.Retry(
+	return backoff.Retry(
 		ctx,
 		operation,
 		backoff.WithBackOff(backoff.NewExponentialBackOff()),
 		backoff.WithMaxElapsedTime(maxElapsedTime),
 		backoff.WithNotify(
 			func(err error, d time.Duration) {
-				logger.Debugf("Backoff retry: op=%s, error=%s, delay=%v", name, err, d)
+				logger.Warnw("Retrying a failed call", "op", name, "delay_ms", d.Milliseconds(), "error", err)
 			},
 		),
 	)
-	if err != nil && ctx.Err() == nil {
-		logger.Warnf("Backoff exhausted: op=%s, error=%s", name, err)
-	}
-	return result, err
 }

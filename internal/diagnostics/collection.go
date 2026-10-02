@@ -2,71 +2,68 @@
 package diagnostics
 
 import (
-	"fmt"
 	"strings"
 
-	"github.com/flare-foundation/go-flare-common/pkg/logger"
-
 	"github.com/flare-foundation/flare-system-c-chain-indexer/internal/config"
+	"github.com/flare-foundation/go-flare-common/pkg/logger"
 )
 
 const undefined = "undefined"
 
-// LogIndexerPolicy prints what the indexer will collect, one entry per line,
+// LogIndexerPolicy logs what the indexer will collect, one line per filter,
 // with hex-encoded function selectors and topic hashes.
 func LogIndexerPolicy(cfg config.IndexerConfig) {
-	logger.Infof(
-		"Indexer collection policy: %d transaction filters, %d log filters",
-		len(cfg.CollectTransactions),
-		len(cfg.CollectLogs),
+	logger.Infow(
+		"Collection policy",
+		"transaction_filters", len(cfg.CollectTransactions),
+		"log_filters", len(cfg.CollectLogs),
 	)
 	for i := range cfg.CollectTransactions {
 		tx := &cfg.CollectTransactions[i]
-		logger.Infof(
-			"  tx_filter: contract=%s, func_sig=%s, status=%t, collect_events=%t",
-			contractRef(tx.ContractName, tx.ContractAddress),
-			formatHexOrAny(tx.FuncSig),
-			tx.Status,
-			tx.CollectEvents,
+		logger.Infow(
+			"Transaction filter",
+			"contract_name", valueOrAny(tx.ContractName),
+			"contract_address", valueOrAny(tx.ContractAddress),
+			"func_sig", formatHexOrAny(tx.FuncSig),
+			"status", tx.Status,
+			"collect_events", tx.CollectEvents,
 		)
 	}
 	for i := range cfg.CollectLogs {
 		lg := &cfg.CollectLogs[i]
-		logger.Infof(
-			"  log_filter: contract=%s, topic=%s",
-			contractRef(lg.ContractName, lg.ContractAddress),
-			formatHexOrAny(lg.Topic),
+		logger.Infow(
+			"Log filter",
+			"contract_name", valueOrAny(lg.ContractName),
+			"contract_address", valueOrAny(lg.ContractAddress),
+			"topic", formatHexOrAny(lg.Topic),
 		)
 	}
 }
 
-// LogFspEventFilter prints the contract+topic pairs used for FSP event-range
+// LogFspEventFilter logs the contract+topic pairs used for FSP event-range
 // backfilling.
 func LogFspEventFilter(logs []config.LogInfo) {
-	logger.Infof("FSP event range filter: %d entries", len(logs))
+	logger.Infow("FSP event backfill filter", "entries", len(logs))
 	for i := range logs {
 		lg := &logs[i]
-		logger.Infof(
-			"  fsp_event_filter: contract=%s, topic=%s",
-			contractRef(lg.ContractName, lg.ContractAddress),
-			formatHexOrAny(lg.Topic),
+		logger.Infow(
+			"FSP event filter",
+			"contract_name", valueOrAny(lg.ContractName),
+			"contract_address", valueOrAny(lg.ContractAddress),
+			"topic", formatHexOrAny(lg.Topic),
 		)
 	}
 }
 
-func contractRef(name, address string) string {
-	n := strings.TrimSpace(name)
-	a := strings.TrimSpace(address)
-	if n != "" && a != "" {
-		return fmt.Sprintf("%s (%s)", n, a)
+// valueOrAny renders a filter value, with <any> for one that constrains
+// nothing. Name and address are separate fields so each can be filtered on.
+func valueOrAny(value string) string {
+	v := strings.TrimSpace(value)
+	if v == "" || strings.EqualFold(v, undefined) {
+		return "<any>"
 	}
-	if n != "" {
-		return n
-	}
-	if a != "" {
-		return a
-	}
-	return "<any>"
+
+	return v
 }
 
 func formatHexOrAny(value string) string {

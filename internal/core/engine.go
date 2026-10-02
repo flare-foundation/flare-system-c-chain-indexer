@@ -171,7 +171,7 @@ func (ci *Engine) IndexHistory(ctx context.Context, startIndex uint64) (uint64, 
 		return 0, err
 	}
 
-	logger.Infof("Starting history indexing: from=%d, to=%d", ixRange.start, ixRange.end)
+	logger.Infow("History indexing started", "from_block", ixRange.start, "to_block", ixRange.end)
 
 	for i := ixRange.start; i <= ixRange.end; i = i + ci.params.BatchSize {
 		if err := ci.indexBatch(ctx, i, ixRange); err != nil {
@@ -278,10 +278,8 @@ func (ci *Engine) obtainBlocksBatch(ctx context.Context, firstBlockNumber uint64
 		return nil, err
 	}
 
-	logger.Debugf(
-		"Fetched blocks: from=%d, to=%d, duration_ms=%d",
-		firstBlockNumber, lastBlockNumInRound, time.Since(startTime).Milliseconds(),
-	)
+	logger.Debugw("Blocks fetched",
+		"from_block", firstBlockNumber, "to_block", lastBlockNumInRound, "took", time.Since(startTime))
 
 	return bBatch, nil
 }
@@ -291,10 +289,8 @@ func (ci *Engine) processBlocksBatch(bBatch *blockBatch) *transactionsBatch {
 	txBatch := new(transactionsBatch)
 
 	ci.processBlocks(bBatch, txBatch)
-	logger.Debugf(
-		"Extracted transactions: count=%d, duration_ms=%d",
-		len(txBatch.transactions), time.Since(startTime).Milliseconds(),
-	)
+	logger.Debugw("Transactions extracted",
+		"count", len(txBatch.transactions), "took", time.Since(startTime))
 
 	return txBatch
 }
@@ -320,10 +316,8 @@ func (ci *Engine) processTransactionsBatch(
 		return err
 	}
 
-	logger.Debugf(
-		"Checked receipts: count=%d, duration_ms=%d",
-		countReceipts(txBatch), time.Since(startTime).Milliseconds(),
-	)
+	logger.Debugw("Receipts checked",
+		"count", countReceipts(txBatch), "took", time.Since(startTime))
 
 	return nil
 }
@@ -367,10 +361,8 @@ func (ci *Engine) obtainLogsBatch(
 	// Continuous indexing calls this once per block, where a line per block is
 	// pure noise; only report a range worth reporting.
 	if lastBlockNumInRound > batchIx {
-		logger.Debugf(
-			"Fetched logs: count=%d, duration_ms=%d",
-			len(lgBatch.logs), time.Since(startTime).Milliseconds(),
-		)
+		logger.Debugw("Logs fetched",
+			"count", len(lgBatch.logs), "took", time.Since(startTime))
 	}
 
 	return lgBatch, nil
@@ -422,21 +414,17 @@ func (ci *Engine) processAndSave(
 		return errors.Wrap(err, "ci.saveData")
 	}
 
-	logger.Debugf(
-		"Saved batch: transactions=%d, logs=%d, duration_ms=%d",
-		len(data.Transactions), len(data.Logs),
-		time.Since(saveStart).Milliseconds(),
-	)
+	logger.Debugw("Batch saved",
+		"transactions", len(data.Transactions), "logs", len(data.Logs), "took", time.Since(saveStart))
 
-	logger.Infof(
-		"Processed batch: from=%d, to=%d, blocks=%d, transactions=%d, receipt_logs=%d, filter_logs=%d, duration_ms=%d",
-		firstBlockNum,
-		lastDBIndex,
-		len(data.Blocks),
-		len(txBatch.transactions),
-		numLogsFromReceipts,
-		len(data.Logs)-numLogsFromReceipts,
-		time.Since(batchStart).Milliseconds(),
+	logger.Infow("Batch indexed",
+		"from_block", firstBlockNum,
+		"to_block", lastDBIndex,
+		"blocks", len(data.Blocks),
+		"transactions", len(txBatch.transactions),
+		"receipt_logs", numLogsFromReceipts,
+		"filter_logs", len(data.Logs)-numLogsFromReceipts,
+		"took", time.Since(batchStart),
 	)
 
 	return nil
@@ -460,7 +448,7 @@ func (ci *Engine) updateLastIndexHistory(
 
 	if lastChainIndex > ixRange.end && ci.params.StopIndex > ixRange.end {
 		ixRange.end = min(lastChainIndex, ci.params.StopIndex)
-		logger.Infof("Extending history range: last_block=%d", ixRange.end)
+		logger.Infow("History range extended", "to_block", ixRange.end)
 	}
 
 	return ixRange, nil
@@ -472,7 +460,7 @@ func (ci *Engine) IndexContinuous(ctx context.Context, startIndex uint64) error 
 		return errors.Wrap(err, "ci.getIndexRange")
 	}
 
-	logger.Infof("Starting continuous indexing: from=%d", ixRange.start)
+	logger.Infow("Continuous indexing started", "from_block", ixRange.start, "chain_tip", ixRange.end)
 
 	watcher, stopWatcher := ci.watchTip(ctx, ixRange.end)
 	defer stopWatcher()
@@ -505,7 +493,7 @@ func (ci *Engine) IndexContinuous(ctx context.Context, startIndex uint64) error 
 		blockNum++
 	}
 
-	logger.Debugf("Stopping continuous indexing: block=%d", blockNum)
+	logger.Debugw("Continuous indexing stopped", "block", blockNum)
 
 	return nil
 }
@@ -578,7 +566,7 @@ func (ci *Engine) indexContinuousIteration(ctx context.Context, index uint64) (u
 	}
 
 	if index%1000 == 0 {
-		logger.Infof("Continuous progress: block=%d", index)
+		logger.Infow("Continuous indexing progress", "block", index)
 	}
 
 	return indexTimestamp, nil

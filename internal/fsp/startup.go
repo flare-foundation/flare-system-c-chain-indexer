@@ -59,9 +59,12 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 		return 0, err
 	}
 
-	logger.Infof(
-		"FSP startup plan: catchup_from=%d, events=[%d, %d], latest_confirmed=%d",
-		plan.catchupFrom, plan.eventsFrom, plan.eventsTo, tip,
+	logger.Infow(
+		"Startup plan",
+		"catchup_from_block", plan.catchupFrom,
+		"events_from_block", plan.eventsFrom,
+		"events_to_block", plan.eventsTo,
+		"chain_tip", tip,
 	)
 
 	if plan.eventsFrom > 0 {
@@ -83,7 +86,7 @@ func IndexStartup(ctx context.Context, ci *core.Engine) (uint64, error) {
 		}
 	}
 
-	logger.Infof("FSP startup complete: last_indexed=%d", lastIndexed)
+	logger.Infow("Startup catchup complete", "to_block", lastIndexed)
 
 	return lastIndexed, nil
 }
@@ -111,7 +114,7 @@ func planStartup(
 		return startPlan{}, errors.Wrap(err, "resolve event anchor")
 	}
 	if anchor == 0 {
-		logger.Warnf("No reward epoch has FSP start data to anchor on; skipping the event backfill")
+		logger.Warnw("No reward epoch has FSP start data to anchor on, skipping the event backfill")
 
 		return startPlan{catchupFrom: cov.catchupFrom(baseBlock)}, nil
 	}
