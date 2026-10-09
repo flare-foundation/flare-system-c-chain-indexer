@@ -67,6 +67,9 @@ func TestApplyFspCollectors_MergesDefaultAndUserCollectors(t *testing.T) {
 	if !containsLog(cfg.CollectLogs, "FlareSystemsManager", getTopic(system.FlareSystemsManagerMetaData, "RewardEpochStarted")) {
 		t.Fatalf("reward epoch log collector missing after merge")
 	}
+	if !containsLog(cfg.CollectLogs, "VoterRegistry", "0x824bc2cc10bfe21ead60b8c8a90716eb325b9335aa73eaede799abf38fce062c") {
+		t.Fatalf("pre-upgrade VoterRegistered topic missing after merge")
+	}
 	if !containsLog(cfg.CollectLogs, "VoterRegistry", "0xbfb6cd90b6e2668916d9e034926c84f40bcf94094b0d625ec8eecfdeb2150ae1") {
 		t.Fatalf("upgraded VoterRegistered topic missing after merge")
 	}
