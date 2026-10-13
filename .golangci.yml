@@ -1,6 +1,5 @@
 version: "2"
 run:
-  go: "1.25.1"
   modules-download-mode: readonly
 linters:
   default: standard

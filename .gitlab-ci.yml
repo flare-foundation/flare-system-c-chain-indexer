@@ -2,8 +2,8 @@ variables:
   GOPATH: /go
   MYSQL_ROOT_PASSWORD: root
   MYSQL_DATABASE: flare_ftso_indexer_indexer_test
-  GOLANG_VERSION: "1.25.14-trixie@sha256:2c4c60ef415fbfa5e90300722293bef36c5e63fae17570ce18f580af933dbd73"
-  GOLINT_VERSION: "v2.7.0"
+  GOLANG_VERSION: "1.27.2-trixie@sha256:47667934874913a449b96faa7ef4777fa285d9ec29126ee80ed61c45b7cccf0e"
+  GOLINT_VERSION: "v2.14.0"
 
 .gocache:
   key: ${CI_COMMIT_REF_SLUG}
