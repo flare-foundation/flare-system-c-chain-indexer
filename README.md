@@ -23,7 +23,7 @@ various Flare protocols. It saves the data in a MySQL database.
 
 ### Prerequisites
 
-The indexer is implemented in Go (tested with version 1.25). A running MySQL database to save the data is needed (we provide a
+The indexer is implemented in Go (tested with version 1.27). A running MySQL database to save the data is needed (we provide a
 docker-compose.yaml file for automatic deployment of a database).
 
 ### Configuration
