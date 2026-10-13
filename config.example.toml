@@ -23,7 +23,8 @@ topic = "undefined" # topic0 filter; use "undefined" to index all events from th
 
 [logger]
 level = "INFO"
-console = true
+# console for a person, json for a log shipper.
+format = "console"
 
 [chain]
 # Public Coston2 endpoint as an example; set log_range to your node's getLogs cap.

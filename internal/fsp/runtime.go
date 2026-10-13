@@ -23,11 +23,11 @@ func RunIndexer(
 	ethClient *chain.Client,
 	resolver *contracts.ContractResolver,
 ) error {
-	logger.Infof(
-		"Starting indexer in FSP mode: history_epochs=%d, collect_transactions=%d, collect_logs=%d",
-		cfg.Indexer.HistoryEpochs,
-		len(cfg.Indexer.CollectTransactions),
-		len(cfg.Indexer.CollectLogs),
+	logger.Infow(
+		"Starting in FSP mode",
+		"history_epochs", cfg.Indexer.HistoryEpochs,
+		"transaction_filters", len(cfg.Indexer.CollectTransactions),
+		"log_filters", len(cfg.Indexer.CollectLogs),
 	)
 
 	cIndexer, err := core.NewEngine(cfg, db, ethClient, resolver)
@@ -45,7 +45,7 @@ func RunIndexer(
 		"IndexFspStartup",
 	)
 	if err != nil {
-		return errors.Wrap(err, "FSP startup backfill fatal error")
+		return errors.Wrap(err, "startup catchup")
 	}
 
 	fsmCaller, err := newFsmCaller(ctx, cIndexer)
@@ -53,14 +53,14 @@ func RunIndexer(
 		return errors.Wrap(err, "FlareSystemsManager for history drop")
 	}
 
-	logger.Infof(
-		"Using FSP history drop: history_epochs=%d, retention anchored on the oldest needed epoch's on-chain data",
-		cfg.Indexer.HistoryEpochs,
+	logger.Infow(
+		"History drop follows indexer.history_epochs, anchored on the oldest needed epoch's on-chain start data",
+		"history_epochs", cfg.Indexer.HistoryEpochs,
 	)
 	if cfg.DB.HistoryDrop != nil {
-		logger.Warnf(
-			"db.history_drop=%d is ignored in FSP mode; retention is derived from history_epochs",
-			*cfg.DB.HistoryDrop,
+		logger.Warnw(
+			"Ignoring db.history_drop in FSP mode, retention follows indexer.history_epochs",
+			"history_drop", *cfg.DB.HistoryDrop,
 		)
 	}
 	go database.DropHistory(
@@ -92,10 +92,10 @@ func RunIndexer(
 		"IndexContinuous",
 	)
 	if err != nil {
-		return errors.Wrap(err, "FSP Index continuous fatal error")
+		return errors.Wrap(err, "continuous indexing")
 	}
 
-	logger.Infof("Finished FSP indexing")
+	logger.Infow("Indexing finished")
 
 	return nil
 }

@@ -25,43 +25,43 @@ func BenchmarkBlockRequests(b *testing.B) {
 	tCfg.Indexer.Confirmations = 1
 	_, err := toml.DecodeFile("config_benchmark.toml", &tCfg)
 	if err != nil {
-		logger.Fatalf("Config error: %s", err)
+		logger.Fatalw("Reading the config failed", "error", err)
 	}
 	cfg := tCfg.Config
 	config.GlobalConfigCallback.Call(cfg)
 
 	for i := 0; i < b.N; i++ {
-		logger.Infof("Running with configuration: chain: %s, database: %s", cfg.Chain.NodeURL, cfg.DB.Database)
+		logger.Infow("Benchmark starting", "node_url", cfg.Chain.NodeURL, "database", cfg.DB.Database)
 
 		// connect to the database
 		db, err := database.ConnectAndInitialize(ctx, &cfg.DB)
 		if err != nil {
-			logger.Fatalf("Database connect and initialize error: %s", err)
+			logger.Fatalw("Database connect and initialize failed", "error", err)
 		}
 
 		nodeURL, err := cfg.Chain.FullNodeURL()
 		if err != nil {
-			logger.Fatalf("Invalid node URL in config: %s", err)
+			logger.Fatalw("Invalid node URL in config", "error", err)
 		}
 
 		ethClient, err := chain.DialRPCNode(nodeURL, cfg.Indexer.RpcConcurrency)
 		if err != nil {
-			logger.Fatalf("Eth client error: %s", err)
+			logger.Fatalw("Connecting to the node failed", "error", err)
 		}
 
 		resolver, err := contracts.NewContractResolver(ethClient)
 		if err != nil {
-			logger.Fatalf("Registry resolver error: %s", err)
+			logger.Fatalw("Contract registry resolver failed", "error", err)
 		}
 
 		cIndexer, err := core.NewEngine(&cfg, db, ethClient, resolver)
 		if err != nil {
-			logger.Fatalf("Indexer create error: %s", err)
+			logger.Fatalw("Creating the indexer failed", "error", err)
 		}
 
 		_, err = cIndexer.IndexHistory(ctx, cfg.Indexer.StartIndex)
 		if err != nil {
-			logger.Fatalf("History run error: %s", err)
+			logger.Fatalw("History run failed", "error", err)
 		}
 	}
 }

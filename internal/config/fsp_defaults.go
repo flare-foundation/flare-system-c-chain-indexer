@@ -10,7 +10,6 @@ import (
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/fdchub"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/fumanager"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/offers"
-	"github.com/flare-foundation/go-flare-common/pkg/contracts/registry"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/relay"
 	"github.com/flare-foundation/go-flare-common/pkg/contracts/system"
 )
@@ -46,14 +45,16 @@ var rewardEpochLogs = []LogInfo{
 	{ContractName: "FlareSystemsManager", Topic: getTopic(system.FlareSystemsManagerMetaData, "RewardEpochStarted")},
 	{ContractName: "FlareSystemsManager", Topic: getTopic(system.FlareSystemsManagerMetaData, "SignUptimeVoteEnabled")},
 	{ContractName: "FlareSystemsManager", Topic: getTopic(system.FlareSystemsManagerMetaData, "UptimeVoteSigned")},
-	{ContractName: "VoterRegistry", Topic: getTopic(registry.RegistryMetaData, "VoterRegistered")},
 	{ContractName: "FlareSystemsCalculator", Topic: getTopic(calculator.CalculatorMetaData, "VoterRegistrationInfo")},
 	{ContractName: "Relay", Topic: getTopic(relay.RelayMetaData, "SigningPolicyInitialized")},
 	{ContractName: "FtsoRewardOffersManager", Topic: getTopic(offers.OffersMetaData, "InflationRewardsOffered")},
 	{ContractName: "FtsoRewardOffersManager", Topic: getTopic(offers.OffersMetaData, "RewardsOffered")},
 	{ContractName: "FastUpdateIncentiveManager", Topic: getTopic(fumanager.FUManagerMetaData, "InflationRewardsOffered")},
 	{ContractName: "FdcHub", Topic: getTopic(fdchub.FdcHubMetaData, "InflationRewardsOffered")},
-	// Updated contracts with new event signatures:
+	// Updated contracts with new event signatures. Both VoterRegistered topics
+	// are pinned because the old deployment still emits the old one and the
+	// go-flare-common bindings follow the current ABI.
+	{ContractName: "VoterRegistry", Topic: "0x824bc2cc10bfe21ead60b8c8a90716eb325b9335aa73eaede799abf38fce062c"},          // VoterRegistry.VoterRegistered
 	{ContractName: "VoterRegistry", Topic: "0xbfb6cd90b6e2668916d9e034926c84f40bcf94094b0d625ec8eecfdeb2150ae1"},          // VoterRegistryNext.VoterRegistered
 	{ContractName: "FlareSystemsCalculator", Topic: "0xc49a5cabcc0776ace8cfd024e155bc303ee5e492b29d59f1ff7dbafa0b34a04b"}, // FlareSystemsCalculatorNext.VoterRegistrationInfo
 }
