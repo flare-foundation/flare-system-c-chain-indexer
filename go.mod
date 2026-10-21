@@ -1,6 +1,6 @@
 module github.com/flare-foundation/flare-system-c-chain-indexer
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/BurntSushi/toml v1.5.0
