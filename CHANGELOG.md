@@ -27,6 +27,10 @@ and this project adheres to
 - `chain.chain_type`. There is one client now, so the key selects nothing. A config that still sets it starts, and the key is named in the log.
 - `logger.file`, `logger.max_file_size` and `logger.console`. Logs go to standard output only. A config that still sets them starts, and each key is named in the log.
 
+### Security
+
+- TLS connections reject certificates issued under the eight compromised eMudhra (emSign) intermediate CA keys, whichever root they chain to. The CA bundle in the image no longer contains the emSign ECC Root CA - G3 and Comodo AAA Services roots.
+
 
 ## \[[v2.0.3](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v2.0.3)\] - 2026-09-22
 
