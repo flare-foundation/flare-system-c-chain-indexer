@@ -7,25 +7,21 @@ and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## Unreleased
+## \[[v2.1.0](https://github.com/flare-foundation/flare-system-c-chain-indexer/tree/v2.1.0)\] - 2026-10-22
 
 ### Added
 
-- JSON logs for log shippers, with `logger.format = "json"`. Console output stays the default.
+- Structured logging. Each line has a fixed message with values such as block numbers as separate fields, and `logger.format = "json"` switches the output to JSON for log shippers.
 
 ### Changed
 
-- Logging is structured. Each line has a fixed message, and values such as block numbers are separate fields.
-- A failure the indexer cannot handle is logged once at FATAL, with its cause chain in `error`.
-  The health endpoint failing to bind now ends startup instead of being logged and ignored.
-- The indexer talks to the node through go-ethereum only, so coreth and avalanchego are gone from the dependency tree.
-  Fetching a block still costs one `eth_getBlockByNumber` call, and the block hash now comes from the node rather than being computed from the header.
-  Flare headers carry extra fields, so a computed hash never matched the chain. That is what coreth was there for.
+- Block hashes stored in the database now match the chain.
+- The indexer exits at startup if the health endpoint cannot bind its port.
 
 ### Removed
 
-- `chain.chain_type`. There is one client now, so the key selects nothing. A config that still sets it starts, and the key is named in the log.
-- `logger.file`, `logger.max_file_size` and `logger.console`. Logs go to standard output only. A config that still sets them starts, and each key is named in the log.
+- `chain.chain_type`. The indexer now reads every Flare network through one client, so there is no client type left to choose. Configs that still set it keep working, and the key is named in the log.
+- `logger.file`, `logger.max_file_size` and `logger.console`. Logs go to standard output only.
 
 ### Security
 
